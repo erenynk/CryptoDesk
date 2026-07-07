@@ -1,3 +1,7 @@
+import json
+
+from api.okx_client import OKXClient
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -32,7 +36,6 @@ class SettingsPage(QWidget):
         layout.addWidget(self.api)
 
         # SECRET
-
         layout.addWidget(QLabel("Secret Key"))
 
         self.secret = QLineEdit()
@@ -42,7 +45,6 @@ class SettingsPage(QWidget):
         layout.addWidget(self.secret)
 
         # PASSPHRASE
-
         layout.addWidget(QLabel("Passphrase"))
 
         self.passphrase = QLineEdit()
@@ -51,13 +53,15 @@ class SettingsPage(QWidget):
 
         layout.addWidget(self.passphrase)
 
-        # BUTTON
-
+        # BUTTONS
         button = QPushButton("Kaydet")
-
         button.clicked.connect(self.save)
-
         layout.addWidget(button)
+
+        # TEST BUTTON
+        test_button = QPushButton("Bağlantıyı Test Et")
+        test_button.clicked.connect(self.test_connection)
+        layout.addWidget(test_button)
 
         layout.addStretch()
 
@@ -68,7 +72,6 @@ class SettingsPage(QWidget):
         self.passphrase.setText(passphrase)
 
     def save(self):
-
         save_settings(
             self.api.text(),
             self.secret.text(),
@@ -80,3 +83,33 @@ class SettingsPage(QWidget):
             "Başarılı",
             "Ayarlar güvenli şekilde kaydedildi."
         )
+
+    def test_connection(self):
+        client = OKXClient(
+            self.api.text(),
+            self.secret.text(),
+            self.passphrase.text(),
+        )
+
+        try:
+            status, data = client.test_connection()
+
+            if status == 200 and data.get("code") == "0":
+                QMessageBox.information(
+                    self,
+                    "Başarılı",
+                    "OKX bağlantısı başarılı."
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Hata",
+                    json.dumps(data, indent=2)
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Bağlantı Hatası",
+                str(e)
+            )
