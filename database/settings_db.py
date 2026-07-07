@@ -4,7 +4,10 @@ from pathlib import Path
 from security.dpapi import encrypt, decrypt
 
 
-CONFIG = Path("config.json")
+APP_DIR = Path.home() / "AppData" / "Local" / "CryptoDesk"
+APP_DIR.mkdir(parents=True, exist_ok=True)
+
+CONFIG = APP_DIR / "config.json"
 
 
 def save_settings(api, secret, passphrase):
