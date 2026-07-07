@@ -1,6 +1,5 @@
 import json
 
-# Yeni oluşturduğumuz servis katmanını içeri aktarıyoruz
 from services.okx_service import OKXService
 from database.settings_db import save_settings, load_settings
 
@@ -18,7 +17,6 @@ class SettingsPage(QWidget):
     def __init__(self):
         super().__init__()
 
-        # Servis katmanını sınıf içinde başlatıyoruz
         self.okx_service = OKXService()
 
         layout = QVBoxLayout(self)
@@ -81,7 +79,6 @@ class SettingsPage(QWidget):
             self.passphrase.text(),
         )
 
-        # Ayarlar değiştiği için servisin içindeki API istemcisini güncelliyoruz
         self.okx_service.refresh_client()
 
         QMessageBox.information(
@@ -91,8 +88,6 @@ class SettingsPage(QWidget):
         )
 
     def test_connection(self):
-        # Önce mevcut arayüzdeki güncel verilerle servisi geçici olarak yeniliyoruz
-        # (Kullanıcı kaydet butonuna basmadan direkt test etmek isterse diye)
         from api.okx_client import OKXClient
         self.okx_service.client = OKXClient(
             self.api.text(),
@@ -100,18 +95,34 @@ class SettingsPage(QWidget):
             self.passphrase.text()
         )
 
-        # Yeni servisimiz üzerinden bağlantıyı kontrol ediyoruz
         success, result = self.okx_service.check_connection()
 
         if success:
+            # İzin durumlarına göre onay veya çarpı işareti belirliyoruz
+            p = result["permissions"]
+            read_icon = "✓" if p["read"] else "✗"
+            trade_icon = "✓" if p["trade"] else "✗"
+            withdraw_icon = "✓" if p["withdraw"] else "✗"
+
+            # Şık bir bilgilendirme metni oluşturuyoruz
+            message = (
+                f"🟢 OKX bağlantısı başarılı\n\n"
+                f"UID: {result['uid']}\n\n"
+                f"API Key: Geçerli\n\n"
+                f"Permissions:\n"
+                f"{read_icon} Read\n"
+                f"{trade_icon} Trade\n"
+                f"{withdraw_icon} Withdraw"
+            )
+
             QMessageBox.information(
                 self,
-                "Başarılı",
-                "OKX bağlantısı başarılı."
+                "Bağlantı Başarılı",
+                message
             )
         else:
             QMessageBox.warning(
                 self,
                 "Hata",
-                result  # Servisten gelen temiz Türkçe hata mesajını gösteriyoruz
+                result
             )
