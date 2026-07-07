@@ -1,6 +1,8 @@
 import json
 
-from api.okx_client import OKXClient
+# Yeni oluşturduğumuz servis katmanını içeri aktarıyoruz
+from services.okx_service import OKXService
+from database.settings_db import save_settings, load_settings
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -11,12 +13,13 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from database.settings_db import save_settings, load_settings
-
 
 class SettingsPage(QWidget):
     def __init__(self):
         super().__init__()
+
+        # Servis katmanını sınıf içinde başlatıyoruz
+        self.okx_service = OKXService()
 
         layout = QVBoxLayout(self)
 
@@ -78,6 +81,9 @@ class SettingsPage(QWidget):
             self.passphrase.text(),
         )
 
+        # Ayarlar değiştiği için servisin içindeki API istemcisini güncelliyoruz
+        self.okx_service.refresh_client()
+
         QMessageBox.information(
             self,
             "Başarılı",
@@ -85,31 +91,27 @@ class SettingsPage(QWidget):
         )
 
     def test_connection(self):
-        client = OKXClient(
+        # Önce mevcut arayüzdeki güncel verilerle servisi geçici olarak yeniliyoruz
+        # (Kullanıcı kaydet butonuna basmadan direkt test etmek isterse diye)
+        from api.okx_client import OKXClient
+        self.okx_service.client = OKXClient(
             self.api.text(),
             self.secret.text(),
-            self.passphrase.text(),
+            self.passphrase.text()
         )
 
-        try:
-            status, data = client.test_connection()
+        # Yeni servisimiz üzerinden bağlantıyı kontrol ediyoruz
+        success, result = self.okx_service.check_connection()
 
-            if status == 200 and data.get("code") == "0":
-                QMessageBox.information(
-                    self,
-                    "Başarılı",
-                    "OKX bağlantısı başarılı."
-                )
-            else:
-                QMessageBox.warning(
-                    self,
-                    "Hata",
-                    json.dumps(data, indent=2)
-                )
-
-        except Exception as e:
-            QMessageBox.critical(
+        if success:
+            QMessageBox.information(
                 self,
-                "Bağlantı Hatası",
-                str(e)
+                "Başarılı",
+                "OKX bağlantısı başarılı."
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Hata",
+                result  # Servisten gelen temiz Türkçe hata mesajını gösteriyoruz
             )
