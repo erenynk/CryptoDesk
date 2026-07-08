@@ -418,6 +418,3 @@ class PortfolioPage(QWidget):
         if not self.refresh_timer.isActive():
             self.refresh_timer.start()
 
-    def hideEvent(self, event):
-        super().hideEvent(event)
-        self.refresh_timer.stop()
