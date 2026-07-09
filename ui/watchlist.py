@@ -128,8 +128,8 @@ class WatchlistPage(QWidget):
         self.table.verticalHeader().setSectionResizeMode(
             QHeaderView.ResizeToContents
         )
-        self.table.verticalHeader().setDefaultSectionSize(48)
-        self.table.verticalHeader().setMinimumSectionSize(48)
+        self.table.verticalHeader().setDefaultSectionSize(46)
+        self.table.verticalHeader().setMinimumSectionSize(46)
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         self.table.setStyleSheet("""

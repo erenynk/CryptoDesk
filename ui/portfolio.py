@@ -168,11 +168,11 @@ class PortfolioPage(QWidget):
 
             QTableWidget::item {
                 padding: 12px;
-                border-bottom: 1px solid #1E222D;
+                border-bottom: 1px solid #263142;
             }
 
             QTableWidget::item:hover {
-                background-color: #222634;
+                background-color: #263142;
             }
              
             QTableWidget::item:selected {
@@ -205,14 +205,14 @@ class PortfolioPage(QWidget):
 
             QHeaderView::section:vertical {
                 background-color: #161A25;
-                color: #A0AEC0;
+                color: #BFD7FF;
                 padding-left: 14px;
                 padding-right: 14px;
-                font-weight: 700;
-                font-size: 13px;
+                font-weight: 800;
+                font-size: 14px;
                 border: none;
                 border-right: 1px solid #2A2E39;
-                border-bottom: 1px solid #1E222D;
+                border-bottom: 1px solid #263142;
             }
 
             QTableCornerButton::section {
