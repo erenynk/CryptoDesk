@@ -14,8 +14,7 @@ DB_PATH = APP_DIR / "cryptodesk.db"
 
 
 def _get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    return conn
+    return sqlite3.connect(DB_PATH)
 
 
 def _init_watchlist_table():
@@ -24,9 +23,21 @@ def _init_watchlist_table():
             CREATE TABLE IF NOT EXISTS watchlist_symbols (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 symbol TEXT UNIQUE NOT NULL,
-                created_at TEXT
+                created_at TEXT,
+                added_price REAL
             )
         """)
+
+        columns = conn.execute(
+            "PRAGMA table_info(watchlist_symbols)"
+        ).fetchall()
+
+        column_names = [column[1] for column in columns]
+
+        if "added_price" not in column_names:
+            conn.execute(
+                "ALTER TABLE watchlist_symbols ADD COLUMN added_price REAL"
+            )
 
 
 _init_watchlist_table()
@@ -37,7 +48,6 @@ def _normalize_symbol(symbol: str) -> str:
 
 
 def save_settings(api, secret, passphrase):
-
     data = {
         "api": encrypt(api),
         "secret": encrypt(secret),
@@ -51,7 +61,6 @@ def save_settings(api, secret, passphrase):
 
 
 def load_settings():
-
     if not CONFIG.exists():
         return "", "", ""
 
@@ -64,7 +73,7 @@ def load_settings():
     )
 
 
-def add_watchlist_symbol(symbol: str) -> bool:
+def add_watchlist_symbol(symbol: str, added_price: float | None = None) -> bool:
     normalized = _normalize_symbol(symbol)
 
     if not normalized:
@@ -74,10 +83,18 @@ def add_watchlist_symbol(symbol: str) -> bool:
         with _get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO watchlist_symbols (symbol, created_at)
-                VALUES (?, ?)
+                INSERT INTO watchlist_symbols (
+                    symbol,
+                    created_at,
+                    added_price
+                )
+                VALUES (?, ?, ?)
                 """,
-                (normalized, datetime.now(UTC).isoformat()),
+                (
+                    normalized,
+                    datetime.now(UTC).isoformat(),
+                    added_price,
+                ),
             )
         return True
 
@@ -113,7 +130,32 @@ def get_watchlist_symbols() -> list[str]:
                 ORDER BY created_at ASC, id ASC
                 """
             ).fetchall()
+
             return [row[0] for row in rows]
+
+    except sqlite3.Error:
+        return []
+
+
+def get_watchlist_items() -> list[dict]:
+    try:
+        with _get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT symbol, added_price, created_at
+                FROM watchlist_symbols
+                ORDER BY created_at ASC, id ASC
+                """
+            ).fetchall()
+
+            return [
+                {
+                    "symbol": row[0],
+                    "added_price": row[1],
+                    "created_at": row[2],
+                }
+                for row in rows
+            ]
 
     except sqlite3.Error:
         return []
