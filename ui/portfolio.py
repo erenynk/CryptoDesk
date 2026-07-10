@@ -102,6 +102,7 @@ class PortfolioPage(QWidget):
         layout.addLayout(top_layout)
 
         self.card_widget = QWidget()
+        self.card_widget.setFixedHeight(125)
         self.card_widget.setStyleSheet("""
             QWidget {
                 background-color: #1E222D;
@@ -116,9 +117,9 @@ class PortfolioPage(QWidget):
 
         card_title = QLabel("TOPLAM VARLIK")
         card_title.setStyleSheet("""
-            color: #848E9C;
+            color: #FFFFFF;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 800;
             letter-spacing: 1px;
             border: none;
             background: transparent;
