@@ -3,7 +3,6 @@ from datetime import datetime
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -16,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from services import alarm_service
+from services.watchlist_service import normalize_symbol
 
 
 class AlarmsPage(QWidget):
@@ -27,13 +27,14 @@ class AlarmsPage(QWidget):
 
         self.data_manager = data_manager
         self.row_alarms = []
+        self.selected_condition = alarm_service.CONDITION_ABOVE
 
         self.headers = [
-            "Coin",
+            "Varlık",
             "Hedef Fiyat",
             "Koşul",
             "Anlık Fiyat",
-            "Not",
+            "Alarm Notu",
             "Durum",
             "Oluşturulma",
             "Aktif/Pasif",
@@ -74,7 +75,7 @@ class AlarmsPage(QWidget):
         form_layout.setSpacing(12)
 
         self.symbol_input = QLineEdit()
-        self.symbol_input.setPlaceholderText("Coin, örn: BTC")
+        self.symbol_input.setPlaceholderText("Ticker")
         self.symbol_input.setMinimumHeight(42)
         self.symbol_input.setMaximumWidth(190)
         self.symbol_input.returnPressed.connect(self.create_alarm)
@@ -99,25 +100,27 @@ class AlarmsPage(QWidget):
         self.price_input.setStyleSheet(self.input_style())
         form_layout.addWidget(self.price_input)
 
-        self.condition_combo = QComboBox()
-        self.condition_combo.setMinimumHeight(42)
-        self.condition_combo.setMinimumWidth(180)
-        self.condition_combo.addItem(
-            "Üstüne çıkınca",
-            alarm_service.CONDITION_ABOVE,
+        self.condition_button = QPushButton(
+            "Fiyat Üstüne Çıkınca"
         )
-        self.condition_combo.addItem(
-            "Altına düşünce",
-            alarm_service.CONDITION_BELOW,
+        self.condition_button.setMinimumHeight(42)
+        self.condition_button.setMinimumWidth(210)
+        self.condition_button.setCursor(Qt.PointingHandCursor)
+        self.condition_button.clicked.connect(
+            self.toggle_condition
         )
-        self.condition_combo.setStyleSheet(self.combo_style())
-        form_layout.addWidget(self.condition_combo)
+        self.condition_button.setStyleSheet(
+            self.condition_button_style()
+        )
+        form_layout.addWidget(self.condition_button)
 
         self.note_input = QLineEdit()
-        self.note_input.setPlaceholderText("İsteğe bağlı not")
+        self.note_input.setPlaceholderText("Alarm Notu")
         self.note_input.setMinimumHeight(42)
         self.note_input.setMinimumWidth(220)
-        self.note_input.setMaxLength(alarm_service.MAX_NOTE_LENGTH)
+        self.note_input.setMaxLength(
+            alarm_service.MAX_NOTE_LENGTH
+        )
         self.note_input.returnPressed.connect(self.create_alarm)
         self.note_input.setStyleSheet(self.input_style())
         form_layout.addWidget(self.note_input, 1)
@@ -166,8 +169,12 @@ class AlarmsPage(QWidget):
 
         self.table.setFocusPolicy(Qt.NoFocus)
         self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionMode(QTableWidget.NoSelection)
+        self.table.setEditTriggers(
+            QTableWidget.NoEditTriggers
+        )
+        self.table.setSelectionMode(
+            QTableWidget.NoSelection
+        )
         self.table.setShowGrid(False)
 
         self.table.verticalHeader().setVisible(True)
@@ -186,11 +193,16 @@ class AlarmsPage(QWidget):
         """)
         self.table.verticalHeader().setDefaultSectionSize(46)
         self.table.verticalHeader().setMinimumSectionSize(46)
-        self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.table.verticalHeader().setSectionResizeMode(
+            QHeaderView.Fixed
+        )
 
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.Interactive)
+        header.setSectionResizeMode(
+            4,
+            QHeaderView.Interactive,
+        )
         header.setSectionResizeMode(
             self.TOGGLE_COLUMN,
             QHeaderView.Fixed,
@@ -201,8 +213,14 @@ class AlarmsPage(QWidget):
         )
 
         self.table.setColumnWidth(4, 230)
-        self.table.setColumnWidth(self.TOGGLE_COLUMN, 120)
-        self.table.setColumnWidth(self.DELETE_COLUMN, 75)
+        self.table.setColumnWidth(
+            self.TOGGLE_COLUMN,
+            120,
+        )
+        self.table.setColumnWidth(
+            self.DELETE_COLUMN,
+            75,
+        )
 
         self.table.setStyleSheet("""
             QTableWidget {
@@ -273,7 +291,9 @@ class AlarmsPage(QWidget):
 
         layout.addWidget(self.table)
 
-        self.table.cellClicked.connect(self.on_table_cell_clicked)
+        self.table.cellClicked.connect(
+            self.on_table_cell_clicked
+        )
 
         self.load_alarms()
 
@@ -295,35 +315,56 @@ class AlarmsPage(QWidget):
         """
 
     @staticmethod
-    def combo_style():
+    def condition_button_style():
         return """
-            QComboBox {
+            QPushButton {
                 background-color: #161B26;
                 color: #FFFFFF;
                 border: 1px solid #2A3342;
                 border-radius: 8px;
                 padding: 0px 14px;
                 font-size: 14px;
+                text-align: left;
             }
 
-            QComboBox:focus {
-                border: 1px solid #3B82F6;
+            QPushButton:hover {
+                background-color: #1C2432;
+                border-color: #3A4658;
             }
 
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
-
-            QComboBox QAbstractItemView {
-                background-color: #161B26;
-                color: #FFFFFF;
-                border: 1px solid #2A3342;
-                selection-background-color: #263246;
-                selection-color: #FFFFFF;
-                outline: none;
+            QPushButton:pressed {
+                background-color: #263246;
+                border-color: #3B82F6;
             }
         """
+
+    def toggle_condition(self):
+        if (
+            self.selected_condition
+            == alarm_service.CONDITION_ABOVE
+        ):
+            self.selected_condition = (
+                alarm_service.CONDITION_BELOW
+            )
+            self.condition_button.setText(
+                "Fiyat Altına Düşünce"
+            )
+            return
+
+        self.selected_condition = (
+            alarm_service.CONDITION_ABOVE
+        )
+        self.condition_button.setText(
+            "Fiyat Üstüne Çıkınca"
+        )
+
+    def reset_condition(self):
+        self.selected_condition = (
+            alarm_service.CONDITION_ABOVE
+        )
+        self.condition_button.setText(
+            "Fiyat Üstüne Çıkınca"
+        )
 
     def on_table_cell_clicked(self, row, column):
         if row < 0 or row >= len(self.row_alarms):
@@ -348,7 +389,11 @@ class AlarmsPage(QWidget):
         super().showEvent(event)
         self.load_alarms()
 
-    def set_status(self, message: str, error: bool = False):
+    def set_status(
+        self,
+        message: str,
+        error: bool = False,
+    ):
         color = "#F6465D" if error else "#00C087"
 
         self.status_label.setStyleSheet(f"""
@@ -365,9 +410,22 @@ class AlarmsPage(QWidget):
 
     def create_alarm(self):
         symbol = self.symbol_input.text()
-        price_text = self.price_input.text().strip().replace(",", ".")
-        condition = self.condition_combo.currentData()
+        normalized_symbol = normalize_symbol(symbol)
+
+        price_text = (
+            self.price_input.text()
+            .strip()
+            .replace(",", ".")
+        )
+        condition = self.selected_condition
         note = self.note_input.text().strip()
+
+        if not normalized_symbol:
+            self.set_status(
+                "Ticker boş olamaz.",
+                error=True,
+            )
+            return
 
         if not price_text:
             self.set_status(
@@ -385,30 +443,64 @@ class AlarmsPage(QWidget):
             )
             return
 
-        success, result = alarm_service.create_alarm(
-            symbol=symbol,
-            target_price=target_price,
-            condition=condition,
-            note=note,
-        )
+        self.add_button.setEnabled(False)
+        self.add_button.setText("Kontrol...")
 
-        if not success:
-            self.set_status(str(result), error=True)
-            return
+        try:
+            success, result = (
+                self.data_manager.okx.is_spot_symbol_available(
+                    normalized_symbol
+                )
+            )
 
-        normalized_symbol = symbol.strip().upper()
+            if not success:
+                self.set_status(
+                    str(result),
+                    error=True,
+                )
+                return
 
-        self.symbol_input.clear()
-        self.price_input.clear()
-        self.note_input.clear()
-        self.condition_combo.setCurrentIndex(0)
+            if not result:
+                self.set_status(
+                    f"{normalized_symbol} OKX Spot piyasasında bulunamadı. "
+                    "Coin ticker'ını girin",
+                    error=True,
+                )
+                return
 
-        self.set_status(
-            f"{normalized_symbol} alarmı oluşturuldu."
-        )
-        self.load_alarms()
+            success, result = alarm_service.create_alarm(
+                symbol=normalized_symbol,
+                target_price=target_price,
+                condition=condition,
+                note=note,
+            )
 
-    def toggle_alarm(self, alarm_id: int, current_status: bool):
+            if not success:
+                self.set_status(
+                    str(result),
+                    error=True,
+                )
+                return
+
+            self.symbol_input.clear()
+            self.price_input.clear()
+            self.note_input.clear()
+            self.reset_condition()
+
+            self.set_status(
+                f"{normalized_symbol} alarmı oluşturuldu."
+            )
+            self.load_alarms()
+
+        finally:
+            self.add_button.setEnabled(True)
+            self.add_button.setText("Alarm Oluştur")
+
+    def toggle_alarm(
+        self,
+        alarm_id: int,
+        current_status: bool,
+    ):
         new_status = not current_status
 
         if alarm_service.change_alarm_status(
@@ -447,7 +539,9 @@ class AlarmsPage(QWidget):
             for row, alarm in enumerate(alarms):
                 symbol = alarm["symbol"]
                 target_price = alarm["target_price"]
-                current_price = self.data_manager.get_price(symbol)
+                current_price = (
+                    self.data_manager.get_price(symbol)
+                )
 
                 self.table.setItem(
                     row,
@@ -471,7 +565,8 @@ class AlarmsPage(QWidget):
 
                 condition_color = (
                     "#00C087"
-                    if alarm["condition"] == alarm_service.CONDITION_ABOVE
+                    if alarm["condition"]
+                    == alarm_service.CONDITION_ABOVE
                     else "#F0B90B"
                 )
 
@@ -492,26 +587,48 @@ class AlarmsPage(QWidget):
                     3,
                     self.create_item(
                         self.format_price(current_price),
-                        color="#00C087" if current_price else "#848E9C",
+                        color=(
+                            "#00C087"
+                            if current_price
+                            else "#848E9C"
+                        ),
                         bold=True,
                     ),
                 )
 
-                note = alarm.get("note", "").strip()
+                note = str(
+                    alarm.get("note", "") or ""
+                ).strip()
+
                 note_item = self.create_item(
-                    note if note else "-",
-                    color="#C7CDD6" if note else "#848E9C",
+                    note,
+                    color=(
+                        "#C7CDD6"
+                        if note
+                        else "#848E9C"
+                    ),
                     bold=False,
-                    alignment=Qt.AlignLeft | Qt.AlignVCenter,
+                    alignment=(
+                        Qt.AlignLeft
+                        | Qt.AlignVCenter
+                    ),
                 )
 
                 if note:
                     note_item.setToolTip(note)
 
-                self.table.setItem(row, 4, note_item)
+                self.table.setItem(
+                    row,
+                    4,
+                    note_item,
+                )
 
-                status_text = alarm_service.get_status_text(alarm)
-                status_color = self.get_status_color(alarm)
+                status_text = (
+                    alarm_service.get_status_text(alarm)
+                )
+                status_color = self.get_status_color(
+                    alarm
+                )
 
                 self.table.setItem(
                     row,
@@ -527,7 +644,9 @@ class AlarmsPage(QWidget):
                     row,
                     6,
                     self.create_item(
-                        self.format_date(alarm.get("created_at")),
+                        self.format_date(
+                            alarm.get("created_at")
+                        ),
                         color="#C7CDD6",
                         bold=False,
                     ),
@@ -551,7 +670,8 @@ class AlarmsPage(QWidget):
                     bold=True,
                 )
                 toggle_item.setToolTip(
-                    "Alarm durumunu değiştirmek için tıklayın."
+                    "Alarm durumunu değiştirmek "
+                    "için tıklayın."
                 )
 
                 self.table.setItem(
@@ -566,8 +686,10 @@ class AlarmsPage(QWidget):
                     bold=True,
                 )
 
-                delete_font = delete_item.font()
-                delete_font.setPointSize(16)
+                delete_font = QFont(
+                    "Segoe UI",
+                    16,
+                )
                 delete_font.setBold(False)
                 delete_item.setFont(delete_font)
                 delete_item.setToolTip(
@@ -622,7 +744,9 @@ class AlarmsPage(QWidget):
             date_value = datetime.fromisoformat(
                 value.replace("Z", "+00:00")
             )
-            return date_value.strftime("%d.%m.%Y %H:%M")
+            return date_value.strftime(
+                "%d.%m.%Y %H:%M"
+            )
 
         except (TypeError, ValueError):
             return "-"

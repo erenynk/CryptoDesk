@@ -70,7 +70,7 @@ class WatchlistPage(QWidget):
         input_layout.setSpacing(12)
 
         self.symbol_input = QLineEdit()
-        self.symbol_input.setPlaceholderText("Örn: BTC")
+        self.symbol_input.setPlaceholderText("Ticker")
         self.symbol_input.setMinimumHeight(42)
         self.symbol_input.setStyleSheet("""
             QLineEdit {
