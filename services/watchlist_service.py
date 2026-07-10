@@ -23,7 +23,7 @@ ALIASES = {
 
 
 def normalize_symbol(symbol: str) -> str:
-    text = symbol.strip().upper()
+    text = str(symbol or "").strip().upper()
 
     if not text:
         return ""
@@ -33,16 +33,23 @@ def normalize_symbol(symbol: str) -> str:
             text = text.split(separator, 1)[0]
 
     text = text.strip()
+
     return ALIASES.get(text, text)
 
 
-def add_symbol(symbol: str, current_price: float | None = None) -> bool:
+def add_symbol(
+    symbol: str,
+    current_price: float | None = None,
+) -> bool:
     normalized = normalize_symbol(symbol)
 
     if not normalized:
         return False
 
-    return add_watchlist_symbol(normalized, current_price)
+    return add_watchlist_symbol(
+        normalized,
+        current_price,
+    )
 
 
 def remove_symbol(symbol: str) -> bool:

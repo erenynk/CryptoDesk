@@ -227,22 +227,59 @@ class WatchlistPage(QWidget):
         self.status_label.setText("")
 
     def add_symbol(self):
-        raw = self.symbol_input.text()
-        normalized = watchlist_service.normalize_symbol(raw)
+        raw_symbol = self.symbol_input.text()
+        normalized = watchlist_service.normalize_symbol(raw_symbol)
 
         if not normalized:
-            self.set_status("Coin adı boş olamaz.", error=True)
+            self.set_status(
+                "Coin adı boş olamaz.",
+                error=True,
+            )
             return
 
-        current_price = self.data_manager.get_price(normalized)
+        self.add_button.setEnabled(False)
+        self.add_button.setText("Kontrol...")
 
-        if watchlist_service.add_symbol(normalized, current_price):
-            self.symbol_input.clear()
-            self.clear_status()
-            self.load_symbols()
-            return
+        try:
+            success, result = (
+                self.data_manager.okx.is_spot_symbol_available(
+                    normalized
+                )
+            )
 
-        self.set_status(f"{normalized} zaten watchlist'te.", error=True)
+            if not success:
+                self.set_status(
+                    str(result),
+                    error=True,
+                )
+                return
+
+            if not result:
+                self.set_status(
+                    f"{normalized} OKX Spot piyasasında bulunamadı.",
+                    error=True,
+                )
+                return
+
+            current_price = self.data_manager.get_price(normalized)
+
+            if watchlist_service.add_symbol(
+                normalized,
+                current_price,
+            ):
+                self.symbol_input.clear()
+                self.clear_status()
+                self.load_symbols()
+                return
+
+            self.set_status(
+                f"{normalized} zaten watchlist'te.",
+                error=True,
+            )
+
+        finally:
+            self.add_button.setEnabled(True)
+            self.add_button.setText("Ekle")
 
     def remove_symbol(self, symbol):
         if watchlist_service.remove_symbol(symbol):

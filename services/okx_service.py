@@ -10,6 +10,9 @@ class OKXService:
         self.refresh_client()
         self.session = requests.Session()
 
+        self._spot_symbols = set()
+        self._spot_symbols_loaded = False
+
     def refresh_client(self):
         api, secret, passphrase = load_settings()
 
@@ -238,3 +241,71 @@ class OKXService:
 
         except Exception as e:
             return False, str(e)
+        
+    def get_spot_symbols(
+        self,
+        force_refresh: bool = False,
+    ) -> tuple[bool, set[str] | str]:
+        if self._spot_symbols_loaded and not force_refresh:
+            return True, self._spot_symbols.copy()
+
+        path = "/api/v5/public/instruments?instType=SPOT"
+
+        try:
+            response = self.session.get(
+                self.client.BASE_URL + path
+                if self.client is not None
+                else "https://www.okx.com" + path,
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            payload = response.json()
+
+            if payload.get("code") != "0":
+                return False, payload.get(
+                    "msg",
+                    "OKX spot varlıkları alınamadı.",
+                )
+
+            symbols = set()
+
+            for instrument in payload.get("data", []):
+                if instrument.get("quoteCcy") != "USDT":
+                    continue
+
+                if instrument.get("state") != "live":
+                    continue
+
+                base_currency = instrument.get("baseCcy", "").strip().upper()
+
+                if base_currency:
+                    symbols.add(base_currency)
+
+            self._spot_symbols = symbols
+            self._spot_symbols_loaded = True
+
+            return True, symbols.copy()
+
+        except requests.RequestException as error:
+            return False, f"OKX bağlantı hatası: {error}"
+
+        except (TypeError, ValueError):
+            return False, "OKX varlık listesi okunamadı."
+
+
+    def is_spot_symbol_available(
+        self,
+        symbol: str,
+    ) -> tuple[bool, bool | str]:
+        normalized_symbol = symbol.strip().upper()
+
+        if not normalized_symbol:
+            return True, False
+
+        success, result = self.get_spot_symbols()
+
+        if not success:
+            return False, str(result)
+
+        return True, normalized_symbol in result    
