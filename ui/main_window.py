@@ -6,9 +6,6 @@ from services.alarm_monitor import AlarmMonitor
 
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QApplication,
-    QStyle,
-    QSystemTrayIcon,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -17,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from services.data_manager import DataManager
-
+from ui.notification_popup import NotificationManager
 from ui.dashboard import DashboardPage
 from ui.portfolio import PortfolioPage
 from ui.watchlist import WatchlistPage
@@ -29,18 +26,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self.notification_manager = NotificationManager()
+
         self.setWindowTitle("CryptoDesk")
         self.resize(1300, 800)
-        self.tray_icon = QSystemTrayIcon(self)
-
-        app_icon = QApplication.style().standardIcon(
-            QStyle.SP_ComputerIcon
-        )
-
-        self.setWindowIcon(app_icon)
-        self.tray_icon.setIcon(app_icon)
-        self.tray_icon.setToolTip("CryptoDesk")
-        self.tray_icon.show()
+        
+        
 
         self.setStyleSheet("""
             QMainWindow {
@@ -165,6 +156,7 @@ class MainWindow(QMainWindow):
 
         self.menu.currentRowChanged.connect(self.pages.setCurrentIndex)
         self.menu.setCurrentRow(0)
+        
 
     def on_alarm_triggered(self, alarm):
         symbol = alarm["symbol"]
@@ -173,32 +165,21 @@ class MainWindow(QMainWindow):
         condition = alarm["condition"]
 
         if condition == "above":
-            title = f"{symbol} fiyat alarmı"
             message = (
-                f"{symbol}, hedef fiyatın üzerine çıktı.\n"
-                f"Anlık fiyat: {self.format_alarm_price(current_price)}\n"
-                f"Hedef fiyat: {self.format_alarm_price(target_price)}"
+                f"{symbol}, belirlenen hedef fiyatın "
+                f"üzerine çıktı."
             )
         else:
-            title = f"{symbol} fiyat alarmı"
             message = (
-                f"{symbol}, hedef fiyatın altına düştü.\n"
-                f"Anlık fiyat: {self.format_alarm_price(current_price)}\n"
-                f"Hedef fiyat: {self.format_alarm_price(target_price)}"
+                f"{symbol}, belirlenen hedef fiyatın "
+                f"altına düştü."
             )
 
-        if QSystemTrayIcon.isSystemTrayAvailable():
-            self.tray_icon.showMessage(
-                title,
-                message,
-                QSystemTrayIcon.Information,
-                60000,
-            )
-
-        print(
-            f"Alarm tetiklendi: {symbol} | "
-            f"Anlık: {current_price} | "
-            f"Hedef: {target_price}"
+        self.notification_manager.show_alarm(
+            title=f"{symbol} Fiyat Alarmı",
+            message=message,
+            current_price=self.format_alarm_price(current_price),
+            target_price=self.format_alarm_price(target_price),
         )       
     @staticmethod
     def format_alarm_price(price):

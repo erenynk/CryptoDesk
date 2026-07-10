@@ -6,6 +6,14 @@ from database.settings_db import (
     set_price_alarm_active,
 )
 from services.watchlist_service import normalize_symbol
+from database.settings_db import (
+    add_price_alarm,
+    delete_price_alarm,
+    get_active_price_alarms,
+    get_price_alarms,
+    mark_price_alarm_triggered,
+    set_price_alarm_active,
+)
 
 
 CONDITION_ABOVE = "above"
@@ -88,3 +96,24 @@ def get_status_text(alarm: dict) -> str:
         return "Aktif"
 
     return "Pasif"
+def is_alarm_triggered(
+    alarm: dict,
+    current_price: float,
+) -> bool:
+    if current_price <= 0:
+        return False
+
+    target_price = float(alarm["target_price"])
+    condition = alarm["condition"]
+
+    if condition == CONDITION_ABOVE:
+        return current_price >= target_price
+
+    if condition == CONDITION_BELOW:
+        return current_price <= target_price
+
+    return False
+
+
+def complete_alarm(alarm_id: int) -> bool:
+    return mark_price_alarm_triggered(alarm_id)

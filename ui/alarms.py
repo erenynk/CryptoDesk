@@ -234,6 +234,10 @@ class AlarmsPage(QWidget):
                 padding: 12px;
                 border-bottom: 1px solid #263142;
             }
+                                 
+            QTableWidget::item:hover {
+                background-color: #222634;
+            }                     
 
             QHeaderView::section:horizontal {
                 background-color: #1E222D;
@@ -499,12 +503,12 @@ class AlarmsPage(QWidget):
                 toggle_color = "#848E9C"
 
             elif alarm.get("is_active"):
-                toggle_text = "Aktif"
-                toggle_color = "#00C087"
+                toggle_text = "Pasif Et"
+                toggle_color = "#F0B90B"
 
             else:
-                toggle_text = "Pasif"
-                toggle_color = "#F0B90B"
+                toggle_text = "Aktif Et"
+                toggle_color = "#00C087"
 
             toggle_item = self.create_item(
                 toggle_text,
