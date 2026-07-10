@@ -1,9 +1,5 @@
 from PySide6.QtCore import Qt
-
-from PySide6.QtGui import QFont
-
-from services.alarm_monitor import AlarmMonitor
-
+from PySide6.QtGui import QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QListWidget,
@@ -13,25 +9,25 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from services.alarm_monitor import AlarmMonitor
 from services.data_manager import DataManager
-from ui.notification_popup import NotificationManager
-from ui.dashboard import DashboardPage
-from ui.portfolio import PortfolioPage
-from ui.watchlist import WatchlistPage
 from ui.alarms import AlarmsPage
+from ui.dashboard import DashboardPage
+from ui.notification_popup import NotificationManager
+from ui.portfolio import PortfolioPage
 from ui.settings import SettingsPage
+from ui.watchlist import WatchlistPage
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self._allow_close = False
         self.notification_manager = NotificationManager()
 
         self.setWindowTitle("CryptoDesk")
         self.resize(1300, 800)
-        
-        
 
         self.setStyleSheet("""
             QMainWindow {
@@ -103,8 +99,13 @@ class MainWindow(QMainWindow):
         self.menu = QListWidget()
         self.menu.setFixedWidth(220)
         self.menu.setFocusPolicy(Qt.NoFocus)
-        self.menu.setEditTriggers(QListWidget.NoEditTriggers)
-        self.menu.setSelectionMode(QListWidget.SingleSelection)
+        self.menu.setEditTriggers(
+            QListWidget.NoEditTriggers
+        )
+        self.menu.setSelectionMode(
+            QListWidget.SingleSelection
+        )
+
         menu_font = QFont("Segoe UI", 11)
         menu_font.setBold(True)
         self.menu.setFont(menu_font)
@@ -122,20 +123,38 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
 
-        self.dashboard_page = DashboardPage(self.data_manager)
+        self.dashboard_page = DashboardPage(
+            self.data_manager
+        )
 
         self.portfolio_page = PortfolioPage(
             self.data_manager,
             self.dashboard_page,
         )
 
-        self.watchlist_page = WatchlistPage(self.data_manager)
+        self.watchlist_page = WatchlistPage(
+            self.data_manager
+        )
+
+        self.alarms_page = AlarmsPage(
+            self.data_manager
+        )
+
+        self.settings_page = SettingsPage()
 
         self.pages.addWidget(self.dashboard_page)
         self.pages.addWidget(self.portfolio_page)
         self.pages.addWidget(self.watchlist_page)
-        self.alarms_page = AlarmsPage(self.data_manager)
         self.pages.addWidget(self.alarms_page)
+        self.pages.addWidget(self.settings_page)
+
+        layout.addWidget(self.pages)
+
+        self.menu.currentRowChanged.connect(
+            self.pages.setCurrentIndex
+        )
+        self.menu.setCurrentRow(0)
+
         self.alarm_monitor = AlarmMonitor(
             self.data_manager,
             self,
@@ -150,13 +169,37 @@ class MainWindow(QMainWindow):
         )
 
         self.alarm_monitor.start()
-        self.pages.addWidget(SettingsPage())
 
-        layout.addWidget(self.pages)
+    def show_from_tray(self):
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
 
-        self.menu.currentRowChanged.connect(self.pages.setCurrentIndex)
-        self.menu.setCurrentRow(0)
-        
+        self.raise_()
+        self.activateWindow()
+
+    def allow_application_close(self):
+        self._allow_close = True
+
+    def closeEvent(self, event: QCloseEvent):
+        if self._allow_close:
+            self.alarm_monitor.stop()
+            event.accept()
+            return
+
+        if self.system_tray_available():
+            event.ignore()
+            self.hide()
+            return
+
+        event.accept()
+
+    @staticmethod
+    def system_tray_available():
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        return QSystemTrayIcon.isSystemTrayAvailable()
 
     def on_alarm_triggered(self, alarm):
         symbol = alarm["symbol"]
@@ -178,9 +221,15 @@ class MainWindow(QMainWindow):
         self.notification_manager.show_alarm(
             title=f"{symbol} Fiyat Alarmı",
             message=message,
-            current_price=self.format_alarm_price(current_price),
-            target_price=self.format_alarm_price(target_price),
-        )       
+            current_price=self.format_alarm_price(
+                current_price
+            ),
+            target_price=self.format_alarm_price(
+                target_price
+            ),
+            note=alarm.get("note", ""),
+        )
+
     @staticmethod
     def format_alarm_price(price):
         if price >= 1:
@@ -189,4 +238,4 @@ class MainWindow(QMainWindow):
         if price >= 0.01:
             return f"${price:,.4f}"
 
-        return f"${price:,.8f}"    
+        return f"${price:,.8f}"

@@ -1,14 +1,18 @@
 import sys
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
-    QWidget,
-    QLabel,
     QHBoxLayout,
-    QVBoxLayout,
+    QLabel,
+    QMenu,
     QPushButton,
+    QStyle,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
 
 from services.data_manager import DataManager
 from ui.main_window import MainWindow
@@ -65,7 +69,9 @@ class BalanceWidget(QWidget):
         values_layout.setSpacing(1)
 
         self.balance_label = QLabel("$0.00")
-        self.balance_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.balance_label.setAlignment(
+            Qt.AlignLeft | Qt.AlignVCenter
+        )
         self.balance_label.setStyleSheet("""
             QLabel {
                 background: transparent;
@@ -77,7 +83,9 @@ class BalanceWidget(QWidget):
         """)
 
         self.trading_label = QLabel("Trading  $0.00")
-        self.trading_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.trading_label.setAlignment(
+            Qt.AlignLeft | Qt.AlignVCenter
+        )
         self.trading_label.setStyleSheet("""
             QLabel {
                 background: transparent;
@@ -138,12 +146,18 @@ class BalanceWidget(QWidget):
 
         x = max(
             area.left() + margin,
-            min(pos.x(), area.right() - self.width() - margin),
+            min(
+                pos.x(),
+                area.right() - self.width() - margin,
+            ),
         )
 
         y = max(
             area.top() + margin,
-            min(pos.y(), area.bottom() - self.height() - margin),
+            min(
+                pos.y(),
+                area.bottom() - self.height() - margin,
+            ),
         )
 
         return x, y
@@ -159,7 +173,9 @@ class BalanceWidget(QWidget):
             self.trading_label.setText("Trading  ••••••")
             self.hide_button.setText("○")
         else:
-            self.balance_label.setText(f"${self.last_total:,.2f}")
+            self.balance_label.setText(
+                f"${self.last_total:,.2f}"
+            )
             self.trading_label.setText(
                 f"Trading  ${self.last_trading:,.2f}"
             )
@@ -177,31 +193,134 @@ class BalanceWidget(QWidget):
                 - self.frameGeometry().topLeft()
             )
 
+        super().mousePressEvent(event)
+
     def mouseMoveEvent(self, event):
-        if self.dragging:
+        if self.dragging and self.offset is not None:
             wanted_pos = (
                 event.globalPosition().toPoint()
                 - self.offset
             )
+
             x, y = self.clamp_to_screen(wanted_pos)
             self.move(x, y)
 
+        super().mouseMoveEvent(event)
+
     def mouseReleaseEvent(self, event):
         self.dragging = False
+        self.offset = None
 
         x, y = self.clamp_to_screen(self.pos())
         self.move(x, y)
 
+        super().mouseReleaseEvent(event)
 
-app = QApplication(sys.argv)
 
-data_manager = DataManager()
+class SystemTrayManager:
+    def __init__(
+        self,
+        app: QApplication,
+        window: MainWindow,
+    ):
+        self.app = app
+        self.window = window
 
-window = MainWindow()
-window.show()
+        self.tray_icon = QSystemTrayIcon(self.window)
+        self.tray_icon.setToolTip("CryptoDesk")
 
-balance_widget = BalanceWidget(data_manager)
-balance_widget.move(100, 100)
-balance_widget.show()
+        icon = self.window.windowIcon()
 
-sys.exit(app.exec())
+        if icon.isNull():
+            icon = self.app.style().standardIcon(
+                QStyle.SP_ComputerIcon
+            )
+
+        self.tray_icon.setIcon(icon)
+        self.window.setWindowIcon(icon)
+
+        self.menu = QMenu()
+
+        self.open_action = QAction(
+            "CryptoDesk'i Aç",
+            self.menu,
+        )
+        self.open_action.triggered.connect(
+            self.show_main_window
+        )
+
+        self.exit_action = QAction(
+            "Çıkış",
+            self.menu,
+        )
+        self.exit_action.triggered.connect(
+            self.exit_application
+        )
+
+        self.menu.addAction(self.open_action)
+        self.menu.addSeparator()
+        self.menu.addAction(self.exit_action)
+
+        self.tray_icon.setContextMenu(self.menu)
+        self.tray_icon.activated.connect(
+            self.on_tray_activated
+        )
+
+        self.tray_icon.show()
+
+    def show_main_window(self):
+        self.window.show_from_tray()
+
+    def exit_application(self):
+        self.window.allow_application_close()
+        self.tray_icon.hide()
+        self.app.quit()
+
+    def on_tray_activated(self, reason):
+        if reason in (
+            QSystemTrayIcon.Trigger,
+            QSystemTrayIcon.DoubleClick,
+        ):
+            self.show_main_window()
+
+
+def main():
+    app = QApplication(sys.argv)
+
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        QApplication.setQuitOnLastWindowClosed(True)
+    else:
+        QApplication.setQuitOnLastWindowClosed(False)
+
+    data_manager = DataManager()
+
+    window = MainWindow()
+    window.show()
+
+    balance_widget = BalanceWidget(data_manager)
+    balance_widget.move(100, 100)
+    balance_widget.show()
+
+    tray_manager = None
+
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        tray_manager = SystemTrayManager(
+            app=app,
+            window=window,
+        )
+
+    exit_code = app.exec()
+
+    # Qt nesnelerinin uygulama çalıştığı sürece
+    # referanslarının korunmasını sağlar.
+    _ = (
+        data_manager,
+        balance_widget,
+        tray_manager,
+    )
+
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()
