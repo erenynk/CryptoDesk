@@ -1,4 +1,3 @@
-import time
 import requests
 
 from api.okx_client import OKXClient
@@ -9,6 +8,7 @@ class OKXService:
     def __init__(self):
         self.client = None
         self.refresh_client()
+        self.session = requests.Session()
 
     def refresh_client(self):
         api, secret, passphrase = load_settings()
@@ -52,6 +52,10 @@ class OKXService:
     # ---------------------------------------------------------
 
     def _load_prices(self, cache):
+        if self.client is None:
+            return {}
+        
+        
         """
         Tüm spot fiyatlarını tek sefer çeker.
         """
@@ -61,15 +65,20 @@ class OKXService:
 
         ticker_path = "/api/v5/market/tickers?instType=SPOT"
 
-        r = requests.get(
+        r = self.session.get(
             self.client.BASE_URL + ticker_path,
             timeout=10,
         )
+        r.raise_for_status()
 
         prices = {}
 
-        if r.status_code == 200 and r.json().get("code") == "0":
-            for item in r.json()["data"]:
+        data = r.json()
+
+        if data.get("code") == "0":
+
+            for item in data["data"]:
+            
 
                 inst = item["instId"]
 
@@ -99,13 +108,18 @@ class OKXService:
 
             funding_path = "/api/v5/asset/balances"
 
-            r = requests.get(
+            r = self.session.get(
                 self.client.BASE_URL + funding_path,
                 headers=self.client._headers("GET", funding_path),
                 timeout=10,
             )
+            r.raise_for_status()
 
-            if r.status_code == 200 and r.json().get("code") == "0":
+            data = r.json()
+
+            if data.get("code") == "0":
+
+                
 
                 for asset in r.json()["data"]:
 
@@ -125,15 +139,20 @@ class OKXService:
 
             account_path = "/api/v5/account/balance"
 
-            r = requests.get(
+            r = self.session.get(
                 self.client.BASE_URL + account_path,
                 headers=self.client._headers("GET", account_path),
                 timeout=10,
             )
+            r.raise_for_status()
 
-            if r.status_code == 200 and r.json().get("code") == "0":
+            data = r.json()
 
-                details = r.json()["data"][0]["details"]
+            if data.get("code") == "0":
+
+                
+
+                details = data["data"][0]["details"]
 
                 for asset in details:
 

@@ -288,6 +288,9 @@ class PortfolioPage(QWidget):
         self.refresh_timer.start()
 
     def load_balances(self):
+        if self.data_manager.loading:
+            return
+
         if self.worker is not None and self.worker.isRunning():
             return
 
@@ -295,8 +298,8 @@ class PortfolioPage(QWidget):
         self.refresh_button.setText("Güncelleniyor...")
 
         self.worker = PortfolioRefreshWorker(self.data_manager)
-        self.worker.finished.connect(self.on_balances_loaded)
-        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.result_ready.connect(self.on_balances_loaded)
+        self.worker.result_ready.connect(self.worker.deleteLater)
         self.worker.start()
 
     def on_balances_loaded(self, success, result):
@@ -418,3 +421,13 @@ class PortfolioPage(QWidget):
         if not self.refresh_timer.isActive():
             self.refresh_timer.start()
 
+       
+
+    def closeEvent(self, event):
+        self.refresh_timer.stop()
+
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait(3000)
+
+        super().closeEvent(event)

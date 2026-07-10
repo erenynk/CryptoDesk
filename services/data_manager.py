@@ -52,6 +52,11 @@ class DataManager(QObject):
 
             return ok, result
 
+        except Exception as e:
+            self.last_error = str(e)
+            self.portfolio_error.emit(str(e))
+            return False, str(e)
+
         finally:
             self.loading = False
 
@@ -69,3 +74,4 @@ class DataManager(QObject):
 
     def reconnect(self):
         self.refresh_client()
+        self.clear_cache()

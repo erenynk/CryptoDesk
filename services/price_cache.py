@@ -49,10 +49,12 @@ class PriceCache:
 
     @property
     def last_update(self):
-        return self._last_update
+        with self._lock:
+            return self._last_update
 
     @property
     def age(self):
-        if self._last_update == 0:
-            return float("inf")
-        return time() - self._last_update
+        with self._lock:
+            if self._last_update == 0:
+                return float("inf")
+            return time() - self._last_update
