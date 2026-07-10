@@ -24,6 +24,17 @@ class DashboardPage(QWidget):
         label.setStyleSheet("font-size:18px;")
 
         self.value = QLabel("$0.00")
+        self.funding_value = QLabel("Funding: $0.00")
+        self.funding_value.setStyleSheet("""
+            font-size: 18px;
+            color: #A0AEC0;
+        """)
+
+        self.trading_value = QLabel("Trading: $0.00")
+        self.trading_value.setStyleSheet("""
+            font-size: 18px;
+            color: #A0AEC0;
+        """)
         self.value.setStyleSheet("""
             font-size:40px;
             font-weight:bold;
@@ -34,6 +45,8 @@ class DashboardPage(QWidget):
 
         card_layout.addWidget(label)
         card_layout.addWidget(self.value)
+        card_layout.addWidget(self.funding_value)
+        card_layout.addWidget(self.trading_value)
         card_layout.addWidget(self.status)
 
         layout.addWidget(card)
@@ -55,8 +68,13 @@ class DashboardPage(QWidget):
 
     def on_portfolio_updated(self, portfolio):
         total = portfolio["total_usdt"]
+        funding_total = portfolio.get("funding_usdt", 0.0)
+        trading_total = portfolio.get("trading_usdt", 0.0)
 
         self.value.setText(f"${total:,.2f}")
+        self.funding_value.setText(f"Funding: ${funding_total:,.2f}")
+        self.trading_value.setText(f"Trading: ${trading_total:,.2f}")
+
         self.status.setText("API Bağlı")
         self.status.setStyleSheet("color:#00C087;")
 

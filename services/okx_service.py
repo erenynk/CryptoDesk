@@ -101,6 +101,8 @@ class OKXService:
         try:
 
             balances = {}
+            funding_amounts = {}
+            trading_amounts = {}
 
             #
             # FUNDING
@@ -128,9 +130,14 @@ class OKXService:
                     if bal <= 0:
                         continue
 
-                    balances[asset["ccy"]] = {
+                    coin = asset["ccy"]
+                    available = float(asset["availBal"])
+
+                    funding_amounts[coin] = bal
+
+                    balances[coin] = {
                         "total": bal,
-                        "available": float(asset["availBal"]),
+                        "available": available,
                     }
 
             #
@@ -162,6 +169,7 @@ class OKXService:
                         continue
 
                     coin = asset["ccy"]
+                    trading_amounts[coin] = qty
 
                     if coin in balances:
 
@@ -184,6 +192,8 @@ class OKXService:
             assets = []
 
             total = 0.0
+            funding_total = 0.0
+            trading_total = 0.0
 
             for coin, data in balances.items():
 
@@ -206,6 +216,14 @@ class OKXService:
                     }
                 )
 
+            for coin, amount in funding_amounts.items():
+                price = 1.0 if coin == "USDT" else prices.get(coin, 0.0)
+                funding_total += amount * price
+
+            for coin, amount in trading_amounts.items():
+                price = 1.0 if coin == "USDT" else prices.get(coin, 0.0)
+                trading_total += amount * price
+
             assets.sort(
                 key=lambda x: x["usdt_value"],
                 reverse=True,
@@ -213,6 +231,8 @@ class OKXService:
 
             return True, {
                 "total_usdt": total,
+                "funding_usdt": funding_total,
+                "trading_usdt": trading_total,
                 "assets": assets,
             }
 
