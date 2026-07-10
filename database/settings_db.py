@@ -64,13 +64,17 @@ def load_settings():
     if not CONFIG.exists():
         return "", "", ""
 
-    data = json.loads(CONFIG.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(CONFIG.read_text(encoding="utf-8"))
 
-    return (
-        decrypt(data["api"]),
-        decrypt(data["secret"]),
-        decrypt(data["passphrase"]),
-    )
+        return (
+            decrypt(data["api"]),
+            decrypt(data["secret"]),
+            decrypt(data["passphrase"]),
+        )
+
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        return "", "", ""
 
 
 def add_watchlist_symbol(symbol: str, added_price: float | None = None) -> bool:
