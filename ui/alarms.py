@@ -185,8 +185,8 @@ class AlarmsPage(QWidget):
         self.table.setShowGrid(False)
 
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(52)
-        self.table.verticalHeader().setMinimumSectionSize(52)
+        self.table.verticalHeader().setDefaultSectionSize(58)
+        self.table.verticalHeader().setMinimumSectionSize(58)
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         self.table.horizontalHeader().setSectionResizeMode(
@@ -194,12 +194,15 @@ class AlarmsPage(QWidget):
         )
         self.table.horizontalHeader().setSectionResizeMode(
             6,
-            QHeaderView.ResizeToContents,
+            QHeaderView.Fixed,
         )
         self.table.horizontalHeader().setSectionResizeMode(
             7,
-            QHeaderView.ResizeToContents,
+            QHeaderView.Fixed,
         )
+
+        self.table.setColumnWidth(6, 120)
+        self.table.setColumnWidth(7, 75)
 
         self.table.setStyleSheet("""
             QTableWidget {
@@ -501,14 +504,14 @@ class AlarmsPage(QWidget):
         container.setStyleSheet("background: transparent;")
 
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(4, 4, 4, 4)
         layout.setAlignment(Qt.AlignCenter)
 
         button = QPushButton(
             "Aktif" if is_active else "Pasif"
         )
         button.setCursor(Qt.PointingHandCursor)
-        button.setMinimumSize(72, 30)
+        button.setFixedSize(88, 34)
 
         if is_active:
             background = "#153B32"
@@ -554,14 +557,14 @@ class AlarmsPage(QWidget):
         container.setStyleSheet("background: transparent;")
 
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(4, 4, 4, 4)
         layout.setAlignment(Qt.AlignCenter)
 
         button = QToolButton()
         button.setText("×")
         button.setToolTip("Alarmı sil")
         button.setCursor(Qt.PointingHandCursor)
-        button.setFixedSize(30, 30)
+        button.setFixedSize(36, 34)
 
         button.setStyleSheet("""
             QToolButton {
@@ -569,9 +572,9 @@ class AlarmsPage(QWidget):
                 color: #F6465D;
                 border: 1px solid #2A3342;
                 border-radius: 7px;
-                font-size: 18px;
+                font-size: 20px;
                 font-weight: 400;
-                padding: 0px 0px 4px 0px;
+                padding: 0px 0px 3px 0px;
             }
 
             QToolButton:hover {
