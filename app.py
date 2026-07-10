@@ -298,7 +298,15 @@ def main():
     window.show()
 
     balance_widget = BalanceWidget(data_manager)
-    balance_widget.move(100, 100)
+    screen = app.primaryScreen()
+    available = screen.availableGeometry()
+
+    margin = 4
+
+    balance_widget.move(
+        available.right() - balance_widget.width() - margin,
+        available.bottom() - balance_widget.height() - margin,
+    )
     balance_widget.show()
 
     tray_manager = None
