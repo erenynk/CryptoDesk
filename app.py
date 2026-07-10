@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QLabel,
     QHBoxLayout,
+    QVBoxLayout,
     QPushButton,
 )
 from PySide6.QtCore import Qt
@@ -20,15 +21,16 @@ class BalanceWidget(QWidget):
         self.data_manager = data_manager
         self.balance_hidden = False
         self.last_total = 0.0
+        self.last_trading = 0.0
 
         self.setWindowFlags(
-            Qt.WindowStaysOnTopHint |
-            Qt.FramelessWindowHint |
-            Qt.Tool
+            Qt.WindowStaysOnTopHint
+            | Qt.FramelessWindowHint
+            | Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
 
-        self.setFixedSize(235, 62)
+        self.setFixedSize(250, 76)
 
         outer_layout = QHBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -36,66 +38,84 @@ class BalanceWidget(QWidget):
         self.container = QWidget(self)
         self.container.setStyleSheet("""
             QWidget {
-                background: rgba(18, 18, 18, 95);
-                border: 1px solid rgba(255, 255, 255, 40);
-                border-radius: 30px;
+                background: rgba(18, 24, 34, 225);
+                border: 1px solid rgba(255, 255, 255, 35);
+                border-radius: 18px;
             }
         """)
 
         inner_layout = QHBoxLayout(self.container)
-        inner_layout.setContentsMargins(12, 6, 8, 6)
-        inner_layout.setSpacing(4)
+        inner_layout.setContentsMargins(12, 8, 8, 8)
+        inner_layout.setSpacing(8)
 
         self.icon_label = QLabel("💰")
         self.icon_label.setAlignment(Qt.AlignCenter)
-        self.icon_label.setFixedSize(28, 36)
+        self.icon_label.setFixedSize(30, 42)
         self.icon_label.setStyleSheet("""
             QLabel {
                 background: transparent;
-                color: white;
-                font-size: 24px;
+                color: #00C087;
+                font-size: 22px;
                 border: none;
             }
         """)
 
+        values_layout = QVBoxLayout()
+        values_layout.setContentsMargins(0, 0, 0, 0)
+        values_layout.setSpacing(1)
+
         self.balance_label = QLabel("$0.00")
-        self.balance_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.balance_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.balance_label.setStyleSheet("""
             QLabel {
                 background: transparent;
                 color: #FFFFFF;
-                font-size: 28px;
-                font-weight: 900;
+                font-size: 23px;
+                font-weight: 800;
                 border: none;
             }
         """)
 
+        self.trading_label = QLabel("Trading  $0.00")
+        self.trading_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.trading_label.setStyleSheet("""
+            QLabel {
+                background: transparent;
+                color: #9AA4B2;
+                font-size: 12px;
+                font-weight: 700;
+                border: none;
+            }
+        """)
+
+        values_layout.addWidget(self.balance_label)
+        values_layout.addWidget(self.trading_label)
+
         self.hide_button = QPushButton("⊙")
-        self.hide_button.setFixedSize(38, 38)
+        self.hide_button.setFixedSize(36, 36)
         self.hide_button.setCursor(Qt.PointingHandCursor)
         self.hide_button.setStyleSheet("""
             QPushButton {
-                background: rgba(255, 255, 255, 35);
+                background: rgba(255, 255, 255, 22);
                 color: #FFFFFF;
-                border: 1px solid rgba(255, 255, 255, 35);
-                border-radius: 19px;
-                font-size: 20px;
+                border: 1px solid rgba(255, 255, 255, 28);
+                border-radius: 18px;
+                font-size: 18px;
                 font-weight: 800;
-                padding-bottom: 2px;
             }
 
             QPushButton:hover {
-                background: rgba(255, 255, 255, 55);
+                background: rgba(255, 255, 255, 42);
             }
 
             QPushButton:pressed {
-                background: rgba(255, 255, 255, 75);
+                background: rgba(255, 255, 255, 62);
             }
         """)
         self.hide_button.clicked.connect(self.toggle_balance)
 
         inner_layout.addWidget(self.icon_label)
-        inner_layout.addWidget(self.balance_label, 1)
+        inner_layout.addLayout(values_layout, 1)
         inner_layout.addWidget(self.hide_button)
 
         outer_layout.addWidget(self.container)
@@ -118,26 +138,31 @@ class BalanceWidget(QWidget):
 
         x = max(
             area.left() + margin,
-            min(pos.x(), area.right() - self.width() - margin)
+            min(pos.x(), area.right() - self.width() - margin),
         )
 
         y = max(
             area.top() + margin,
-            min(pos.y(), area.bottom() - self.height() - margin)
+            min(pos.y(), area.bottom() - self.height() - margin),
         )
 
         return x, y
 
     def on_portfolio_updated(self, portfolio):
-        self.last_total = portfolio["total_usdt"]
+        self.last_total = portfolio.get("total_usdt", 0.0)
+        self.last_trading = portfolio.get("trading_usdt", 0.0)
         self.update_balance()
 
     def update_balance(self):
         if self.balance_hidden:
             self.balance_label.setText("••••••")
+            self.trading_label.setText("Trading  ••••••")
             self.hide_button.setText("○")
         else:
             self.balance_label.setText(f"${self.last_total:,.2f}")
+            self.trading_label.setText(
+                f"Trading  ${self.last_trading:,.2f}"
+            )
             self.hide_button.setText("⊙")
 
     def toggle_balance(self):
@@ -154,7 +179,10 @@ class BalanceWidget(QWidget):
 
     def mouseMoveEvent(self, event):
         if self.dragging:
-            wanted_pos = event.globalPosition().toPoint() - self.offset
+            wanted_pos = (
+                event.globalPosition().toPoint()
+                - self.offset
+            )
             x, y = self.clamp_to_screen(wanted_pos)
             self.move(x, y)
 
