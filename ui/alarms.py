@@ -19,6 +19,9 @@ from services import alarm_service
 
 
 class AlarmsPage(QWidget):
+    TOGGLE_COLUMN = 7
+    DELETE_COLUMN = 8
+
     def __init__(self, data_manager):
         super().__init__()
 
@@ -30,6 +33,7 @@ class AlarmsPage(QWidget):
             "Hedef Fiyat",
             "Koşul",
             "Anlık Fiyat",
+            "Not",
             "Durum",
             "Oluşturulma",
             "Aktif/Pasif",
@@ -72,7 +76,7 @@ class AlarmsPage(QWidget):
         self.symbol_input = QLineEdit()
         self.symbol_input.setPlaceholderText("Coin, örn: BTC")
         self.symbol_input.setMinimumHeight(42)
-        self.symbol_input.setMaximumWidth(220)
+        self.symbol_input.setMaximumWidth(190)
         self.symbol_input.returnPressed.connect(self.create_alarm)
         self.symbol_input.setStyleSheet(self.input_style())
         form_layout.addWidget(self.symbol_input)
@@ -80,7 +84,7 @@ class AlarmsPage(QWidget):
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("Hedef fiyat")
         self.price_input.setMinimumHeight(42)
-        self.price_input.setMaximumWidth(240)
+        self.price_input.setMaximumWidth(210)
 
         price_validator = QDoubleValidator(
             0.00000001,
@@ -89,6 +93,7 @@ class AlarmsPage(QWidget):
             self.price_input,
         )
         price_validator.setNotation(QDoubleValidator.StandardNotation)
+
         self.price_input.setValidator(price_validator)
         self.price_input.returnPressed.connect(self.create_alarm)
         self.price_input.setStyleSheet(self.input_style())
@@ -96,7 +101,7 @@ class AlarmsPage(QWidget):
 
         self.condition_combo = QComboBox()
         self.condition_combo.setMinimumHeight(42)
-        self.condition_combo.setMinimumWidth(190)
+        self.condition_combo.setMinimumWidth(180)
         self.condition_combo.addItem(
             "Üstüne çıkınca",
             alarm_service.CONDITION_ABOVE,
@@ -105,35 +110,17 @@ class AlarmsPage(QWidget):
             "Altına düşünce",
             alarm_service.CONDITION_BELOW,
         )
-        self.condition_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #161B26;
-                color: #FFFFFF;
-                border: 1px solid #2A3342;
-                border-radius: 8px;
-                padding: 0px 14px;
-                font-size: 14px;
-            }
-
-            QComboBox:focus {
-                border: 1px solid #3B82F6;
-            }
-
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
-
-            QComboBox QAbstractItemView {
-                background-color: #161B26;
-                color: #FFFFFF;
-                border: 1px solid #2A3342;
-                selection-background-color: #263246;
-                selection-color: #FFFFFF;
-                outline: none;
-            }
-        """)
+        self.condition_combo.setStyleSheet(self.combo_style())
         form_layout.addWidget(self.condition_combo)
+
+        self.note_input = QLineEdit()
+        self.note_input.setPlaceholderText("İsteğe bağlı not")
+        self.note_input.setMinimumHeight(42)
+        self.note_input.setMinimumWidth(220)
+        self.note_input.setMaxLength(alarm_service.MAX_NOTE_LENGTH)
+        self.note_input.returnPressed.connect(self.create_alarm)
+        self.note_input.setStyleSheet(self.input_style())
+        form_layout.addWidget(self.note_input, 1)
 
         self.add_button = QPushButton("Alarm Oluştur")
         self.add_button.setMinimumSize(130, 42)
@@ -160,7 +147,6 @@ class AlarmsPage(QWidget):
         """)
         form_layout.addWidget(self.add_button)
 
-        form_layout.addStretch()
         layout.addLayout(form_layout)
 
         self.status_label = QLabel("")
@@ -202,20 +188,21 @@ class AlarmsPage(QWidget):
         self.table.verticalHeader().setMinimumSectionSize(46)
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            6,
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.Interactive)
+        header.setSectionResizeMode(
+            self.TOGGLE_COLUMN,
             QHeaderView.Fixed,
         )
-        self.table.horizontalHeader().setSectionResizeMode(
-            7,
+        header.setSectionResizeMode(
+            self.DELETE_COLUMN,
             QHeaderView.Fixed,
         )
 
-        self.table.setColumnWidth(6, 120)
-        self.table.setColumnWidth(7, 75)
+        self.table.setColumnWidth(4, 230)
+        self.table.setColumnWidth(self.TOGGLE_COLUMN, 120)
+        self.table.setColumnWidth(self.DELETE_COLUMN, 75)
 
         self.table.setStyleSheet("""
             QTableWidget {
@@ -234,10 +221,10 @@ class AlarmsPage(QWidget):
                 padding: 12px;
                 border-bottom: 1px solid #263142;
             }
-                                 
+
             QTableWidget::item:hover {
                 background-color: #222634;
-            }                     
+            }
 
             QHeaderView::section:horizontal {
                 background-color: #1E222D;
@@ -306,7 +293,38 @@ class AlarmsPage(QWidget):
                 border: 1px solid #3B82F6;
             }
         """
-    
+
+    @staticmethod
+    def combo_style():
+        return """
+            QComboBox {
+                background-color: #161B26;
+                color: #FFFFFF;
+                border: 1px solid #2A3342;
+                border-radius: 8px;
+                padding: 0px 14px;
+                font-size: 14px;
+            }
+
+            QComboBox:focus {
+                border: 1px solid #3B82F6;
+            }
+
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+
+            QComboBox QAbstractItemView {
+                background-color: #161B26;
+                color: #FFFFFF;
+                border: 1px solid #2A3342;
+                selection-background-color: #263246;
+                selection-color: #FFFFFF;
+                outline: none;
+            }
+        """
+
     def on_table_cell_clicked(self, row, column):
         if row < 0 or row >= len(self.row_alarms):
             return
@@ -314,7 +332,7 @@ class AlarmsPage(QWidget):
         alarm = self.row_alarms[row]
         alarm_id = alarm["id"]
 
-        if column == 6:
+        if column == self.TOGGLE_COLUMN:
             if alarm.get("is_triggered"):
                 return
 
@@ -323,7 +341,7 @@ class AlarmsPage(QWidget):
                 alarm["is_active"],
             )
 
-        elif column == 7:
+        elif column == self.DELETE_COLUMN:
             self.delete_alarm(alarm_id)
 
     def showEvent(self, event):
@@ -349,6 +367,7 @@ class AlarmsPage(QWidget):
         symbol = self.symbol_input.text()
         price_text = self.price_input.text().strip().replace(",", ".")
         condition = self.condition_combo.currentData()
+        note = self.note_input.text().strip()
 
         if not price_text:
             self.set_status(
@@ -367,9 +386,10 @@ class AlarmsPage(QWidget):
             return
 
         success, result = alarm_service.create_alarm(
-            symbol,
-            target_price,
-            condition,
+            symbol=symbol,
+            target_price=target_price,
+            condition=condition,
+            note=note,
         )
 
         if not success:
@@ -380,6 +400,7 @@ class AlarmsPage(QWidget):
 
         self.symbol_input.clear()
         self.price_input.clear()
+        self.note_input.clear()
         self.condition_combo.setCurrentIndex(0)
 
         self.set_status(
@@ -422,139 +443,163 @@ class AlarmsPage(QWidget):
         self.table.clearContents()
         self.table.setRowCount(len(alarms))
 
-        for row, alarm in enumerate(alarms):
-            symbol = alarm["symbol"]
-            target_price = alarm["target_price"]
-            current_price = self.data_manager.get_price(symbol)
+        try:
+            for row, alarm in enumerate(alarms):
+                symbol = alarm["symbol"]
+                target_price = alarm["target_price"]
+                current_price = self.data_manager.get_price(symbol)
 
-            self.table.setItem(
-                row,
-                0,
-                self.create_item(
-                    symbol,
-                    color="#FFFFFF",
-                    bold=True,
-                ),
-            )
-
-            self.table.setItem(
-                row,
-                1,
-                self.create_item(
-                    self.format_price(target_price),
-                    color="#FFFFFF",
-                    bold=True,
-                ),
-            )
-
-            condition_color = (
-                "#00C087"
-                if alarm["condition"] == alarm_service.CONDITION_ABOVE
-                else "#F0B90B"
-            )
-
-            self.table.setItem(
-                row,
-                2,
-                self.create_item(
-                    alarm_service.get_condition_text(
-                        alarm["condition"]
+                self.table.setItem(
+                    row,
+                    0,
+                    self.create_item(
+                        symbol,
+                        color="#FFFFFF",
+                        bold=True,
                     ),
-                    color=condition_color,
-                    bold=True,
-                ),
-            )
+                )
 
-            self.table.setItem(
-                row,
-                3,
-                self.create_item(
-                    self.format_price(current_price),
-                    color="#00C087" if current_price else "#848E9C",
-                    bold=True,
-                ),
-            )
+                self.table.setItem(
+                    row,
+                    1,
+                    self.create_item(
+                        self.format_price(target_price),
+                        color="#FFFFFF",
+                        bold=True,
+                    ),
+                )
 
-            status_text = alarm_service.get_status_text(alarm)
-            status_color = self.get_status_color(alarm)
+                condition_color = (
+                    "#00C087"
+                    if alarm["condition"] == alarm_service.CONDITION_ABOVE
+                    else "#F0B90B"
+                )
 
-            self.table.setItem(
-                row,
-                4,
-                self.create_item(
-                    status_text,
-                    color=status_color,
-                    bold=True,
-                ),
-            )
+                self.table.setItem(
+                    row,
+                    2,
+                    self.create_item(
+                        alarm_service.get_condition_text(
+                            alarm["condition"]
+                        ),
+                        color=condition_color,
+                        bold=True,
+                    ),
+                )
 
-            self.table.setItem(
-                row,
-                5,
-                self.create_item(
-                    self.format_date(alarm.get("created_at")),
-                    color="#C7CDD6",
+                self.table.setItem(
+                    row,
+                    3,
+                    self.create_item(
+                        self.format_price(current_price),
+                        color="#00C087" if current_price else "#848E9C",
+                        bold=True,
+                    ),
+                )
+
+                note = alarm.get("note", "").strip()
+                note_item = self.create_item(
+                    note if note else "-",
+                    color="#C7CDD6" if note else "#848E9C",
                     bold=False,
-                ),
-            )
+                    alignment=Qt.AlignLeft | Qt.AlignVCenter,
+                )
 
-            if alarm.get("is_triggered"):
-                toggle_text = "Tamamlandı"
-                toggle_color = "#848E9C"
+                if note:
+                    note_item.setToolTip(note)
 
-            elif alarm.get("is_active"):
-                toggle_text = "Pasif Et"
-                toggle_color = "#F0B90B"
+                self.table.setItem(row, 4, note_item)
 
-            else:
-                toggle_text = "Aktif Et"
-                toggle_color = "#00C087"
+                status_text = alarm_service.get_status_text(alarm)
+                status_color = self.get_status_color(alarm)
 
-            toggle_item = self.create_item(
-                toggle_text,
-                color=toggle_color,
-                bold=True,
-            )
-            toggle_item.setToolTip(
-                "Alarm durumunu değiştirmek için tıklayın."
-            )
+                self.table.setItem(
+                    row,
+                    5,
+                    self.create_item(
+                        status_text,
+                        color=status_color,
+                        bold=True,
+                    ),
+                )
 
-            self.table.setItem(row, 6, toggle_item)
+                self.table.setItem(
+                    row,
+                    6,
+                    self.create_item(
+                        self.format_date(alarm.get("created_at")),
+                        color="#C7CDD6",
+                        bold=False,
+                    ),
+                )
 
-            delete_item = self.create_item(
-                "×",
-                color="#F6465D",
-                bold=True,
-            )
+                if alarm.get("is_triggered"):
+                    toggle_text = "Tamamlandı"
+                    toggle_color = "#848E9C"
 
-            delete_font = delete_item.font()
-            delete_font.setPointSize(16)
-            delete_font.setBold(False)
-            delete_item.setFont(delete_font)
+                elif alarm.get("is_active"):
+                    toggle_text = "Pasif Et"
+                    toggle_color = "#F0B90B"
 
-            delete_item.setToolTip("Alarmı silmek için tıklayın.")
+                else:
+                    toggle_text = "Aktif Et"
+                    toggle_color = "#00C087"
 
-            self.table.setItem(row, 7, delete_item)
+                toggle_item = self.create_item(
+                    toggle_text,
+                    color=toggle_color,
+                    bold=True,
+                )
+                toggle_item.setToolTip(
+                    "Alarm durumunu değiştirmek için tıklayın."
+                )
 
-        self.table.setUpdatesEnabled(True)
+                self.table.setItem(
+                    row,
+                    self.TOGGLE_COLUMN,
+                    toggle_item,
+                )
 
+                delete_item = self.create_item(
+                    "×",
+                    color="#F6465D",
+                    bold=True,
+                )
+
+                delete_font = delete_item.font()
+                delete_font.setPointSize(16)
+                delete_font.setBold(False)
+                delete_item.setFont(delete_font)
+                delete_item.setToolTip(
+                    "Alarmı silmek için tıklayın."
+                )
+
+                self.table.setItem(
+                    row,
+                    self.DELETE_COLUMN,
+                    delete_item,
+                )
+
+        finally:
+            self.table.setUpdatesEnabled(True)
+
+    @staticmethod
     def create_item(
-        self,
         text: str,
         color: str = "#FFFFFF",
         bold: bool = True,
+        alignment=Qt.AlignCenter,
     ):
-        item = QTableWidgetItem(text)
+        item = QTableWidgetItem(str(text))
         item.setForeground(QColor(color))
-        item.setTextAlignment(Qt.AlignCenter)
+        item.setTextAlignment(alignment)
 
         font = QFont("Segoe UI", 10)
         font.setBold(bold)
         item.setFont(font)
 
-        return item   
+        return item
 
-    
     @staticmethod
     def format_price(price):
         if price is None or price <= 0:
@@ -578,6 +623,7 @@ class AlarmsPage(QWidget):
                 value.replace("Z", "+00:00")
             )
             return date_value.strftime("%d.%m.%Y %H:%M")
+
         except (TypeError, ValueError):
             return "-"
 

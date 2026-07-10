@@ -44,7 +44,7 @@ class WatchlistPage(QWidget):
 
         self.data_manager = data_manager
         self.headers = [
-            "Coin",
+            "Varlık",
             "Anlık Fiyat",
             "Eklenme Fiyatı",
             "Değişim",

@@ -38,7 +38,7 @@ class PortfolioPage(QWidget):
         self.raw_assets_data = []
 
         self.headers = [
-            "Varlık (Coin)",
+            "Varlık",
             "Toplam Değer",
             "Anlık Fiyat",
             "Toplam Miktar",

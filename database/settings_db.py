@@ -38,7 +38,10 @@ def _init_watchlist_table():
 
         if "added_price" not in column_names:
             conn.execute(
-                "ALTER TABLE watchlist_symbols ADD COLUMN added_price REAL"
+                """
+                ALTER TABLE watchlist_symbols
+                ADD COLUMN added_price REAL
+                """
             )
 
 
@@ -51,6 +54,7 @@ def _init_price_alarms_table():
                 target_price REAL NOT NULL,
                 condition TEXT NOT NULL
                     CHECK(condition IN ('above', 'below')),
+                note TEXT NOT NULL DEFAULT '',
                 is_active INTEGER NOT NULL DEFAULT 1
                     CHECK(is_active IN (0, 1)),
                 is_triggered INTEGER NOT NULL DEFAULT 0
@@ -59,6 +63,18 @@ def _init_price_alarms_table():
                 triggered_at TEXT
             )
         """)
+
+        columns = conn.execute(
+            "PRAGMA table_info(price_alarms)"
+        ).fetchall()
+
+        column_names = [column["name"] for column in columns]
+
+        if "note" not in column_names:
+            conn.execute("""
+                ALTER TABLE price_alarms
+                ADD COLUMN note TEXT NOT NULL DEFAULT ''
+            """)
 
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_price_alarms_active
@@ -135,6 +151,7 @@ def add_watchlist_symbol(
                     added_price,
                 ),
             )
+
         return True
 
     except sqlite3.IntegrityError:
@@ -150,9 +167,13 @@ def remove_watchlist_symbol(symbol: str) -> bool:
     try:
         with _get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM watchlist_symbols WHERE symbol = ?",
+                """
+                DELETE FROM watchlist_symbols
+                WHERE symbol = ?
+                """,
                 (normalized,),
             )
+
             return cursor.rowcount > 0
 
     except sqlite3.Error:
@@ -181,7 +202,10 @@ def get_watchlist_items() -> list[dict]:
         with _get_connection() as conn:
             rows = conn.execute(
                 """
-                SELECT symbol, added_price, created_at
+                SELECT
+                    symbol,
+                    added_price,
+                    created_at
                 FROM watchlist_symbols
                 ORDER BY created_at ASC, id ASC
                 """
@@ -204,9 +228,11 @@ def add_price_alarm(
     symbol: str,
     target_price: float,
     condition: str,
+    note: str = "",
 ) -> int | None:
     normalized = _normalize_symbol(symbol)
     normalized_condition = condition.strip().lower()
+    normalized_note = str(note or "").strip()
 
     if not normalized:
         return None
@@ -225,17 +251,19 @@ def add_price_alarm(
                     symbol,
                     target_price,
                     condition,
+                    note,
                     is_active,
                     is_triggered,
                     created_at,
                     triggered_at
                 )
-                VALUES (?, ?, ?, 1, 0, ?, NULL)
+                VALUES (?, ?, ?, ?, 1, 0, ?, NULL)
                 """,
                 (
                     normalized,
                     float(target_price),
                     normalized_condition,
+                    normalized_note,
                     datetime.now(UTC).isoformat(),
                 ),
             )
@@ -256,6 +284,7 @@ def get_price_alarms() -> list[dict]:
                     symbol,
                     target_price,
                     condition,
+                    note,
                     is_active,
                     is_triggered,
                     created_at,
@@ -271,6 +300,7 @@ def get_price_alarms() -> list[dict]:
                     "symbol": row["symbol"],
                     "target_price": row["target_price"],
                     "condition": row["condition"],
+                    "note": row["note"] or "",
                     "is_active": bool(row["is_active"]),
                     "is_triggered": bool(row["is_triggered"]),
                     "created_at": row["created_at"],
@@ -293,6 +323,7 @@ def get_active_price_alarms() -> list[dict]:
                     symbol,
                     target_price,
                     condition,
+                    note,
                     is_active,
                     is_triggered,
                     created_at,
@@ -310,6 +341,7 @@ def get_active_price_alarms() -> list[dict]:
                     "symbol": row["symbol"],
                     "target_price": row["target_price"],
                     "condition": row["condition"],
+                    "note": row["note"] or "",
                     "is_active": bool(row["is_active"]),
                     "is_triggered": bool(row["is_triggered"]),
                     "created_at": row["created_at"],
