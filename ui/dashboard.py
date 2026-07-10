@@ -42,6 +42,8 @@ class DashboardPage(QWidget):
         self.data_manager.portfolio_updated.connect(self.on_portfolio_updated)
         self.data_manager.portfolio_error.connect(self.on_portfolio_error)
 
+        self.refresh()
+
     def refresh(self):
         portfolio = self.data_manager.get_portfolio()
 
