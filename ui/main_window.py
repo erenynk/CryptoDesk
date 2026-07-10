@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
                 title,
                 message,
                 QSystemTrayIcon.Information,
-                10000,
+                60000,
             )
 
         print(
