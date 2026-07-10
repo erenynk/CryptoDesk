@@ -128,7 +128,8 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.dashboard_page)
         self.pages.addWidget(self.portfolio_page)
         self.pages.addWidget(self.watchlist_page)
-        self.pages.addWidget(AlarmsPage())
+        self.alarms_page = AlarmsPage(self.data_manager)
+        self.pages.addWidget(self.alarms_page)
         self.pages.addWidget(SettingsPage())
 
         layout.addWidget(self.pages)
