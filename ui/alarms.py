@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -24,6 +23,7 @@ class AlarmsPage(QWidget):
         super().__init__()
 
         self.data_manager = data_manager
+        self.row_alarms = []
 
         self.headers = [
             "Coin",
@@ -184,9 +184,22 @@ class AlarmsPage(QWidget):
         self.table.setSelectionMode(QTableWidget.NoSelection)
         self.table.setShowGrid(False)
 
-        self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(58)
-        self.table.verticalHeader().setMinimumSectionSize(58)
+        self.table.verticalHeader().setVisible(True)
+        self.table.verticalHeader().setStyleSheet("""
+            QHeaderView::section:vertical {
+                background-color: #161A25;
+                color: #BFD7FF;
+                padding-left: 14px;
+                padding-right: 14px;
+                font-weight: 800;
+                font-size: 14px;
+                border: none;
+                border-right: 1px solid #2A2E39;
+                border-bottom: 1px solid #263142;
+            }
+        """)
+        self.table.verticalHeader().setDefaultSectionSize(46)
+        self.table.verticalHeader().setMinimumSectionSize(46)
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         self.table.horizontalHeader().setSectionResizeMode(
@@ -269,6 +282,8 @@ class AlarmsPage(QWidget):
 
         layout.addWidget(self.table)
 
+        self.table.cellClicked.connect(self.on_table_cell_clicked)
+
         self.load_alarms()
 
     @staticmethod
@@ -287,6 +302,25 @@ class AlarmsPage(QWidget):
                 border: 1px solid #3B82F6;
             }
         """
+    
+    def on_table_cell_clicked(self, row, column):
+        if row < 0 or row >= len(self.row_alarms):
+            return
+
+        alarm = self.row_alarms[row]
+        alarm_id = alarm["id"]
+
+        if column == 6:
+            if alarm.get("is_triggered"):
+                return
+
+            self.toggle_alarm(
+                alarm_id,
+                alarm["is_active"],
+            )
+
+        elif column == 7:
+            self.delete_alarm(alarm_id)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -378,8 +412,10 @@ class AlarmsPage(QWidget):
 
     def load_alarms(self):
         alarms = alarm_service.get_all_alarms()
+        self.row_alarms = alarms
 
         self.table.setUpdatesEnabled(False)
+        self.table.clearContents()
         self.table.setRowCount(len(alarms))
 
         for row, alarm in enumerate(alarms):
@@ -459,23 +495,42 @@ class AlarmsPage(QWidget):
             )
 
             if alarm.get("is_triggered"):
-                triggered_item = self.create_item(
-                    "Tamamlandı",
-                    color="#848E9C",
-                    bold=True,
-                )
-                self.table.setItem(row, 6, triggered_item)
-            else:
-                toggle_widget = self.create_toggle_button(
-                    alarm["id"],
-                    alarm["is_active"],
-                )
-                self.table.setCellWidget(row, 6, toggle_widget)
+                toggle_text = "Tamamlandı"
+                toggle_color = "#848E9C"
 
-            delete_widget = self.create_delete_button(
-                alarm["id"]
+            elif alarm.get("is_active"):
+                toggle_text = "Aktif"
+                toggle_color = "#00C087"
+
+            else:
+                toggle_text = "Pasif"
+                toggle_color = "#F0B90B"
+
+            toggle_item = self.create_item(
+                toggle_text,
+                color=toggle_color,
+                bold=True,
             )
-            self.table.setCellWidget(row, 7, delete_widget)
+            toggle_item.setToolTip(
+                "Alarm durumunu değiştirmek için tıklayın."
+            )
+
+            self.table.setItem(row, 6, toggle_item)
+
+            delete_item = self.create_item(
+                "×",
+                color="#F6465D",
+                bold=True,
+            )
+
+            delete_font = delete_item.font()
+            delete_font.setPointSize(16)
+            delete_font.setBold(False)
+            delete_item.setFont(delete_font)
+
+            delete_item.setToolTip("Alarmı silmek için tıklayın.")
+
+            self.table.setItem(row, 7, delete_item)
 
         self.table.setUpdatesEnabled(True)
 
@@ -493,113 +548,9 @@ class AlarmsPage(QWidget):
         font.setBold(bold)
         item.setFont(font)
 
-        return item
+        return item   
 
-    def create_toggle_button(
-        self,
-        alarm_id: int,
-        is_active: bool,
-    ):
-        container = QWidget()
-        container.setStyleSheet("background: transparent;")
-
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setAlignment(Qt.AlignCenter)
-
-        button = QPushButton(
-            "Aktif" if is_active else "Pasif"
-        )
-        button.setCursor(Qt.PointingHandCursor)
-        button.setFixedSize(88, 34)
-
-        if is_active:
-            background = "#153B32"
-            hover = "#1B4F43"
-            color = "#00C087"
-            border = "#236B59"
-        else:
-            background = "#252A35"
-            hover = "#303744"
-            color = "#848E9C"
-            border = "#3A4251"
-
-        button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {background};
-                color: {color};
-                border: 1px solid {border};
-                border-radius: 7px;
-                padding: 4px 12px;
-                font-size: 12px;
-                font-weight: 700;
-            }}
-
-            QPushButton:hover {{
-                background-color: {hover};
-            }}
-        """)
-
-        button.clicked.connect(
-            lambda _checked=False,
-            selected_id=alarm_id,
-            current=is_active: self.toggle_alarm(
-                selected_id,
-                current,
-            )
-        )
-
-        layout.addWidget(button)
-        return container
-
-    def create_delete_button(self, alarm_id: int):
-        container = QWidget()
-        container.setStyleSheet("background: transparent;")
-
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setAlignment(Qt.AlignCenter)
-
-        button = QToolButton()
-        button.setText("×")
-        button.setToolTip("Alarmı sil")
-        button.setCursor(Qt.PointingHandCursor)
-        button.setFixedSize(36, 34)
-
-        button.setStyleSheet("""
-            QToolButton {
-                background-color: #151D29;
-                color: #F6465D;
-                border: 1px solid #2A3342;
-                border-radius: 7px;
-                font-size: 20px;
-                font-weight: 400;
-                padding: 0px 0px 3px 0px;
-            }
-
-            QToolButton:hover {
-                background-color: #2A1F2A;
-                color: #FF5C6C;
-                border: 1px solid #5A2A35;
-            }
-
-            QToolButton:pressed {
-                background-color: #F6465D;
-                color: #FFFFFF;
-                border: 1px solid #F6465D;
-            }
-        """)
-
-        button.clicked.connect(
-            lambda _checked=False,
-            selected_id=alarm_id: self.delete_alarm(
-                selected_id
-            )
-        )
-
-        layout.addWidget(button)
-        return container
-
+    
     @staticmethod
     def format_price(price):
         if price is None or price <= 0:
