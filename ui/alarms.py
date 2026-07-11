@@ -32,8 +32,8 @@ from ui.theme import (
 
 
 class AlarmsPage(QWidget):
-    TOGGLE_COLUMN = 7
-    DELETE_COLUMN = 8
+    TOGGLE_COLUMN = 8
+    DELETE_COLUMN = 9
 
     def __init__(self, data_manager):
         super().__init__()
@@ -45,6 +45,7 @@ class AlarmsPage(QWidget):
         )
 
         self.headers = [
+            "",
             "Varlık",
             "Hedef Fiyat",
             "Koşul",
@@ -108,7 +109,6 @@ class AlarmsPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="violet",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -217,7 +217,6 @@ class AlarmsPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="violet",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -249,14 +248,20 @@ class AlarmsPage(QWidget):
         self.table.setEditTriggers(
             QTableWidget.NoEditTriggers
         )
+        self.table.setSelectionBehavior(
+            QTableWidget.SelectRows
+        )
         self.table.setSelectionMode(
-            QTableWidget.NoSelection
+            QTableWidget.SingleSelection
         )
         self.table.setShowGrid(False)
         self.table.setWordWrap(False)
 
         horizontal_header = (
             self.table.horizontalHeader()
+        )
+        horizontal_header.setObjectName(
+            "alarmsTableHeader"
         )
         horizontal_header.setFocusPolicy(
             Qt.NoFocus
@@ -272,7 +277,12 @@ class AlarmsPage(QWidget):
             QHeaderView.Stretch
         )
         horizontal_header.setSectionResizeMode(
-            4,
+            0,
+            QHeaderView.Fixed,
+        )
+        self.table.setColumnWidth(0, 54)
+        horizontal_header.setSectionResizeMode(
+            5,
             QHeaderView.Interactive,
         )
         horizontal_header.setSectionResizeMode(
@@ -284,7 +294,7 @@ class AlarmsPage(QWidget):
             QHeaderView.Fixed,
         )
 
-        self.table.setColumnWidth(4, 240)
+        self.table.setColumnWidth(5, 240)
         self.table.setColumnWidth(
             self.TOGGLE_COLUMN,
             110,
@@ -336,15 +346,6 @@ class AlarmsPage(QWidget):
             + f"""
             
                       
-            QWidget#alarmsPage {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #101323,
-                    stop:0.52 #19172B,
-                    stop:1 #241D38
-                );
-            }}
-
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -374,11 +375,8 @@ class AlarmsPage(QWidget):
             }}
 
             QPushButton#conditionButton:hover {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(42,34,70,215),
-                    stop:1 rgba(28,32,54,200)
-                );
+                background-color:
+                    {Theme.CARD_BACKGROUND_HOVER};
                 border-color: {Theme.BORDER_HOVER};
             }}
 
@@ -417,17 +415,36 @@ class AlarmsPage(QWidget):
                     {Theme.CARD_BACKGROUND_HOVER};
             }}
 
-            QHeaderView::section:horizontal {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_SECONDARY};
+            QTableWidget#alarmsTable::item:selected {{
+                color: {Theme.TEXT_PRIMARY};
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 0,
+                    stop: 0 rgba(47, 73, 96, 238),
+                    stop: 1 rgba(31, 57, 75, 228)
+                );
+                border: none;
+            }}
+
+            QHeaderView#alarmsTableHeader {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(17,31,52,250),
+                    stop:1 rgba(10,20,32,250)
+                );
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER};
+            }}
+
+            QHeaderView#alarmsTableHeader::section {{
+                background: transparent;
                 color: {Theme.TEXT_SECONDARY};
                 border: none;
-                border-bottom:
-                    1px solid {Theme.BORDER};
                 padding: 12px 9px;
-                font-family:
-                    "{Theme.FONT_FAMILY}";
-                font-size: 11px;
+                font-family: "{Theme.FONT_FAMILY}";
+                font-size: 13px;
                 font-weight: 700;
             }}
 
@@ -717,17 +734,22 @@ class AlarmsPage(QWidget):
 
     def _populate_alarm_row(self, row, alarm):
         symbol = alarm.get("symbol", "")
-        target_price = alarm.get(
-            "target_price",
-            0.0,
-        )
-        current_price = (
-            self.data_manager.get_price(symbol)
-        )
+        target_price = alarm.get("target_price", 0.0)
+        current_price = self.data_manager.get_price(symbol)
 
         self.table.setItem(
             row,
             0,
+            self.create_item(
+                str(row + 1),
+                color=Theme.TEXT_MUTED,
+                bold=True,
+            ),
+        )
+
+        self.table.setItem(
+            row,
+            1,
             self.create_item(
                 symbol,
                 color=Theme.TEXT_PRIMARY,
@@ -737,7 +759,7 @@ class AlarmsPage(QWidget):
 
         self.table.setItem(
             row,
-            1,
+            2,
             self.create_item(
                 self.format_price(target_price),
                 color=Theme.TEXT_PRIMARY,
@@ -746,21 +768,17 @@ class AlarmsPage(QWidget):
         )
 
         condition = alarm.get("condition")
-
         condition_color = (
             Theme.ACCENT
-            if condition
-            == alarm_service.CONDITION_ABOVE
+            if condition == alarm_service.CONDITION_ABOVE
             else Theme.WARNING
         )
 
         self.table.setItem(
             row,
-            2,
+            3,
             self.create_item(
-                alarm_service.get_condition_text(
-                    condition
-                ),
+                alarm_service.get_condition_text(condition),
                 color=condition_color,
                 bold=True,
             ),
@@ -768,7 +786,7 @@ class AlarmsPage(QWidget):
 
         self.table.setItem(
             row,
-            3,
+            4,
             self.create_item(
                 self.format_price(current_price),
                 color=(
@@ -780,35 +798,26 @@ class AlarmsPage(QWidget):
             ),
         )
 
-        note = str(
-            alarm.get("note", "") or ""
-        ).strip()
-
+        note = str(alarm.get("note", "") or "").strip()
         note_item = self.create_item(
-            note if note else "-",
+            note,
             color=(
                 Theme.TEXT_SECONDARY
                 if note
                 else Theme.TEXT_MUTED
             ),
             bold=False,
-            alignment=(
-                Qt.AlignLeft | Qt.AlignVCenter
-            ),
+            alignment=Qt.AlignLeft | Qt.AlignVCenter,
         )
 
         if note:
             note_item.setToolTip(note)
 
-        self.table.setItem(
-            row,
-            4,
-            note_item,
-        )
+        self.table.setItem(row, 5, note_item)
 
         self.table.setItem(
             row,
-            5,
+            6,
             self.create_item(
                 alarm_service.get_status_text(alarm),
                 color=self.get_status_color(alarm),
@@ -818,20 +827,15 @@ class AlarmsPage(QWidget):
 
         self.table.setItem(
             row,
-            6,
+            7,
             self.create_item(
-                self.format_date(
-                    alarm.get("created_at")
-                ),
+                self.format_date(alarm.get("created_at")),
                 color=Theme.TEXT_SECONDARY,
                 bold=False,
             ),
         )
 
-        toggle_text, toggle_color = (
-            self.get_toggle_display(alarm)
-        )
-
+        toggle_text, toggle_color = self.get_toggle_display(alarm)
         toggle_item = self.create_item(
             toggle_text,
             color=toggle_color,
@@ -850,7 +854,7 @@ class AlarmsPage(QWidget):
         )
 
         delete_item = self.create_item(
-            "Sil",
+            "🗑",
             color=Theme.ERROR,
             bold=True,
         )
@@ -927,4 +931,4 @@ class AlarmsPage(QWidget):
         if alarm.get("is_active"):
             return Theme.ACCENT
 
-        return Theme.WARNING
+        return Theme.ERROR

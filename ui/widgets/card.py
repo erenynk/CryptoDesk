@@ -8,54 +8,82 @@ from ui.theme import Theme
 class Card(QFrame):
     PALETTES = {
         "default": (
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(18,27,38,248),"
-            "stop:0.55 rgba(15,23,33,246),"
-            "stop:1 rgba(12,19,28,246))",
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(23,34,47,252),"
-            "stop:1 rgba(16,25,36,252))",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(25, 38, 52, 250),"
+            "stop:1 rgba(11, 18, 27, 250)"
+            ")",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(24, 35, 48, 252),"
+            "stop:1 rgba(16, 25, 36, 252)"
+            ")",
             Theme.BORDER,
         ),
         "blue": (
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(20,35,63,248),"
-            "stop:0.55 rgba(16,29,48,246),"
-            "stop:1 rgba(13,23,35,246))",
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(25,44,78,252),"
-            "stop:1 rgba(17,31,49,252))",
-            "#294B70",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(31, 55, 91, 250),"
+            "stop:1 rgba(12, 23, 37, 250)"
+            ")",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(29, 49, 81, 252),"
+            "stop:1 rgba(17, 31, 49, 252)"
+            ")",
+            "#2D4E70",
+        ),
+        "blue_dark": (
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(24, 44, 73, 252),"
+            "stop:1 rgba(8, 17, 28, 252)"
+            ")",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(23, 41, 68, 252),"
+            "stop:1 rgba(13, 26, 41, 252)"
+            ")",
+            "#263F5D",
         ),
         "teal": (
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(13,45,50,248),"
-            "stop:0.55 rgba(13,32,40,246),"
-            "stop:1 rgba(12,23,32,246))",
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(16,55,62,252),"
-            "stop:1 rgba(15,35,44,252))",
-            "#245B61",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(19, 63, 68, 250),"
+            "stop:1 rgba(10, 23, 32, 250)"
+            ")",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(18, 57, 63, 252),"
+            "stop:1 rgba(14, 34, 43, 252)"
+            ")",
+            "#285B61",
         ),
         "violet": (
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(37,29,66,248),"
-            "stop:0.55 rgba(26,24,49,246),"
-            "stop:1 rgba(15,22,34,246))",
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(46,36,81,252),"
-            "stop:1 rgba(28,27,52,252))",
-            "#4C4275",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(57, 43, 94, 250),"
+            "stop:1 rgba(15, 21, 34, 250)"
+            ")",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(50, 38, 85, 252),"
+            "stop:1 rgba(29, 28, 54, 252)"
+            ")",
+            "#504575",
         ),
         "indigo": (
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(26,36,64,248),"
-            "stop:0.55 rgba(20,28,47,246),"
-            "stop:1 rgba(14,21,32,246))",
-            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 rgba(33,45,79,252),"
-            "stop:1 rgba(22,31,51,252))",
-            "#394D79",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(42, 58, 96, 250),"
+            "stop:1 rgba(13, 20, 32, 250)"
+            ")",
+            "qlineargradient("
+            "x1:0, y1:0, x2:1, y2:1,"
+            "stop:0 rgba(36, 49, 82, 252),"
+            "stop:1 rgba(23, 32, 52, 252)"
+            ")",
+            "#3C507B",
         ),
     }
 
@@ -69,46 +97,49 @@ class Card(QFrame):
         parent=None,
     ):
         super().__init__(parent)
+
         self.setObjectName(object_name)
         self.setAttribute(Qt.WA_StyledBackground, True)
+
         self._hover = hover
         self._radius = radius
         self._shadow_enabled = shadow
         self._palette = palette if palette in self.PALETTES else "default"
+
         self._update_style()
         self._update_shadow()
 
     def _update_style(self):
         normal, hover, border = self.PALETTES[self._palette]
         name = self.objectName()
+
         style = f"""
             QFrame#{name} {{
                 background: {normal};
                 border: 1px solid {border};
-                border-top-color: rgba(255,255,255,32);
-                border-bottom-color: rgba(0,0,0,105);
                 border-radius: {self._radius}px;
             }}
         """
+
         if self._hover:
             style += f"""
                 QFrame#{name}:hover {{
                     background: {hover};
                     border-color: {Theme.BORDER_HOVER};
-                    border-top-color: rgba(255,255,255,42);
-                    border-bottom-color: rgba(0,0,0,120);
                 }}
             """
+
         self.setStyleSheet(style)
 
     def _update_shadow(self):
         if not self._shadow_enabled:
             self.setGraphicsEffect(None)
             return
+
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(54)
-        shadow.setOffset(0, 2)
-        shadow.setColor(QColor(0, 0, 0, 110))
+        shadow.setBlurRadius(44)
+        shadow.setOffset(0, 1)
+        shadow.setColor(QColor(0, 0, 0, 88))
         self.setGraphicsEffect(shadow)
 
     def set_hover_enabled(self, enabled: bool):
@@ -126,5 +157,6 @@ class Card(QFrame):
     def set_palette(self, palette: str):
         if palette not in self.PALETTES:
             raise ValueError(f"Geçersiz kart paleti: {palette}")
+
         self._palette = palette
         self._update_style()

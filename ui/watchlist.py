@@ -41,6 +41,7 @@ class WatchlistPage(QWidget):
         self.data_manager = data_manager
 
         self.headers = [
+            "",
             "Varlık",
             "Anlık Fiyat",
             "Eklenme Fiyatı",
@@ -101,7 +102,7 @@ class WatchlistPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="teal",
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -159,7 +160,7 @@ class WatchlistPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="teal",
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -185,10 +186,18 @@ class WatchlistPage(QWidget):
 
         self.table.setFocusPolicy(Qt.NoFocus)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionMode(QTableWidget.NoSelection)
+        self.table.setSelectionBehavior(
+            QTableWidget.SelectRows
+        )
+        self.table.setSelectionMode(
+            QTableWidget.SingleSelection
+        )
         self.table.setShowGrid(False)
         self.table.setWordWrap(False)
 
+        self.table.horizontalHeader().setObjectName(
+            "watchlistTableHeader"
+        )
         self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
         self.table.horizontalHeader().setHighlightSections(False)
 
@@ -201,26 +210,18 @@ class WatchlistPage(QWidget):
 
         self.table.horizontalHeader().setSectionResizeMode(
             0,
-            QHeaderView.Stretch,
+            QHeaderView.Fixed,
         )
+        self.table.setColumnWidth(0, 54)
+
+        for column in range(1, 6):
+            self.table.horizontalHeader().setSectionResizeMode(
+                column,
+                QHeaderView.Stretch,
+            )
+
         self.table.horizontalHeader().setSectionResizeMode(
-            1,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            2,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            3,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            4,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            5,
+            6,
             QHeaderView.ResizeToContents,
         )
 
@@ -253,9 +254,8 @@ class WatchlistPage(QWidget):
             QWidget#watchlistPage {{
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0B171C,
-                    stop:0.50 #10252B,
-                    stop:1 #13243A
+                    stop:0 #0A121A,
+                    stop:1 #0D1B25
                 );
             }}
 
@@ -304,14 +304,23 @@ class WatchlistPage(QWidget):
                 );
             }}
 
-            QHeaderView::section:horizontal {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
-                color: {Theme.TEXT_SECONDARY};
+            QHeaderView#watchlistTableHeader {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(17,31,52,250),
+                    stop:1 rgba(10,20,32,250)
+                );
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER};
+            }}
+
+            QHeaderView#watchlistTableHeader::section {{
+                background: transparent;
+                color: {Theme.TEXT_SECONDARY};
+                border: none;
                 padding: 15px 14px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 700;
             }}
 
@@ -326,7 +335,7 @@ class WatchlistPage(QWidget):
             }}
 
             QTableCornerButton::section {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 rgba(14,45,50,248),stop:1 rgba(11,24,33,248));
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER};
             }}
@@ -334,10 +343,10 @@ class WatchlistPage(QWidget):
         )
 
     def on_table_cell_clicked(self, row, column):
-        if column != 5:
+        if column != 6:
             return
 
-        item = self.table.item(row, 0)
+        item = self.table.item(row, 1)
 
         if item is None:
             return
@@ -520,6 +529,11 @@ class WatchlistPage(QWidget):
         self.table.setRowCount(len(items))
 
         for row, item in enumerate(items):
+            index_item = self.make_item(
+                str(row + 1),
+                color=Theme.TEXT_MUTED,
+            )
+
             symbol = watchlist_service.normalize_symbol(
                 item.get("symbol", "")
             )
@@ -540,6 +554,12 @@ class WatchlistPage(QWidget):
             self.table.setItem(
                 row,
                 0,
+                index_item,
+            )
+
+            self.table.setItem(
+                row,
+                1,
                 self.make_item(
                     symbol,
                     color=Theme.TEXT_PRIMARY,
@@ -548,7 +568,7 @@ class WatchlistPage(QWidget):
 
             self.table.setItem(
                 row,
-                1,
+                2,
                 self.make_item(
                     self.format_price(current_price),
                     color=Theme.ACCENT,
@@ -557,7 +577,7 @@ class WatchlistPage(QWidget):
 
             self.table.setItem(
                 row,
-                2,
+                3,
                 self.make_item(
                     self.format_price(added_price),
                     color=Theme.TEXT_PRIMARY,
@@ -566,7 +586,7 @@ class WatchlistPage(QWidget):
 
             self.table.setItem(
                 row,
-                3,
+                4,
                 self.make_item(
                     change_text,
                     color=change_color,
@@ -575,7 +595,7 @@ class WatchlistPage(QWidget):
 
             self.table.setItem(
                 row,
-                4,
+                5,
                 self.make_item(
                     self.format_date(created_at),
                     color=Theme.TEXT_SECONDARY,
@@ -584,7 +604,7 @@ class WatchlistPage(QWidget):
 
             self.table.setItem(
                 row,
-                5,
+                6,
                 self.make_item(
                     "Kaldır",
                     color=Theme.ERROR,

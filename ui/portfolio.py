@@ -57,7 +57,7 @@ class PortfolioPage(QWidget):
             "Toplam Değer",
             "Anlık Fiyat",
             "Toplam Miktar",
-            "Kullanılabilir Miktar",
+            "PnL",
         ]
 
         self.setObjectName("portfolioPage")
@@ -130,7 +130,7 @@ class PortfolioPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_XLARGE,
             shadow=True,
-            palette="blue",
+            palette="blue_dark",
         )
         card.setMinimumHeight(176)
         card.setSizePolicy(
@@ -170,14 +170,38 @@ class PortfolioPage(QWidget):
             object_name="portfolioConnectionBadge",
         )
 
-        
-        
+        pnl_container = QWidget()
+        pnl_container.setObjectName("dailyPnlContainer")
+
+        pnl_layout = QVBoxLayout(pnl_container)
+        pnl_layout.setContentsMargins(0, 0, 0, 0)
+        pnl_layout.setSpacing(6)
+
+        pnl_title = QLabel("GÜNLÜK PNL")
+        pnl_title.setObjectName("dailyPnlTitle")
+        pnl_title.setAlignment(Qt.AlignRight)
+
+        self.daily_pnl_label = QLabel("—")
+        self.daily_pnl_label.setObjectName("dailyPnlValue")
+        self.daily_pnl_label.setAlignment(Qt.AlignRight)
+        self.daily_pnl_label.setTextInteractionFlags(
+            Qt.TextSelectableByMouse
+        )
+
+        pnl_layout.addWidget(
+            self.connection_badge,
+            0,
+            Qt.AlignRight,
+        )
+        pnl_layout.addStretch()
+        pnl_layout.addWidget(pnl_title)
+        pnl_layout.addWidget(self.daily_pnl_label)
 
         layout.addLayout(balance_layout, 1)
         layout.addWidget(
-            self.connection_badge,
+            pnl_container,
             0,
-            Qt.AlignTop | Qt.AlignRight,
+            Qt.AlignRight | Qt.AlignVCenter,
         )
 
         return card
@@ -188,7 +212,7 @@ class PortfolioPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="blue",
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -222,6 +246,9 @@ class PortfolioPage(QWidget):
         self.table.setShowGrid(False)
         self.table.setWordWrap(False)
 
+        self.table.horizontalHeader().setObjectName(
+            "portfolioTableHeader"
+        )
         self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
         self.table.horizontalHeader().setHighlightSections(False)
         self.table.horizontalHeader().setStretchLastSection(False)
@@ -281,9 +308,8 @@ class PortfolioPage(QWidget):
             QWidget#portfolioPage {{
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0B1320,
-                    stop:0.52 #0E1B29,
-                    stop:1 #10272C
+                    stop:0 #0A121A,
+                    stop:1 #0D1B25
                 );
             }}
 
@@ -304,6 +330,25 @@ class PortfolioPage(QWidget):
                 color: {Theme.TEXT_MUTED};
                 font-size: 12px;
                 font-weight: 400;
+            }}
+
+            QWidget#dailyPnlContainer {{
+                background: transparent;
+                border: none;
+                min-width: 150px;
+            }}
+
+            QLabel#dailyPnlTitle {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1px;
+            }}
+
+            QLabel#dailyPnlValue {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 24px;
+                font-weight: 700;
             }}
 
                        
@@ -327,27 +372,39 @@ class PortfolioPage(QWidget):
             }}
 
             QTableWidget#portfolioTable::item:hover {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(24,44,63,210),
-                    stop:1 rgba(20,54,56,190)
-                );
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 rgba(27,47,76,220),stop:1 rgba(19,34,52,205));
             }}
 
             QTableWidget#portfolioTable::item:selected {{
                 color: {Theme.TEXT_PRIMARY};
-                background-color: rgba(24, 39, 34, 225);
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 0,
+                    stop: 0 rgba(47, 73, 96, 238),
+                    stop: 1 rgba(31, 57, 75, 228)
+                );
                 border: none;
             }}
 
-            QHeaderView::section:horizontal {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
-                color: {Theme.TEXT_SECONDARY};
+            QHeaderView#portfolioTableHeader {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(17,31,52,250),
+                    stop:1 rgba(10,20,32,250)
+                );
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER};
+            }}
+
+            QHeaderView#portfolioTableHeader::section {{
+                background: transparent;
+                color: {Theme.TEXT_SECONDARY};
+                border: none;
                 padding: 14px 12px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 700;
             }}
 
@@ -369,7 +426,7 @@ class PortfolioPage(QWidget):
             }}
 
             QTableCornerButton::section {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 rgba(22,38,65,248),stop:1 rgba(13,24,38,248));
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER};
             }}
@@ -442,6 +499,7 @@ class PortfolioPage(QWidget):
                 [],
             )
 
+            self._update_daily_pnl(portfolio)
             self.update_table_view()
             self._set_connected_state()
 
@@ -503,6 +561,95 @@ class PortfolioPage(QWidget):
 
         return "$0.00"
 
+    @staticmethod
+    def _extract_percentage(data, keys):
+        for key in keys:
+            value = data.get(key)
+
+            if isinstance(value, (int, float)):
+                return float(value)
+
+            if isinstance(value, str):
+                try:
+                    return float(value.replace("%", "").strip())
+                except ValueError:
+                    continue
+
+        return None
+
+    def _get_asset_pnl_percent(self, asset):
+        direct = self._extract_percentage(
+            asset,
+            (
+                "pnl_percent",
+                "pnl_pct",
+                "profit_percent",
+                "change_24h",
+                "change24h",
+                "daily_change_percent",
+            ),
+        )
+
+        if direct is not None:
+            return direct
+
+        current_price = float(asset.get("price", 0.0) or 0.0)
+
+        for key in (
+            "average_price",
+            "avg_price",
+            "cost_price",
+            "entry_price",
+        ):
+            cost_price = asset.get(key)
+
+            if not isinstance(cost_price, (int, float)):
+                continue
+
+            cost_price = float(cost_price)
+
+            if current_price > 0 and cost_price > 0:
+                return (
+                    (current_price - cost_price)
+                    / cost_price
+                    * 100
+                )
+
+        return None
+
+    def _update_daily_pnl(self, portfolio):
+        performance = portfolio.get("performance", {})
+        daily_pnl = None
+
+        if isinstance(performance, dict):
+            daily_pnl = self._extract_percentage(
+                performance,
+                ("1d", "daily", "day"),
+            )
+
+        if daily_pnl is None:
+            daily_pnl = self._extract_percentage(
+                portfolio,
+                (
+                    "daily_pnl_percent",
+                    "pnl_1d",
+                    "change_1d",
+                ),
+            )
+
+        if daily_pnl is None:
+            self.daily_pnl_label.setText("—")
+            self.daily_pnl_label.setStyleSheet(
+                f"color: {Theme.TEXT_MUTED};"
+            )
+            return
+
+        color = Theme.ACCENT if daily_pnl >= 0 else Theme.ERROR
+        self.daily_pnl_label.setText(f"{daily_pnl:+.2f}%")
+        self.daily_pnl_label.setStyleSheet(
+            f"color: {color};"
+        )
+
     def update_table_view(self):
         self.table.setSortingEnabled(False)
         self.table.setUpdatesEnabled(False)
@@ -552,10 +699,18 @@ class PortfolioPage(QWidget):
                 ),
             )
 
-            available_item = NumericTableWidgetItem(
-                asset.get("available", 0.0),
-                self.format_amount(
-                    asset.get("available", 0.0)
+            pnl_percent = self._get_asset_pnl_percent(asset)
+
+            pnl_item = NumericTableWidgetItem(
+                (
+                    pnl_percent
+                    if pnl_percent is not None
+                    else 0.0
+                ),
+                (
+                    f"{pnl_percent:+.2f}%"
+                    if pnl_percent is not None
+                    else "—"
                 ),
             )
 
@@ -576,8 +731,17 @@ class PortfolioPage(QWidget):
             total_item.setForeground(
                 QColor(Theme.TEXT_SECONDARY)
             )
-            available_item.setForeground(
-                QColor(Theme.TEXT_SECONDARY)
+            pnl_item.setForeground(
+                QColor(
+                    Theme.ACCENT
+                    if pnl_percent is not None
+                    and pnl_percent >= 0
+                    else (
+                        Theme.ERROR
+                        if pnl_percent is not None
+                        else Theme.TEXT_MUTED
+                    )
+                )
             )
             price_item.setForeground(
                 QColor(Theme.TEXT_PRIMARY)
@@ -588,7 +752,7 @@ class PortfolioPage(QWidget):
 
             for item in (
                 total_item,
-                available_item,
+                pnl_item,
                 price_item,
                 value_item,
             ):
@@ -603,7 +767,7 @@ class PortfolioPage(QWidget):
             self.table.setItem(row, 2, value_item)
             self.table.setItem(row, 3, price_item)
             self.table.setItem(row, 4, total_item)
-            self.table.setItem(row, 5, available_item)
+            self.table.setItem(row, 5, pnl_item)
 
         self.asset_count_label.setText(
             f"{len(visible_assets)} farklı kripto varlık listeleniyor"
