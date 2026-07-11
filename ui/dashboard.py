@@ -113,46 +113,7 @@ class DashboardPage(QWidget):
 
         self._set_layout_mode("wide")
 
-    def _create_header(self):
-        header = QWidget()
-        header.setObjectName("headerWidget")
-
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(5)
-
-        title = QLabel("Dashboard")
-        title.setObjectName("pageTitle")
-
-        subtitle = QLabel(
-            "Portföy durumunu ve hesap dağılımını "
-            "tek ekrandan takip et."
-        )
-        subtitle.setObjectName("pageSubtitle")
-        subtitle.setWordWrap(True)
-
-        title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-
-        self.status_badge = StatusBadge(
-            text="Bekleniyor",
-            status=StatusBadge.NEUTRAL,
-            object_name="dashboardStatusBadge",
-        )
-
-        layout.addLayout(title_layout, 1)
-        layout.addWidget(
-            self.status_badge,
-            0,
-            Qt.AlignTop | Qt.AlignRight,
-        )
-
-        return header
-
+    
     def _create_portfolio_card(self):
         card = Card("portfolioCard")        
         card.setSizePolicy(
@@ -440,8 +401,7 @@ class DashboardPage(QWidget):
                 background-color: {self.BACKGROUND_COLOR};
             }}
 
-            QWidget#dashboardContent,
-            QWidget#headerWidget,
+            QWidget#dashboardContent,            
             QWidget#summaryContainer,
             QWidget#accountContainer {{
                 background: transparent;
