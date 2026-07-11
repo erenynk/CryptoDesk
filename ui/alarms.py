@@ -4,6 +4,7 @@ from ui.widgets.card import Card
 from ui.widgets.input import AppLineEdit
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
+from ui.widgets.page_header import PageHeader
 from ui.widgets.status_badge import StatusBadge
 from PySide6.QtWidgets import (
     QFrame,
@@ -84,44 +85,21 @@ class AlarmsPage(QWidget):
         main_layout.addWidget(table_card, 1)
 
     def _create_header(self):
-        header = QWidget()
-        header.setObjectName("alarmsHeader")
-
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(5)
-
-        title = QLabel("Alarmlar")
-        title.setObjectName("pageTitle")
-
-        subtitle = QLabel(
-            "OKX Spot varlıkları için hedef fiyat "
-            "bildirimlerini yönet."
-        )
-        subtitle.setObjectName("pageSubtitle")
-        subtitle.setWordWrap(True)
-
-        title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-
         self.alarm_count_badge = StatusBadge(
             text="0 aktif alarm",
             status=StatusBadge.NEUTRAL,
             object_name="alarmCountBadge",
         )
 
-        layout.addLayout(title_layout, 1)
-        layout.addWidget(
-            self.alarm_count_badge,
-            0,
-            Qt.AlignTop | Qt.AlignRight,
+        return PageHeader(
+            title="Alarmlar",
+            subtitle=(
+                "OKX Spot varlıkları için hedef fiyat "
+                "bildirimlerini yönet."
+            ),
+            right_widget=self.alarm_count_badge,
+            object_name="alarmsHeader",
         )
-
-        return header
 
     def _create_form_card(self):
         card = Card(
@@ -375,11 +353,7 @@ class AlarmsPage(QWidget):
             + page_title_style()            
             + scroll_bar_style()
             + f"""
-            QWidget#alarmsHeader {{
-                background: transparent;
-                border: none;
-            }}
-
+            
                       
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
