@@ -4,6 +4,7 @@ from ui.widgets.button import AppButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from ui.widgets.input import AppLineEdit
+from ui.widgets.status_badge import StatusBadge
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -99,26 +100,11 @@ class WatchlistPage(QWidget):
         title_layout.addWidget(title)
         title_layout.addWidget(subtitle)
 
-        self.asset_count_badge = QFrame()
-        self.asset_count_badge.setObjectName("assetCountBadge")
-        self.asset_count_badge.setSizePolicy(
-            QSizePolicy.Fixed,
-            QSizePolicy.Fixed,
+        self.asset_count_badge = StatusBadge(
+            text="0 varlık",
+            status=StatusBadge.NEUTRAL,
+            object_name="assetCountBadge",
         )
-
-        badge_layout = QHBoxLayout(self.asset_count_badge)
-        badge_layout.setContentsMargins(12, 7, 12, 7)
-        badge_layout.setSpacing(8)
-
-        self.asset_count_dot = QLabel()
-        self.asset_count_dot.setObjectName("assetCountDot")
-        self.asset_count_dot.setFixedSize(8, 8)
-
-        self.asset_count_label = QLabel("0 varlık")
-        self.asset_count_label.setObjectName("assetCountText")
-
-        badge_layout.addWidget(self.asset_count_dot)
-        badge_layout.addWidget(self.asset_count_label)
 
         layout.addLayout(title_layout, 1)
         layout.addWidget(
@@ -299,24 +285,7 @@ class WatchlistPage(QWidget):
                 border: none;
             }}
 
-            QFrame#assetCountBadge {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
-                border: 1px solid {Theme.BORDER};
-                border-radius: 15px;
-            }}
-
-            QLabel#assetCountDot {{
-                background-color: {Theme.ACCENT};
-                border-radius: 4px;
-            }}
-
-            QLabel#assetCountText {{
-                color: {Theme.TEXT_SECONDARY};
-                font-size: 12px;
-                font-weight: 600;
-            }}
-
-            
+                        
             QLabel#addCardTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -664,6 +633,13 @@ class WatchlistPage(QWidget):
 
         self.table.setUpdatesEnabled(True)
 
-        self.asset_count_label.setText(
-            f"{len(items)} varlık"
+        count = len(items)
+
+        self.asset_count_badge.set_status(
+            f"{count} varlık",
+            (
+                StatusBadge.SUCCESS
+                if count > 0
+                else StatusBadge.NEUTRAL
+            ),
         )
