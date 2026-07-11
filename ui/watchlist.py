@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from ui.widgets.input import AppLineEdit
 from ui.widgets.status_badge import StatusBadge
+from ui.widgets.page_header import PageHeader
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -77,43 +78,21 @@ class WatchlistPage(QWidget):
         main_layout.addWidget(table_card, 1)
 
     def _create_header(self):
-        header = QWidget()
-        header.setObjectName("watchlistHeader")
-
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(5)
-
-        title = QLabel("Watchlist")
-        title.setObjectName("pageTitle")
-
-        subtitle = QLabel(
-            "Takip etmek istediğin OKX Spot varlıklarını yönet."
-        )
-        subtitle.setObjectName("pageSubtitle")
-        subtitle.setWordWrap(True)
-
-        title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-
         self.asset_count_badge = StatusBadge(
             text="0 varlık",
             status=StatusBadge.NEUTRAL,
             object_name="assetCountBadge",
         )
 
-        layout.addLayout(title_layout, 1)
-        layout.addWidget(
-            self.asset_count_badge,
-            0,
-            Qt.AlignTop | Qt.AlignRight,
+        return PageHeader(
+            title="Watchlist",
+            subtitle=(
+                "Takip etmek istediğin OKX Spot "
+                "varlıklarını yönet."
+            ),
+            right_widget=self.asset_count_badge,
+            object_name="watchlistHeader",
         )
-
-        return header
 
     def _create_add_card(self):
         card = Card(
@@ -280,10 +259,7 @@ class WatchlistPage(QWidget):
             + page_title_style()
                     + scroll_bar_style()
             + f"""
-            QWidget#watchlistHeader {{
-                background: transparent;
-                border: none;
-            }}
+            
 
                         
             QLabel#addCardTitle {{
