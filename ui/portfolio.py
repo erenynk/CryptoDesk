@@ -52,6 +52,7 @@ class PortfolioPage(QWidget):
         self.raw_assets_data = []
 
         self.headers = [
+            "#",
             "Varlık",
             "Toplam Değer",
             "Anlık Fiyat",
@@ -128,15 +129,16 @@ class PortfolioPage(QWidget):
             "portfolioSummaryCard",
             hover=False,
             radius=Theme.RADIUS_XLARGE,
+            shadow=True,
         )
-        card.setMinimumHeight(150)
+        card.setMinimumHeight(176)
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
         layout = QHBoxLayout(card)
-        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setContentsMargins(28, 26, 28, 26)
         layout.setSpacing(24)
 
         balance_layout = QVBoxLayout()
@@ -184,6 +186,7 @@ class PortfolioPage(QWidget):
             "portfolioTableCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -206,7 +209,7 @@ class PortfolioPage(QWidget):
         self.table = QTableWidget()
         self.table.setObjectName("portfolioTable")
         self.table.setFocusPolicy(Qt.NoFocus)
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(len(self.headers))
         self.table.setHorizontalHeaderLabels(self.headers)
 
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -223,27 +226,19 @@ class PortfolioPage(QWidget):
 
         self.table.horizontalHeader().setSectionResizeMode(
             0,
-            QHeaderView.Stretch,
+            QHeaderView.Fixed,
         )
-        self.table.horizontalHeader().setSectionResizeMode(
-            1,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            2,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            3,
-            QHeaderView.Stretch,
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            4,
-            QHeaderView.Stretch,
-        )
+        self.table.setColumnWidth(0, 58)
+
+        for column in range(1, len(self.headers)):
+            self.table.horizontalHeader().setSectionResizeMode(
+                column,
+                QHeaderView.Stretch,
+            )
 
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(52)
+        self.table.verticalHeader().setDefaultSectionSize(60)
+        self.table.verticalHeader().setMinimumSectionSize(60)
 
         layout.addWidget(table_header)
         layout.addWidget(self.table, 1)
@@ -290,7 +285,7 @@ class PortfolioPage(QWidget):
 
             QLabel#summaryValue {{
                 color: {Theme.ACCENT};
-                font-size: 34px;
+                font-size: 40px;
                 font-weight: 700;
             }}
 
@@ -317,16 +312,16 @@ class PortfolioPage(QWidget):
                 background-color: transparent;
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER_SOFT};
-                padding: 11px 12px;
+                padding: 14px 12px;
             }}
 
             QTableWidget#portfolioTable::item:hover {{
-                background-color: {Theme.CARD_BACKGROUND_HOVER};
+                background-color: rgba(24, 34, 46, 210);
             }}
 
             QTableWidget#portfolioTable::item:selected {{
                 color: {Theme.TEXT_PRIMARY};
-                background-color: #1B2530;
+                background-color: rgba(24, 39, 34, 225);
                 border: none;
             }}
 
@@ -335,7 +330,7 @@ class PortfolioPage(QWidget):
                 color: {Theme.TEXT_SECONDARY};
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER};
-                padding: 12px;
+                padding: 14px 12px;
                 font-family: "{Theme.FONT_FAMILY}";
                 font-size: 11px;
                 font-weight: 700;
@@ -424,7 +419,7 @@ class PortfolioPage(QWidget):
             )
 
             self.total_balance_label.setText(
-                f"${total:,.2f} USDT"
+                f"${total:,.2f}"
             )
 
             self.raw_assets_data = portfolio.get(
@@ -511,6 +506,16 @@ class PortfolioPage(QWidget):
         self.table.setRowCount(len(visible_assets))
 
         for row, asset in enumerate(visible_assets):
+            index_item = QTableWidgetItem(f"{row + 1:02d}")
+            index_item.setForeground(
+                QColor(Theme.TEXT_MUTED)
+            )
+            index_item.setTextAlignment(Qt.AlignCenter)
+
+            index_font = QFont(Theme.FONT_FAMILY, 10)
+            index_font.setBold(True)
+            index_item.setFont(index_font)
+
             coin_item = QTableWidgetItem(
                 asset.get("coin", "")
             )
@@ -578,11 +583,12 @@ class PortfolioPage(QWidget):
                 item_font.setBold(True)
                 item.setFont(item_font)
 
-            self.table.setItem(row, 0, coin_item)
-            self.table.setItem(row, 1, value_item)
-            self.table.setItem(row, 2, price_item)
-            self.table.setItem(row, 3, total_item)
-            self.table.setItem(row, 4, available_item)
+            self.table.setItem(row, 0, index_item)
+            self.table.setItem(row, 1, coin_item)
+            self.table.setItem(row, 2, value_item)
+            self.table.setItem(row, 3, price_item)
+            self.table.setItem(row, 4, total_item)
+            self.table.setItem(row, 5, available_item)
 
         self.asset_count_label.setText(
             f"{len(visible_assets)} farklı kripto varlık listeleniyor"
