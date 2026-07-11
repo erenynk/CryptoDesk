@@ -1,14 +1,14 @@
 from datetime import datetime
 from ui.widgets.card import Card
+from ui.widgets.button import AppButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
+from ui.widgets.input import AppLineEdit
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
-    QLineEdit,
-    QPushButton,
+    QLabel,    
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -22,7 +22,6 @@ from ui.theme import (
     label_style,
     page_style,
     page_title_style,
-    primary_button_style,
     scroll_bar_style,
 )
 
@@ -159,16 +158,17 @@ class WatchlistPage(QWidget):
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(10)
 
-        self.symbol_input = QLineEdit()
-        self.symbol_input.setObjectName("symbolInput")
-        self.symbol_input.setPlaceholderText("Örnek: BTC")
-        self.symbol_input.setMinimumHeight(42)
+        self.symbol_input = AppLineEdit(
+            placeholder="Örnek: BTC",
+            object_name="symbolInput",
+        )
         self.symbol_input.setClearButtonEnabled(True)
 
-        self.add_button = QPushButton("Watchlist'e Ekle")
-        self.add_button.setObjectName("addButton")
-        self.add_button.setMinimumHeight(42)
-        self.add_button.setCursor(Qt.PointingHandCursor)
+        self.add_button = AppButton(
+            "Watchlist'e Ekle",
+            variant=AppButton.PRIMARY,
+            object_name="addButton",
+        )
 
         input_layout.addWidget(self.symbol_input, 1)
         input_layout.addWidget(self.add_button)
@@ -292,8 +292,7 @@ class WatchlistPage(QWidget):
             page_style("watchlistPage")
             + label_style()
             + page_title_style()
-            + primary_button_style("addButton")
-            + scroll_bar_style()
+                    + scroll_bar_style()
             + f"""
             QWidget#watchlistHeader {{
                 background: transparent;
@@ -329,40 +328,8 @@ class WatchlistPage(QWidget):
                 font-size: 12px;
                 font-weight: 400;
             }}
-
-            QLineEdit#symbolInput {{
-                background-color: #10161D;
-                color: #F3F5F7;
-                border: 1px solid #28313D;
-                border-radius: 10px;
-                padding-left: 14px;
-                padding-right: 14px;
-                font-family: "Segoe UI";
-                font-size: 13px;
-                font-weight: 500;
-            }}
-
-            QLineEdit#symbolInput:hover {{
-                border-color: #3A4654;
-            }}
-
-            QLineEdit#symbolInput:focus {{
-                border: 1px solid #16C784;
-            
-            }}
-
-            QLineEdit#symbolInput:hover {{
-                border-color: {Theme.BORDER_HOVER};
-            }}
-
-            QLineEdit#symbolInput:focus {{
-                border-color: {Theme.ACCENT};
-            }}
-
-            QLineEdit#symbolInput::placeholder {{
-                color: {Theme.TEXT_MUTED};
-            }}
-
+                   
+                       
             QLabel#statusLabel {{
                 color: {Theme.TEXT_SECONDARY};
                 font-size: 12px;
