@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt
 from ui.widgets.card import Card
 from ui.widgets.status_badge import StatusBadge
 from ui.widgets.page_header import PageHeader
+from ui.theme import Theme, scroll_bar_style
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -15,17 +16,16 @@ from PySide6.QtWidgets import (
 
 
 class DashboardPage(QWidget):
-    BACKGROUND_COLOR = "#0D1117"
-    CARD_COLOR = "#151B23"
-    CARD_HOVER_COLOR = "#18202A"
-    CARD_BORDER_COLOR = "#28313D"
+    BACKGROUND_COLOR = Theme.CONTENT_BACKGROUND
+    CARD_COLOR = Theme.CARD_BACKGROUND
+    CARD_HOVER_COLOR = Theme.CARD_BACKGROUND_HOVER
+    CARD_BORDER_COLOR = Theme.BORDER
 
-    TEXT_PRIMARY = "#F3F5F7"
-    TEXT_SECONDARY = "#9AA4B2"
-    TEXT_MUTED = "#667180"
+    TEXT_PRIMARY = Theme.TEXT_PRIMARY
+    TEXT_SECONDARY = Theme.TEXT_SECONDARY
+    TEXT_MUTED = Theme.TEXT_MUTED
 
-    ACCENT_GREEN = "#16C784"
-    
+    ACCENT_GREEN = Theme.ACCENT
 
     RESPONSIVE_BREAKPOINT = 900
 
@@ -71,8 +71,13 @@ class DashboardPage(QWidget):
         )
 
         self.main_layout = QVBoxLayout(self.content_widget)
-        self.main_layout.setContentsMargins(32, 28, 32, 32)
-        self.main_layout.setSpacing(24)
+        self.main_layout.setContentsMargins(
+            Theme.PAGE_MARGIN_HORIZONTAL,
+            Theme.PAGE_MARGIN_VERTICAL,
+            Theme.PAGE_MARGIN_HORIZONTAL,
+            Theme.PAGE_MARGIN_VERTICAL,
+        )
+        self.main_layout.setSpacing(Theme.PAGE_SPACING)
 
         self.status_badge = StatusBadge(
             text="Bekleniyor",
@@ -339,12 +344,12 @@ class DashboardPage(QWidget):
 
         else:
             self.main_layout.setContentsMargins(
-                32,
-                28,
-                32,
-                32,
+                Theme.PAGE_MARGIN_HORIZONTAL,
+                Theme.PAGE_MARGIN_VERTICAL,
+                Theme.PAGE_MARGIN_HORIZONTAL,
+                Theme.PAGE_MARGIN_VERTICAL,
             )
-            self.main_layout.setSpacing(24)
+            self.main_layout.setSpacing(Theme.PAGE_SPACING)
 
             self.account_grid.addWidget(
                 self.account_widgets[0],
@@ -387,7 +392,8 @@ class DashboardPage(QWidget):
 
     def _apply_styles(self):
         self.setStyleSheet(
-            f"""
+            scroll_bar_style()
+            + f"""
             QWidget#dashboardPage {{
                 background-color: {self.BACKGROUND_COLOR};
             }}
@@ -412,7 +418,7 @@ class DashboardPage(QWidget):
                 background: transparent;
                 border: none;
                 color: {self.TEXT_PRIMARY};
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
             }}
 
             QLabel#pageTitle {{
@@ -449,7 +455,7 @@ class DashboardPage(QWidget):
 
             QLabel#currencyBadge {{
                 color: {self.TEXT_SECONDARY};
-                background-color: #10161D;
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
                 border: 1px solid {self.CARD_BORDER_COLOR};
                 border-radius: 9px;
                 font-size: 11px;
@@ -474,8 +480,9 @@ class DashboardPage(QWidget):
             }}
 
             QFrame#accountBox:hover {{
-                background-color: #141C24;
-                border-color: #2D3946;
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+                border-color: {Theme.BORDER_HOVER};
+            
             }}
 
             QLabel#accountTitle {{
@@ -504,7 +511,7 @@ class DashboardPage(QWidget):
 
             QFrame#summaryCard:hover {{
                 background-color: {self.CARD_HOVER_COLOR};
-                border-color: #354252;
+                border-color: {Theme.BORDER_HOVER};
             }}
 
             QLabel#summaryTitle {{
@@ -525,33 +532,7 @@ class DashboardPage(QWidget):
                 font-weight: 600;
             }}
 
-            QScrollBar:vertical {{
-                background: transparent;
-                width: 10px;
-                margin: 6px 2px 6px 2px;
-            }}
-
-            QScrollBar::handle:vertical {{
-                background-color: #2B3541;
-                min-height: 36px;
-                border-radius: 4px;
-            }}
-
-            QScrollBar::handle:vertical:hover {{
-                background-color: #3A4654;
-            }}
-
-            QScrollBar::add-line:vertical,
-            QScrollBar::sub-line:vertical {{
-                height: 0;
-                background: transparent;
-                border: none;
-            }}
-
-            QScrollBar::add-page:vertical,
-            QScrollBar::sub-page:vertical {{
-                background: transparent;
-            }}
+            
             """
         )
 
