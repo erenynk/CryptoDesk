@@ -1,5 +1,7 @@
 from PySide6.QtCore import Qt
 from ui.widgets.card import Card
+from ui.widgets.button import AppButton
+from ui.widgets.input import AppLineEdit
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -20,10 +22,9 @@ from ui.theme import (
     Theme,
     label_style,
     page_style,
-    page_title_style,
-    primary_button_style,
+    page_title_style,    
     scroll_bar_style,
-    secondary_button_style,
+    
 )
 
 
@@ -173,15 +174,17 @@ class SettingsPage(QWidget):
         button_layout.setContentsMargins(0, 2, 0, 0)
         button_layout.setSpacing(10)
 
-        self.test_button = QPushButton("Bağlantıyı Test Et")
-        self.test_button.setObjectName("testButton")
-        self.test_button.setMinimumHeight(42)
-        self.test_button.setCursor(Qt.PointingHandCursor)
+        self.test_button = AppButton(
+            "Bağlantıyı Test Et",
+            variant=AppButton.SECONDARY,
+            object_name="testButton",
+        )
 
-        self.save_button = QPushButton("Ayarları Kaydet")
-        self.save_button.setObjectName("saveButton")
-        self.save_button.setMinimumHeight(42)
-        self.save_button.setCursor(Qt.PointingHandCursor)
+        self.save_button = AppButton(
+            "Ayarları Kaydet",
+            variant=AppButton.PRIMARY,
+            object_name="saveButton",
+        )
 
         button_layout.addStretch()
         button_layout.addWidget(self.test_button)
@@ -217,9 +220,10 @@ class SettingsPage(QWidget):
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(0)
 
-        line_edit = QLineEdit()
-        line_edit.setObjectName("settingsInput")
-        line_edit.setMinimumHeight(42)
+        line_edit = AppLineEdit(
+            placeholder="",
+            object_name="settingsInput",
+        )
         line_edit.setClearButtonEnabled(not password)
 
         input_layout.addWidget(line_edit, 1)
@@ -314,9 +318,7 @@ class SettingsPage(QWidget):
         self.setStyleSheet(
             page_style("settingsPage")
             + label_style()
-            + page_title_style()
-            + primary_button_style("saveButton")
-            + secondary_button_style("testButton")
+            + page_title_style()            
             + scroll_bar_style()
             + f"""
             QWidget#settingsHeader,
@@ -380,23 +382,7 @@ class SettingsPage(QWidget):
                 border-color: {Theme.BORDER_HOVER};
             }}
 
-            QLineEdit#settingsInput {{
-                background: transparent;
-                color: {Theme.TEXT_PRIMARY};
-                border: none;
-                padding: 0 13px;
-                font-family:
-                    "{Theme.FONT_FAMILY}";
-                font-size: 13px;
-                font-weight: 500;
-                selection-background-color:
-                    {Theme.ACCENT_SOFT};
-            }}
-
-            QLineEdit#settingsInput:focus {{
-                border: none;
-            }}
-
+                        
             QPushButton#visibilityButton {{
                 background-color: transparent;
                 color: #9AA4B2;
