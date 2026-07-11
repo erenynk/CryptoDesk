@@ -2,6 +2,8 @@ from PySide6.QtCore import Qt
 from ui.widgets.card import Card
 from ui.widgets.button import AppButton
 from ui.widgets.input import AppLineEdit
+from ui.widgets.status_badge import StatusBadge
+from ui.widgets.page_header import PageHeader
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -65,58 +67,21 @@ class SettingsPage(QWidget):
         main_layout.addStretch()
 
     def _create_header(self):
-        header = QWidget()
-        header.setObjectName("settingsHeader")
-
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(5)
-
-        title = QLabel("Ayarlar")
-        title.setObjectName("pageTitle")
-
-        subtitle = QLabel(
-            "OKX API bağlantı bilgilerini güvenli şekilde yönet."
-        )
-        subtitle.setObjectName("pageSubtitle")
-        subtitle.setWordWrap(True)
-
-        title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-
-        self.connection_badge = QFrame()
-        self.connection_badge.setObjectName("connectionBadge")
-        self.connection_badge.setSizePolicy(
-            QSizePolicy.Fixed,
-            QSizePolicy.Fixed,
+        self.connection_badge = StatusBadge(
+            text="Kontrol edilmedi",
+            status=StatusBadge.NEUTRAL,
+            object_name="connectionBadge",
         )
 
-        badge_layout = QHBoxLayout(self.connection_badge)
-        badge_layout.setContentsMargins(12, 7, 12, 7)
-        badge_layout.setSpacing(8)
-
-        self.connection_dot = QLabel()
-        self.connection_dot.setObjectName("connectionDot")
-        self.connection_dot.setFixedSize(8, 8)
-
-        self.connection_text = QLabel("Kontrol edilmedi")
-        self.connection_text.setObjectName("connectionText")
-
-        badge_layout.addWidget(self.connection_dot)
-        badge_layout.addWidget(self.connection_text)
-
-        layout.addLayout(title_layout, 1)
-        layout.addWidget(
-            self.connection_badge,
-            0,
-            Qt.AlignTop | Qt.AlignRight,
+        return PageHeader(
+            title="Ayarlar",
+            subtitle=(
+                "OKX API bağlantı bilgilerini güvenli "
+                "şekilde yönet."
+            ),
+            right_widget=self.connection_badge,
+            object_name="settingsHeader",
         )
-
-        return header
 
     def _create_credentials_card(self):
         card = Card(
@@ -321,30 +286,7 @@ class SettingsPage(QWidget):
             + page_title_style()            
             + scroll_bar_style()
             + f"""
-            QWidget#settingsHeader,
-            QWidget#inputSection {{
-                background: transparent;
-                border: none;
-            }}
-
-            QFrame#connectionBadge {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_SECONDARY};
-                border: 1px solid {Theme.BORDER};
-                border-radius: 15px;
-            }}
-
-            QLabel#connectionDot {{
-                background-color: {Theme.TEXT_MUTED};
-                border-radius: 4px;
-            }}
-
-            QLabel#connectionText {{
-                color: {Theme.TEXT_SECONDARY};
-                font-size: 12px;
-                font-weight: 600;
-            }}
-
+            
             
             QLabel#cardTitle {{
                 color: {Theme.TEXT_PRIMARY};
@@ -621,21 +563,21 @@ class SettingsPage(QWidget):
         )
 
     def _set_connection_state(self, text, color):
-        self.connection_text.setText(text)
+        if color == Theme.ACCENT:
+            status = StatusBadge.SUCCESS
 
-        self.connection_text.setStyleSheet(
-            f"""
-            color: {color};
-            font-size: 12px;
-            font-weight: 600;
-            """
-        )
+        elif color == Theme.WARNING:
+            status = StatusBadge.WARNING
 
-        self.connection_dot.setStyleSheet(
-            f"""
-            background-color: {color};
-            border-radius: 4px;
-            """
+        elif color == Theme.ERROR:
+            status = StatusBadge.ERROR
+
+        else:
+            status = StatusBadge.NEUTRAL
+
+        self.connection_badge.set_status(
+            text,
+            status,
         )
 
     @staticmethod
