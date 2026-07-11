@@ -190,7 +190,7 @@ class WatchlistPage(QWidget):
             QTableWidget.SelectRows
         )
         self.table.setSelectionMode(
-            QTableWidget.SingleSelection
+            QTableWidget.NoSelection
         )
         self.table.setShowGrid(False)
         self.table.setWordWrap(False)
@@ -296,22 +296,19 @@ class WatchlistPage(QWidget):
                 padding: 11px 12px;
             }}
 
-            QTableWidget#watchlistTable::item:hover {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(19,53,57,210),
-                    stop:1 rgba(22,43,68,195)
-                );
-            }}
+            
 
             QHeaderView#watchlistTableHeader {{
                 background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(17,31,52,250),
-                    stop:1 rgba(10,20,32,250)
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 rgba(19, 37, 63, 252),
+                    stop: 1 rgba(8, 17, 28, 252)
                 );
                 border: none;
-                border-bottom: 1px solid {Theme.BORDER};
+                border-bottom: 1px solid #263F5D;
             }}
 
             QHeaderView#watchlistTableHeader::section {{
@@ -501,9 +498,15 @@ class WatchlistPage(QWidget):
         ) * 100
 
         if change >= 0:
-            return f"+{change:.2f}%", Theme.ACCENT
+            return (
+                f"+{change:.2f}%",
+                Theme.ACCENT,
+            )
 
-        return f"{change:.2f}%", Theme.ERROR
+        return (
+            f"{change:.2f}%",
+            Theme.ERROR,
+        )
 
     @staticmethod
     def make_item(

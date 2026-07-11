@@ -109,6 +109,7 @@ class AlarmsPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -217,6 +218,7 @@ class AlarmsPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -252,7 +254,7 @@ class AlarmsPage(QWidget):
             QTableWidget.SelectRows
         )
         self.table.setSelectionMode(
-            QTableWidget.SingleSelection
+            QTableWidget.NoSelection
         )
         self.table.setShowGrid(False)
         self.table.setWordWrap(False)
@@ -346,6 +348,17 @@ class AlarmsPage(QWidget):
             + f"""
             
                       
+            QWidget#alarmsPage {{
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A121A,
+                    stop: 1 #0D1B25
+                );
+            }}
+
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -410,32 +423,21 @@ class AlarmsPage(QWidget):
                 padding: 11px 10px;
             }}
 
-            QTableWidget#alarmsTable::item:hover {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_HOVER};
-            }}
+            
 
-            QTableWidget#alarmsTable::item:selected {{
-                color: {Theme.TEXT_PRIMARY};
+            
+
+            QHeaderView#alarmsTableHeader {{
                 background: qlineargradient(
                     x1: 0,
                     y1: 0,
                     x2: 1,
-                    y2: 0,
-                    stop: 0 rgba(47, 73, 96, 238),
-                    stop: 1 rgba(31, 57, 75, 228)
+                    y2: 1,
+                    stop: 0 rgba(19, 37, 63, 252),
+                    stop: 1 rgba(8, 17, 28, 252)
                 );
                 border: none;
-            }}
-
-            QHeaderView#alarmsTableHeader {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(17,31,52,250),
-                    stop:1 rgba(10,20,32,250)
-                );
-                border: none;
-                border-bottom: 1px solid {Theme.BORDER};
+                border-bottom: 1px solid #263F5D;
             }}
 
             QHeaderView#alarmsTableHeader::section {{

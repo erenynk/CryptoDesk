@@ -1,15 +1,25 @@
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtCore import (
+    QEasingCurve,
+    QPointF,
+    QPropertyAnimation,
+    QRectF,
+    QSize,
+    Qt,
+)
 from PySide6.QtGui import (
     QCloseEvent,
     QColor,
     QFont,
     QIcon,
+    QLinearGradient,
     QPainter,
+    QPainterPath,
     QPen,
     QPixmap,
 )
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -50,8 +60,9 @@ class MainWindow(QMainWindow):
 
         self._allow_close = False
         self.notification_manager = NotificationManager()
+        self._page_animation = None
 
-        self.setWindowTitle("CryptoDesk")
+        self.setWindowTitle("Caspian")
         self.resize(1360, 840)
         self.setMinimumSize(1100, 700)
 
@@ -117,18 +128,19 @@ class MainWindow(QMainWindow):
         self.menu.setFont(menu_font)
 
         menu_items = (
-            ("Dashboard", "dashboard"),
-            ("Portfolio", "portfolio"),
-            ("Watchlist", "watchlist"),
-            ("Alarmlar", "alarms"),
-            ("Ayarlar", "settings"),
+            ("Dashboard", "dashboard", "#4F9CF9"),
+            ("Portfolio", "portfolio", "#18C98B"),
+            ("Watchlist", "watchlist", "#F1B84B"),
+            ("Alarmlar", "alarms", "#F06475"),
+            ("Ayarlar", "settings", "#9B7CF6"),
         )
 
-        icon_color = QColor(Theme.TEXT_SECONDARY)
-
-        for text, icon_name in menu_items:
+        for text, icon_name, icon_color in menu_items:
             item = QListWidgetItem(
-                self._create_nav_icon(icon_name, icon_color),
+                self._create_nav_icon(
+                    icon_name,
+                    QColor(icon_color),
+                ),
                 text,
             )
             item.setSizeHint(self._menu_item_size())
@@ -152,16 +164,17 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        logo = QLabel("CD")
+        logo = QLabel()
         logo.setObjectName("brandLogo")
         logo.setAlignment(Qt.AlignCenter)
-        logo.setFixedSize(42, 42)
+        logo.setFixedSize(46, 46)
+        logo.setPixmap(self._create_brand_logo())
 
         text_layout = QVBoxLayout()
         text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
 
-        title = QLabel("CryptoDesk")
+        title = QLabel("Caspian")
         title.setObjectName("brandTitle")
 
         subtitle = QLabel("Portfolio Terminal")
@@ -175,6 +188,66 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         return brand
+
+    @staticmethod
+    def _create_brand_logo():
+        size = 46
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        background = QLinearGradient(0, 0, size, size)
+        background.setColorAt(0.0, QColor("#183A55"))
+        background.setColorAt(1.0, QColor("#0B1D2B"))
+
+        painter.setPen(QPen(QColor("#2C6074"), 1.2))
+        painter.setBrush(background)
+        painter.drawRoundedRect(
+            1,
+            1,
+            size - 2,
+            size - 2,
+            14,
+            14,
+        )
+
+        wave_gradient = QLinearGradient(8, 10, 38, 36)
+        wave_gradient.setColorAt(0.0, QColor("#55D6B2"))
+        wave_gradient.setColorAt(1.0, QColor("#1A8FA8"))
+
+        wave_path = QPainterPath()
+        wave_path.moveTo(11, 17)
+        wave_path.cubicTo(17, 10, 28, 9, 35, 15)
+        wave_path.cubicTo(29, 14, 23, 17, 20, 22)
+        wave_path.cubicTo(17, 27, 22, 32, 34, 31)
+        wave_path.cubicTo(27, 37, 15, 35, 11, 27)
+        wave_path.cubicTo(8, 23, 8, 20, 11, 17)
+        wave_path.closeSubpath()
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(wave_gradient)
+        painter.drawPath(wave_path)
+
+        highlight = QPainterPath()
+        highlight.moveTo(14, 18)
+        highlight.cubicTo(19, 14, 27, 13, 32, 16)
+
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(
+            QPen(
+                QColor(255, 255, 255, 95),
+                1.4,
+                Qt.SolidLine,
+                Qt.RoundCap,
+                Qt.RoundJoin,
+            )
+        )
+        painter.drawPath(highlight)
+
+        painter.end()
+        return pixmap
 
     def _create_sidebar_footer(self):
         footer = QFrame()
@@ -307,8 +380,40 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self):
         self.menu.currentRowChanged.connect(
-            self.pages.setCurrentIndex
+            self._change_page
         )
+
+    def _change_page(self, index):
+        if index < 0 or index >= self.pages.count():
+            return
+
+        if index == self.pages.currentIndex():
+            return
+
+        self.pages.setCurrentIndex(index)
+        page = self.pages.currentWidget()
+
+        effect = QGraphicsOpacityEffect(page)
+        page.setGraphicsEffect(effect)
+        effect.setOpacity(0.0)
+
+        animation = QPropertyAnimation(
+            effect,
+            b"opacity",
+            self,
+        )
+        animation.setDuration(180)
+        animation.setStartValue(0.0)
+        animation.setEndValue(1.0)
+        animation.setEasingCurve(
+            QEasingCurve.OutCubic
+        )
+        animation.finished.connect(
+            lambda: page.setGraphicsEffect(None)
+        )
+
+        self._page_animation = animation
+        animation.start()
 
     def _start_alarm_monitor(self):
         self.alarm_monitor = AlarmMonitor(
@@ -343,9 +448,9 @@ class MainWindow(QMainWindow):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A1018,
-                    stop: 0.55 #0D141D,
-                    stop: 1 #101821
+                    stop: 0 #101923,
+                    stop: 0.55 #14202B,
+                    stop: 1 #182631
                 );
                 border-right: 1px solid {self.SIDEBAR_BORDER};
             }}
@@ -355,20 +460,8 @@ class MainWindow(QMainWindow):
             }}
 
             QLabel#brandLogo {{
-                color: {Theme.ACCENT};
-                background: qradialgradient(
-                    cx: 0.42,
-                    cy: 0.38,
-                    radius: 0.9,
-                    stop: 0 rgba(24, 201, 139, 72),
-                    stop: 0.55 rgba(18, 63, 55, 210),
-                    stop: 1 rgba(8, 16, 24, 245)
-                );
-                border: 1px solid {Theme.ACCENT_BORDER};
-                border-radius: 13px;
-                font-family: "{Theme.FONT_FAMILY}";
-                font-size: 14px;
-                font-weight: 800;
+                background: transparent;
+                border: none;
             }}
 
             QLabel#brandTitle {{
@@ -376,8 +469,8 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 border: none;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 17px;
-                font-weight: 700;
+                font-size: 20px;
+                font-weight: 750;
             }}
 
             QLabel#brandSubtitle {{
@@ -415,7 +508,7 @@ class MainWindow(QMainWindow):
                 padding: 0 16px;
                 margin: 4px 0;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: 600;
             }}
 
@@ -440,7 +533,7 @@ class MainWindow(QMainWindow):
                 border: 1px solid {Theme.ACCENT_BORDER};
                 border-top-color: #326251;
                 border-bottom-color: #1C3B32;
-                border-radius: 12px;
+                border-radius: 16px;
                 padding: 0 16px;
                 margin: 4px 0;
                 font-weight: 700;
