@@ -1,5 +1,8 @@
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+)
 from ui.widgets.card import Card
 from ui.widgets.page_header import PageHeader
 from ui.widgets.button import AppButton
@@ -252,7 +255,7 @@ class PortfolioPage(QWidget):
 
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        self.table.setSelectionMode(QTableWidget.NoSelection)
         self.table.setAlternatingRowColors(False)
         self.table.setSortingEnabled(False)
         self.table.setShowGrid(False)
@@ -328,7 +331,7 @@ class PortfolioPage(QWidget):
             QLabel#summaryLabel {{
                 color: {Theme.TEXT_SECONDARY};
                 font-size: 11px;
-                font-weight: 700;
+                font-weight: 800;
                 letter-spacing: 1px;
             }}
 
@@ -380,31 +383,24 @@ class PortfolioPage(QWidget):
             }}
 
             QTableWidget#portfolioTable::item {{
-                color: {Theme.TEXT_PRIMARY};
                 background-color: transparent;
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER_SOFT};
                 padding: 14px 12px;
             }}
 
-            QTableWidget#portfolioTable::item:hover {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 rgba(27,47,76,220),stop:1 rgba(19,34,52,205));
-            }}
-
-            QTableWidget#portfolioTable::item:selected {{
-                color: {Theme.TEXT_PRIMARY};
-                background-color: rgba(24, 39, 34, 225);
-                border: none;
-            }}
 
             QHeaderView#portfolioTableHeader {{
                 background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(17,31,52,250),
-                    stop:1 rgba(10,20,32,250)
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 rgba(19, 37, 63, 252),
+                    stop: 1 rgba(8, 17, 28, 252)
                 );
                 border: none;
-                border-bottom: 1px solid {Theme.BORDER};
+                border-bottom: 1px solid #263F5D;
             }}
 
             QHeaderView#portfolioTableHeader::section {{
@@ -413,8 +409,18 @@ class PortfolioPage(QWidget):
                 border: none;
                 padding: 14px 12px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 12px;
-                font-weight: 700;
+                font-size: 14px;
+                font-weight: 800;
+            }}
+
+            QHeaderView#portfolioTableHeader::section {{
+                background: transparent;
+                color: {Theme.TEXT_SECONDARY};
+                border: none;
+                padding: 14px 12px;
+                font-family: "{Theme.FONT_FAMILY}";
+                font-size: 14px;
+                font-weight: 800;
             }}
 
             QHeaderView::section:horizontal:hover {{

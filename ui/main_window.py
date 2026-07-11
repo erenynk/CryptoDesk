@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
         self._page_animation = None
 
         self.setWindowTitle("Caspian")
-        self.resize(1360, 840)
+        self.resize(1320, 780)
         self.setMinimumSize(1100, 700)
 
         self.data_manager = DataManager()

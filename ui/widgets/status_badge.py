@@ -78,7 +78,7 @@ class StatusBadge(QFrame):
         self.setStyleSheet(
             f"""
             QFrame#{self.objectName()} {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                background-color: rgba(14, 21, 29, 235);
                 border: 1px solid {Theme.BORDER};
                 border-radius: 15px;
             }}

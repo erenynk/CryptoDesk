@@ -202,7 +202,7 @@ class PerformanceChart(QWidget):
 
 
 class DashboardPage(QWidget):
-    RESPONSIVE_BREAKPOINT = 920
+    RESPONSIVE_BREAKPOINT = 760
 
     def __init__(self, data_manager):
         super().__init__()
@@ -863,10 +863,15 @@ class DashboardPage(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+
+        self._set_layout_mode("wide")
+
         portfolio = self.data_manager.get_portfolio() or {}
         performance = portfolio.get("performance", {})
+
         if not isinstance(performance, dict):
             performance = {}
+
         self._update_dashboard_summaries(performance)
 
     def on_portfolio_error(self, error):

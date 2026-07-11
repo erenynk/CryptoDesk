@@ -262,7 +262,7 @@ class WatchlistPage(QWidget):
             QLabel#addCardTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: 800;
             }}
 
             QLabel#addCardDescription {{
@@ -316,7 +316,7 @@ class WatchlistPage(QWidget):
                 border: none;
                 padding: 15px 14px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: 700;
             }}
 

@@ -59,8 +59,8 @@ class AppButton(QPushButton):
         else:
             background = Theme.ACCENT
             hover_background = Theme.ACCENT_HOVER
-            pressed_background = "#13B878"
-            text_color = "#07100D"
+            pressed_background = "#14B87E"
+            text_color = "#06110D"
             border = Theme.ACCENT
             hover_border = Theme.ACCENT_HOVER
 

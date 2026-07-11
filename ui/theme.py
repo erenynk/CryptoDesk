@@ -25,7 +25,7 @@ class Theme:
 
     FONT_FAMILY = "Segoe UI"
 
-    RADIUS_SMALL = 8
+    RADIUS_SMALL = 9
     RADIUS_MEDIUM = 12
     RADIUS_LARGE = 16
     RADIUS_XLARGE = 18

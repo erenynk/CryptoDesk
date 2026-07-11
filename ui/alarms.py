@@ -362,12 +362,12 @@ class AlarmsPage(QWidget):
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: 800;
             }}
 
             QLabel#formDescription {{
                 color: {Theme.TEXT_MUTED};
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 400;
             }}
 

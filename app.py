@@ -296,11 +296,25 @@ def main():
     data_manager = DataManager()
 
     window = MainWindow()
+
+    screen = app.primaryScreen()
+    available = screen.availableGeometry()
+
+    window_width = min(1320, available.width())
+    window_height = min(780, available.height())
+
+    window.resize(window_width, window_height)
+
+    window.move(
+        available.left()
+        + (available.width() - window_width) // 2,
+        available.top()
+        + (available.height() - window_height) // 2,
+    )
+
     window.show()
 
     balance_widget = BalanceWidget(data_manager)
-    screen = app.primaryScreen()
-    available = screen.availableGeometry()
 
     margin = 4
 

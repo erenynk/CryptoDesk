@@ -19,7 +19,7 @@ class AppLineEdit(QLineEdit):
         self.setStyleSheet(
             f"""
             QLineEdit#{object_name} {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                background-color: rgba(14, 21, 29, 245);
                 color: {Theme.TEXT_PRIMARY};
                 border: 1px solid {Theme.BORDER};
                 border-radius: {Theme.RADIUS_SMALL}px;
@@ -36,6 +36,7 @@ class AppLineEdit(QLineEdit):
             }}
 
             QLineEdit#{object_name}:focus {{
+                background-color: rgba(15, 23, 32, 250);
                 border-color: {Theme.ACCENT};
             }}
 
