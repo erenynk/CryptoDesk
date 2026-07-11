@@ -1,5 +1,6 @@
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QFont
+from ui.widgets.card import Card
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -132,8 +133,11 @@ class PortfolioPage(QWidget):
         return header
 
     def _create_summary_card(self):
-        card = QFrame()
-        card.setObjectName("portfolioSummaryCard")
+        card = Card(
+            "portfolioSummaryCard",
+            hover=False,
+            radius=Theme.RADIUS_XLARGE,
+        )
         card.setMinimumHeight(150)
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -197,8 +201,11 @@ class PortfolioPage(QWidget):
         return card
 
     def _create_table_card(self):
-        card = QFrame()
-        card.setObjectName("portfolioTableCard")
+        card = Card(
+            "portfolioTableCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Expanding,
@@ -314,12 +321,7 @@ class PortfolioPage(QWidget):
                 border: none;
             }}
 
-            QFrame#portfolioSummaryCard {{
-                background-color: {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius: {Theme.RADIUS_XLARGE}px;
-            }}
-
+            
             QLabel#summaryLabel {{
                 color: {Theme.TEXT_SECONDARY};
                 font-size: 11px;
@@ -356,12 +358,7 @@ class PortfolioPage(QWidget):
                 font-weight: 600;
             }}
 
-            QFrame#portfolioTableCard {{
-                background-color: {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-
+            
             QWidget#tableHeader {{
                 background-color: transparent;
                 border: none;
