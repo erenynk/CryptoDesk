@@ -6,6 +6,7 @@ from PySide6.QtGui import QColor, QFont
 from ui.widgets.input import AppLineEdit
 from ui.widgets.status_badge import StatusBadge
 from ui.widgets.page_header import PageHeader
+from ui.widgets.section_header import SectionHeader
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -165,30 +166,13 @@ class WatchlistPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        table_header = QWidget()
-        table_header.setObjectName("tableHeader")
-
-        header_layout = QHBoxLayout(table_header)
-        header_layout.setContentsMargins(20, 16, 20, 16)
-        header_layout.setSpacing(12)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(3)
-
-        title = QLabel("Takip Edilen Varlıklar")
-        title.setObjectName("tableTitle")
-
-        description = QLabel(
-            "Eklenme fiyatı ve güncel değişim bilgileri"
+        table_header = SectionHeader(
+            title="Takip Edilen Varlıklar",
+            description=(
+                "Eklenme fiyatı ve güncel değişim bilgileri"
+            ),
+            object_name="watchlistSectionHeader",
         )
-        description.setObjectName("tableDescription")
-
-        title_layout.addWidget(title)
-        title_layout.addWidget(description)
-
-        header_layout.addLayout(title_layout)
-        header_layout.addStretch()
 
         self.table = QTableWidget()
         self.table.setObjectName("watchlistTable")
@@ -282,24 +266,7 @@ class WatchlistPage(QWidget):
             }}
 
             
-            QWidget#tableHeader {{
-                background-color: transparent;
-                border: none;
-                border-bottom: 1px solid {Theme.BORDER};
-            }}
-
-            QLabel#tableTitle {{
-                color: {Theme.TEXT_PRIMARY};
-                font-size: 14px;
-                font-weight: 700;
-            }}
-
-            QLabel#tableDescription {{
-                color: {Theme.TEXT_MUTED};
-                font-size: 11px;
-                font-weight: 400;
-            }}
-
+            
             QTableWidget#watchlistTable {{
                 background-color: transparent;
                 color: {Theme.TEXT_PRIMARY};
