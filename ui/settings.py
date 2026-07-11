@@ -89,7 +89,7 @@ class SettingsPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="indigo",
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -192,6 +192,27 @@ class SettingsPage(QWidget):
             object_name="settingsInput",
         )
         line_edit.setClearButtonEnabled(not password)
+        line_edit.setMinimumHeight(44)
+        line_edit.setStyleSheet(
+            f"""
+            QLineEdit#settingsInput {{
+                background: transparent;
+                color: {Theme.TEXT_PRIMARY};
+                border: none;
+                border-radius: 0px;
+                padding: 0 14px;
+                font-family: "{Theme.FONT_FAMILY}";
+                font-size: 13px;
+                font-weight: 500;
+                selection-background-color: {Theme.ACCENT_SOFT};
+            }}
+
+            QLineEdit#settingsInput:focus {{
+                background: transparent;
+                border: none;
+            }}
+            """
+        )
 
         input_layout.addWidget(line_edit, 1)
 
@@ -203,7 +224,7 @@ class SettingsPage(QWidget):
             visibility_button.setObjectName("visibilityButton")
             visibility_button.setCursor(Qt.PointingHandCursor)
             visibility_button.setFocusPolicy(Qt.NoFocus)
-            visibility_button.setFixedSize(66, 40)
+            visibility_button.setFixedSize(72, 42)
 
             visibility_button.clicked.connect(
                 lambda checked=False,
@@ -232,7 +253,7 @@ class SettingsPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
-            palette="indigo",
+            palette="blue_dark",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -295,9 +316,8 @@ class SettingsPage(QWidget):
             QWidget#settingsPage {{
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #101522,
-                    stop:0.52 #171E31,
-                    stop:1 #232B49
+                    stop:0 #0A121A,
+                    stop:1 #0D1B25
                 );
             }}
 
@@ -326,11 +346,16 @@ class SettingsPage(QWidget):
             }}
 
             QFrame#inputContainer {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_SECONDARY};
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 0,
+                    stop: 0 rgba(14, 24, 37, 248),
+                    stop: 1 rgba(10, 19, 30, 248)
+                );
                 border: 1px solid {Theme.BORDER};
-                border-radius:
-                    {Theme.RADIUS_SMALL}px;
+                border-radius: {Theme.RADIUS_SMALL}px;
             }}
 
             QFrame#inputContainer:hover {{
@@ -339,20 +364,26 @@ class SettingsPage(QWidget):
 
                         
             QPushButton#visibilityButton {{
-                background-color: transparent;
+                background-color: rgba(255, 255, 255, 5);
                 color: {Theme.TEXT_SECONDARY};
                 border: none;
                 border-left: 1px solid {Theme.BORDER};
-                border-radius: 0px;
+                border-top-right-radius: {Theme.RADIUS_SMALL}px;
+                border-bottom-right-radius: {Theme.RADIUS_SMALL}px;
                 padding: 0px;
                 font-family: "{Theme.FONT_FAMILY}";
                 font-size: 11px;
-                font-weight: 600;
+                font-weight: 650;
+            }}
+
+            QPushButton#visibilityButton:hover {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: rgba(255, 255, 255, 10);
             }}
 
             QPushButton#visibilityButton:pressed {{
                 color: {Theme.ACCENT};
-                background-color: transparent;
+                background-color: rgba(24, 201, 139, 12);
             }}
 
             QLabel#connectionCardTitle {{

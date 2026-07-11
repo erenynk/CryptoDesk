@@ -10,12 +10,12 @@ class Card(QFrame):
         "default": (
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(25, 38, 52, 250),"
+            "stop:0 rgba(20, 31, 43, 250),"
             "stop:1 rgba(11, 18, 27, 250)"
             ")",
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(24, 35, 48, 252),"
+            "stop:0 rgba(20, 30, 42, 252),"
             "stop:1 rgba(16, 25, 36, 252)"
             ")",
             Theme.BORDER,
@@ -23,12 +23,12 @@ class Card(QFrame):
         "blue": (
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(31, 55, 91, 250),"
+            "stop:0 rgba(25, 46, 77, 250),"
             "stop:1 rgba(12, 23, 37, 250)"
             ")",
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(29, 49, 81, 252),"
+            "stop:0 rgba(24, 42, 70, 252),"
             "stop:1 rgba(17, 31, 49, 252)"
             ")",
             "#2D4E70",
@@ -36,12 +36,12 @@ class Card(QFrame):
         "blue_dark": (
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(24, 44, 73, 252),"
+            "stop:0 rgba(19, 37, 63, 252),"
             "stop:1 rgba(8, 17, 28, 252)"
             ")",
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(23, 41, 68, 252),"
+            "stop:0 rgba(19, 35, 58, 252),"
             "stop:1 rgba(13, 26, 41, 252)"
             ")",
             "#263F5D",
@@ -49,12 +49,12 @@ class Card(QFrame):
         "teal": (
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(19, 63, 68, 250),"
+            "stop:0 rgba(16, 52, 57, 250),"
             "stop:1 rgba(10, 23, 32, 250)"
             ")",
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(18, 57, 63, 252),"
+            "stop:0 rgba(15, 48, 54, 252),"
             "stop:1 rgba(14, 34, 43, 252)"
             ")",
             "#285B61",
@@ -62,12 +62,12 @@ class Card(QFrame):
         "violet": (
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(57, 43, 94, 250),"
+            "stop:0 rgba(47, 36, 79, 250),"
             "stop:1 rgba(15, 21, 34, 250)"
             ")",
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(50, 38, 85, 252),"
+            "stop:0 rgba(42, 32, 72, 252),"
             "stop:1 rgba(29, 28, 54, 252)"
             ")",
             "#504575",
@@ -75,12 +75,12 @@ class Card(QFrame):
         "indigo": (
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(42, 58, 96, 250),"
+            "stop:0 rgba(35, 49, 81, 250),"
             "stop:1 rgba(13, 20, 32, 250)"
             ")",
             "qlineargradient("
             "x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 rgba(36, 49, 82, 252),"
+            "stop:0 rgba(30, 42, 70, 252),"
             "stop:1 rgba(23, 32, 52, 252)"
             ")",
             "#3C507B",

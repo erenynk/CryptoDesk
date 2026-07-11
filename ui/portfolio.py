@@ -175,31 +175,43 @@ class PortfolioPage(QWidget):
 
         pnl_layout = QVBoxLayout(pnl_container)
         pnl_layout.setContentsMargins(0, 0, 0, 0)
-        pnl_layout.setSpacing(6)
+        pnl_layout.setSpacing(5)
 
         pnl_title = QLabel("GÜNLÜK PNL")
         pnl_title.setObjectName("dailyPnlTitle")
-        pnl_title.setAlignment(Qt.AlignRight)
+        pnl_title.setAlignment(Qt.AlignCenter)
 
         self.daily_pnl_label = QLabel("—")
         self.daily_pnl_label.setObjectName("dailyPnlValue")
-        self.daily_pnl_label.setAlignment(Qt.AlignRight)
+        self.daily_pnl_label.setAlignment(Qt.AlignCenter)
         self.daily_pnl_label.setTextInteractionFlags(
             Qt.TextSelectableByMouse
         )
 
-        pnl_layout.addWidget(
-            self.connection_badge,
-            0,
-            Qt.AlignRight,
-        )
-        pnl_layout.addStretch()
         pnl_layout.addWidget(pnl_title)
         pnl_layout.addWidget(self.daily_pnl_label)
 
+        right_container = QWidget()
+        right_container.setObjectName("summaryRightContainer")
+
+        right_layout = QHBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(22)
+
+        right_layout.addWidget(
+            pnl_container,
+            0,
+            Qt.AlignVCenter,
+        )
+        right_layout.addWidget(
+            self.connection_badge,
+            0,
+            Qt.AlignTop,
+        )
+
         layout.addLayout(balance_layout, 1)
         layout.addWidget(
-            pnl_container,
+            right_container,
             0,
             Qt.AlignRight | Qt.AlignVCenter,
         )
@@ -332,23 +344,27 @@ class PortfolioPage(QWidget):
                 font-weight: 400;
             }}
 
+            QWidget#summaryRightContainer,
             QWidget#dailyPnlContainer {{
                 background: transparent;
                 border: none;
-                min-width: 150px;
+            }}
+
+            QWidget#dailyPnlContainer {{
+                min-width: 190px;
             }}
 
             QLabel#dailyPnlTitle {{
-                color: {Theme.TEXT_MUTED};
-                font-size: 10px;
+                color: {Theme.TEXT_SECONDARY};
+                font-size: 12px;
                 font-weight: 700;
                 letter-spacing: 1px;
             }}
 
             QLabel#dailyPnlValue {{
                 color: {Theme.TEXT_MUTED};
-                font-size: 24px;
-                font-weight: 700;
+                font-size: 32px;
+                font-weight: 750;
             }}
 
                        
@@ -377,14 +393,7 @@ class PortfolioPage(QWidget):
 
             QTableWidget#portfolioTable::item:selected {{
                 color: {Theme.TEXT_PRIMARY};
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 0,
-                    stop: 0 rgba(47, 73, 96, 238),
-                    stop: 1 rgba(31, 57, 75, 228)
-                );
+                background-color: rgba(24, 39, 34, 225);
                 border: none;
             }}
 
@@ -404,7 +413,7 @@ class PortfolioPage(QWidget):
                 border: none;
                 padding: 14px 12px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: 700;
             }}
 

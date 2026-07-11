@@ -415,7 +415,6 @@ class AlarmsPage(QWidget):
             }}
 
             QTableWidget#alarmsTable::item {{
-                color: {Theme.TEXT_PRIMARY};
                 background-color: transparent;
                 border: none;
                 border-bottom:

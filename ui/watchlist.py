@@ -289,7 +289,6 @@ class WatchlistPage(QWidget):
             }}
 
             QTableWidget#watchlistTable::item {{
-                color: {Theme.TEXT_PRIMARY};
                 background-color: transparent;
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER_SOFT};
