@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from ui.widgets.card import Card
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
 from PySide6.QtWidgets import (
@@ -151,8 +151,11 @@ class AlarmsPage(QWidget):
         return header
 
     def _create_form_card(self):
-        card = QFrame()
-        card.setObjectName("alarmFormCard")
+        card = Card(
+            "alarmFormCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
@@ -262,8 +265,11 @@ class AlarmsPage(QWidget):
         return card
 
     def _create_table_card(self):
-        card = QFrame()
-        card.setObjectName("alarmsTableCard")
+        card = Card(
+            "alarmsTableCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Expanding,
@@ -427,14 +433,7 @@ class AlarmsPage(QWidget):
                 font-weight: 600;
             }}
 
-            QFrame#alarmFormCard {{
-                background-color:
-                    {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius:
-                    {Theme.RADIUS_LARGE}px;
-            }}
-
+            
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -509,14 +508,7 @@ class AlarmsPage(QWidget):
                 font-weight: 500;
             }}
 
-            QFrame#alarmsTableCard {{
-                background-color:
-                    {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius:
-                    {Theme.RADIUS_LARGE}px;
-            }}
-
+            
             QWidget#tableHeader {{
                 background-color: transparent;
                 border: none;

@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt
+from ui.widgets.card import Card
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -117,8 +118,11 @@ class SettingsPage(QWidget):
         return header
 
     def _create_credentials_card(self):
-        card = QFrame()
-        card.setObjectName("credentialsCard")
+        card = Card(
+            "credentialsCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
@@ -252,8 +256,11 @@ class SettingsPage(QWidget):
         }
 
     def _create_connection_card(self):
-        card = QFrame()
-        card.setObjectName("connectionCard")
+        card = Card(
+            "connectionCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
@@ -336,15 +343,7 @@ class SettingsPage(QWidget):
                 font-weight: 600;
             }}
 
-            QFrame#credentialsCard,
-            QFrame#connectionCard {{
-                background-color:
-                    {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius:
-                    {Theme.RADIUS_LARGE}px;
-            }}
-
+            
             QLabel#cardTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 16px;
