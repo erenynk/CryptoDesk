@@ -4,13 +4,13 @@ from ui.widgets.card import Card
 from ui.widgets.page_header import PageHeader
 from ui.widgets.button import AppButton
 from ui.widgets.section_header import SectionHeader
+from ui.widgets.status_badge import StatusBadge
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
-    QPushButton,
+    QLabel,    
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -161,26 +161,14 @@ class PortfolioPage(QWidget):
         balance_layout.addWidget(self.total_balance_label)
         balance_layout.addWidget(self.asset_count_label)
 
-        self.connection_badge = QFrame()
-        self.connection_badge.setObjectName("connectionBadge")
-        self.connection_badge.setSizePolicy(
-            QSizePolicy.Fixed,
-            QSizePolicy.Fixed,
+        self.connection_badge = StatusBadge(
+            text="Bekleniyor",
+            status=StatusBadge.NEUTRAL,
+            object_name="portfolioConnectionBadge",
         )
 
-        badge_layout = QHBoxLayout(self.connection_badge)
-        badge_layout.setContentsMargins(12, 8, 12, 8)
-        badge_layout.setSpacing(8)
-
-        self.connection_dot = QLabel()
-        self.connection_dot.setObjectName("connectionDot")
-        self.connection_dot.setFixedSize(8, 8)
-
-        self.connection_text = QLabel("Bekleniyor")
-        self.connection_text.setObjectName("connectionText")
-
-        badge_layout.addWidget(self.connection_dot)
-        badge_layout.addWidget(self.connection_text)
+        
+        
 
         layout.addLayout(balance_layout, 1)
         layout.addWidget(
@@ -312,24 +300,7 @@ class PortfolioPage(QWidget):
                 font-weight: 400;
             }}
 
-            QFrame#connectionBadge {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
-                border: 1px solid {Theme.BORDER};
-                border-radius: 15px;
-            }}
-
-            QLabel#connectionDot {{
-                background-color: {Theme.TEXT_MUTED};
-                border-radius: 4px;
-            }}
-
-            QLabel#connectionText {{
-                color: {Theme.TEXT_SECONDARY};
-                font-size: 12px;
-                font-weight: 600;
-            }}
-
-            
+                       
             
             QTableWidget#portfolioTable {{
                 background-color: transparent;
@@ -484,62 +455,23 @@ class PortfolioPage(QWidget):
 
     def _set_loading_state(self):
         self.refresh_button.setEnabled(False)
-        self.refresh_button.setText(
-            "Güncelleniyor..."
-        )
+        self.refresh_button.setText("Güncelleniyor...")
 
-        self.connection_text.setText(
-            "Güncelleniyor"
-        )
-        self.connection_text.setStyleSheet(
-            f"""
-            color: {Theme.WARNING};
-            font-size: 12px;
-            font-weight: 600;
-            """
-        )
-
-        self.connection_dot.setStyleSheet(
-            f"""
-            background-color: {Theme.WARNING};
-            border-radius: 4px;
-            """
+        self.connection_badge.set_status(
+            "Güncelleniyor",
+            StatusBadge.WARNING,
         )
 
     def _set_connected_state(self):
-        self.connection_text.setText("API Bağlı")
-        self.connection_text.setStyleSheet(
-            f"""
-            color: {Theme.ACCENT};
-            font-size: 12px;
-            font-weight: 600;
-            """
-        )
-
-        self.connection_dot.setStyleSheet(
-            f"""
-            background-color: {Theme.ACCENT};
-            border-radius: 4px;
-            """
+        self.connection_badge.set_status(
+            "API Bağlı",
+            StatusBadge.SUCCESS,
         )
 
     def _set_error_state(self):
-        self.connection_text.setText(
-            "Bağlantı Hatası"
-        )
-        self.connection_text.setStyleSheet(
-            f"""
-            color: {Theme.ERROR};
-            font-size: 12px;
-            font-weight: 600;
-            """
-        )
-
-        self.connection_dot.setStyleSheet(
-            f"""
-            background-color: {Theme.ERROR};
-            border-radius: 4px;
-            """
+        self.connection_badge.set_status(
+            "Bağlantı Hatası",
+            StatusBadge.ERROR,
         )
 
     @staticmethod
