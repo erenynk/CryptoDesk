@@ -1,4 +1,6 @@
 from PySide6.QtCore import Qt
+from ui.widgets.card import Card
+from ui.widgets.status_badge import StatusBadge
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -120,26 +122,11 @@ class DashboardPage(QWidget):
         title_layout.addWidget(title)
         title_layout.addWidget(subtitle)
 
-        self.status_badge = QFrame()
-        self.status_badge.setObjectName("statusBadge")
-        self.status_badge.setSizePolicy(
-            QSizePolicy.Fixed,
-            QSizePolicy.Fixed,
+        self.status_badge = StatusBadge(
+            text="Bekleniyor",
+            status=StatusBadge.NEUTRAL,
+            object_name="dashboardStatusBadge",
         )
-
-        status_layout = QHBoxLayout(self.status_badge)
-        status_layout.setContentsMargins(12, 7, 12, 7)
-        status_layout.setSpacing(8)
-
-        self.status_dot = QLabel()
-        self.status_dot.setObjectName("statusDot")
-        self.status_dot.setFixedSize(8, 8)
-
-        self.status = QLabel("Bekleniyor")
-        self.status.setObjectName("statusText")
-
-        status_layout.addWidget(self.status_dot)
-        status_layout.addWidget(self.status)
 
         layout.addLayout(title_layout, 1)
         layout.addWidget(
@@ -151,8 +138,7 @@ class DashboardPage(QWidget):
         return header
 
     def _create_portfolio_card(self):
-        card = QFrame()
-        card.setObjectName("portfolioCard")
+        card = Card("portfolioCard")        
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Preferred,
@@ -241,8 +227,11 @@ class DashboardPage(QWidget):
         return card
 
     def _create_account_box(self, title, description):
-        widget = QFrame()
-        widget.setObjectName("accountBox")
+        widget = Card(
+            "accountBox",
+            hover=True,
+            radius=12,
+        )
         widget.setMinimumHeight(80)
         widget.setSizePolicy(
             QSizePolicy.Expanding,
@@ -300,8 +289,7 @@ class DashboardPage(QWidget):
             self.summary_cards.append(card)
 
     def _create_summary_card(self, title, description):
-        card = QFrame()
-        card.setObjectName("summaryCard")
+        card = Card("summaryCard")
         card.setMinimumHeight(116)
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -463,23 +451,7 @@ class DashboardPage(QWidget):
                 font-weight: 400;
             }}
 
-            QFrame#statusBadge {{
-                background-color: #131A20;
-                border: 1px solid {self.CARD_BORDER_COLOR};
-                border-radius: 15px;
-            }}
-
-            QLabel#statusDot {{
-                background-color: {self.TEXT_MUTED};
-                border-radius: 4px;
-            }}
-
-            QLabel#statusText {{
-                color: {self.TEXT_SECONDARY};
-                font-size: 12px;
-                font-weight: 600;
-            }}
-
+            
             QFrame#portfolioCard {{
                 background-color: {self.CARD_COLOR};
                 border: 1px solid {self.CARD_BORDER_COLOR};
@@ -651,50 +623,23 @@ class DashboardPage(QWidget):
         self._set_error_status()
 
     def _set_waiting_status(self):
-        self.status.setText("Bekleniyor")
-
-        self.status.setStyleSheet(
-            f"""
-            color: {self.TEXT_SECONDARY};
-            font-size: 12px;
-            font-weight: 600;
-            """
+        self.status_badge.set_status(
+            "Bekleniyor",
+            StatusBadge.NEUTRAL,
         )
 
-        self.status_dot.setStyleSheet(
-            f"""
-            background-color: {self.TEXT_MUTED};
-            border-radius: 4px;
-            """
-        )
 
     def _set_connected_status(self):
-        self.status.setText("API Bağlı")
-
-        self.status.setStyleSheet(
-            f"""
-            color: {self.ACCENT_GREEN};
-            font-size: 12px;
-            font-weight: 600;
-            """
+        self.status_badge.set_status(
+            "API Bağlı",
+            StatusBadge.SUCCESS,
         )
 
-        self.status_dot.setStyleSheet(
-            f"""
-            background-color: {self.ACCENT_GREEN};
-            border-radius: 4px;
-            """
-        )
 
     def _set_error_status(self):
-        self.status.setText("Bağlantı Hatası")
-
-        self.status.setStyleSheet(
-            f"""
-            color: {self.ERROR_RED};
-            font-size: 12px;
-            font-weight: 600;
-            """
+        self.status_badge.set_status(
+            "Bağlantı Hatası",
+            StatusBadge.ERROR,
         )
 
         self.status_dot.setStyleSheet(
