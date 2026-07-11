@@ -1,13 +1,14 @@
 from datetime import datetime
+from ui.widgets.button import AppButton
 from ui.widgets.card import Card
+from ui.widgets.input import AppLineEdit
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
-    QLineEdit,
+    QLabel,   
     QPushButton,
     QSizePolicy,
     QTableWidget,
@@ -22,8 +23,7 @@ from ui.theme import (
     Theme,
     label_style,
     page_style,
-    page_title_style,
-    primary_button_style,
+    page_title_style,    
     scroll_bar_style,
 )
 
@@ -179,20 +179,18 @@ class AlarmsPage(QWidget):
         form_layout.setContentsMargins(0, 0, 0, 0)
         form_layout.setSpacing(10)
 
-        self.symbol_input = QLineEdit()
-        self.symbol_input.setObjectName("symbolInput")
-        self.symbol_input.setPlaceholderText("Coin: BTC")
-        self.symbol_input.setMinimumHeight(42)
+        self.symbol_input = AppLineEdit(
+            placeholder="Coin: BTC",
+            object_name="symbolInput",
+        )
         self.symbol_input.setMinimumWidth(120)
         self.symbol_input.setMaximumWidth(180)
         self.symbol_input.setClearButtonEnabled(True)
 
-        self.price_input = QLineEdit()
-        self.price_input.setObjectName("priceInput")
-        self.price_input.setPlaceholderText(
-            "Hedef fiyat"
+        self.price_input = AppLineEdit(
+            placeholder="Hedef fiyat",
+            object_name="priceInput",
         )
-        self.price_input.setMinimumHeight(42)
         self.price_input.setMinimumWidth(140)
         self.price_input.setMaximumWidth(210)
         self.price_input.setClearButtonEnabled(True)
@@ -222,27 +220,22 @@ class AlarmsPage(QWidget):
             Qt.PointingHandCursor
         )
 
-        self.note_input = QLineEdit()
-        self.note_input.setObjectName("noteInput")
-        self.note_input.setPlaceholderText(
-            "Alarm notu (isteğe bağlı)"
+        self.note_input = AppLineEdit(
+            placeholder="Alarm notu (isteğe bağlı)",
+            object_name="noteInput",
         )
-        self.note_input.setMinimumHeight(42)
         self.note_input.setMinimumWidth(180)
         self.note_input.setMaxLength(
             alarm_service.MAX_NOTE_LENGTH
         )
         self.note_input.setClearButtonEnabled(True)
 
-        self.add_button = QPushButton(
-            "Alarm Oluştur"
+        self.add_button = AppButton(
+            "Alarm Oluştur",
+            variant=AppButton.PRIMARY,
+            object_name="addButton",
         )
-        self.add_button.setObjectName("addButton")
-        self.add_button.setMinimumHeight(42)
         self.add_button.setMinimumWidth(130)
-        self.add_button.setCursor(
-            Qt.PointingHandCursor
-        )
 
         form_layout.addWidget(self.symbol_input)
         form_layout.addWidget(self.price_input)
@@ -406,8 +399,7 @@ class AlarmsPage(QWidget):
         self.setStyleSheet(
             page_style("alarmsPage")
             + label_style()
-            + page_title_style()
-            + primary_button_style("addButton")
+            + page_title_style()            
             + scroll_bar_style()
             + f"""
             QWidget#alarmsHeader {{
@@ -446,36 +438,7 @@ class AlarmsPage(QWidget):
                 font-weight: 400;
             }}
 
-            QLineEdit#symbolInput,
-            QLineEdit#priceInput,
-            QLineEdit#noteInput {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_SECONDARY};
-                color: {Theme.TEXT_PRIMARY};
-                border: 1px solid {Theme.BORDER};
-                border-radius:
-                    {Theme.RADIUS_SMALL}px;
-                padding: 0 13px;
-                font-family:
-                    "{Theme.FONT_FAMILY}";
-                font-size: 13px;
-                font-weight: 500;
-                selection-background-color:
-                    {Theme.ACCENT_SOFT};
-            }}
-
-            QLineEdit#symbolInput:hover,
-            QLineEdit#priceInput:hover,
-            QLineEdit#noteInput:hover {{
-                border-color: {Theme.BORDER_HOVER};
-            }}
-
-            QLineEdit#symbolInput:focus,
-            QLineEdit#priceInput:focus,
-            QLineEdit#noteInput:focus {{
-                border-color: {Theme.ACCENT};
-            }}
-
+            
             QPushButton#conditionButton {{
                 background-color:
                     {Theme.CARD_BACKGROUND_SECONDARY};
