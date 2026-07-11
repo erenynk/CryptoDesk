@@ -1,30 +1,41 @@
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QCheckBox,
+    QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
-    QPushButton,
-    QHeaderView,
-    QCheckBox,
+    QVBoxLayout,
+    QWidget,
 )
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QColor
-
 from services.data_worker import PortfolioRefreshWorker
+from ui.theme import (
+    Theme,
+    checkbox_style,
+    label_style,
+    page_style,
+    page_title_style,
+    primary_button_style,
+    scroll_bar_style,
+)
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
     def __init__(self, value, display_text):
         super().__init__(display_text)
+
         self.value = value
-        self.setForeground(QColor("#FFFFFF"))
 
     def __lt__(self, other):
         if isinstance(other, NumericTableWidgetItem):
             return self.value < other.value
+
         return super().__lt__(other)
 
 
@@ -45,244 +56,415 @@ class PortfolioPage(QWidget):
             "Kullanılabilir Miktar",
         ]
 
-        self.setFont(QFont("Segoe UI", 10))
+        self.setObjectName("portfolioPage")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFont(QFont(Theme.FONT_FAMILY, 10))
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        self._build_ui()
+        self._apply_styles()
+        self._connect_signals()
+        self._configure_refresh_timer()
 
-        top_layout = QHBoxLayout()
+        QTimer.singleShot(100, self.start_page)
 
-        top_layout.addStretch()
+    def _build_ui(self):
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(
+            Theme.PAGE_MARGIN_HORIZONTAL,
+            Theme.PAGE_MARGIN_VERTICAL,
+            Theme.PAGE_MARGIN_HORIZONTAL,
+            Theme.PAGE_MARGIN_VERTICAL,
+        )
+        self.main_layout.setSpacing(20)
 
-        self.hide_dust_checkbox = QCheckBox("Küçük Bakiyeleri Gizle (< $1)")
-        self.hide_dust_checkbox.setStyleSheet("""
-            QCheckBox {
-                color: #A0AEC0;
-                font-size: 13px;
-                font-weight: 500;
-                margin-right: 15px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-                border-radius: 4px;
-                border: 2px solid #4A5568;
-                background-color: #1A202C;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #00C087;
-                border-color: #00C087;
-            }
-        """)
-        self.hide_dust_checkbox.stateChanged.connect(self.update_table_view)
-        top_layout.addWidget(self.hide_dust_checkbox)
+        self.header = self._create_header()
+        self.main_layout.addWidget(self.header)
+
+        self.summary_card = self._create_summary_card()
+        self.main_layout.addWidget(self.summary_card)
+
+        self.table_card = self._create_table_card()
+        self.main_layout.addWidget(self.table_card, 1)
+
+    def _create_header(self):
+        header = QWidget()
+        header.setObjectName("portfolioHeader")
+
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
+
+        title_layout = QVBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(5)
+
+        title = QLabel("Portfolio")
+        title.setObjectName("pageTitle")
+
+        subtitle = QLabel(
+            "Funding ve Trading hesaplarındaki varlıklarını yönet."
+        )
+        subtitle.setObjectName("pageSubtitle")
+        subtitle.setWordWrap(True)
+
+        title_layout.addWidget(title)
+        title_layout.addWidget(subtitle)
+
+        controls_layout = QHBoxLayout()
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(14)
+
+        self.hide_dust_checkbox = QCheckBox(
+            "Küçük Bakiyeleri Gizle (< $1)"
+        )
+        self.hide_dust_checkbox.setObjectName("hideDustCheckbox")
 
         self.refresh_button = QPushButton("Bakiyeleri Yenile")
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                background-color: #2D3748;
-                color: #FFFFFF;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #4A5568;
-            }
-            QPushButton:disabled {
-                background-color: #1A202C;
-                color: #718096;
-            }
-        """)
-        self.refresh_button.clicked.connect(self.load_balances)
-        top_layout.addWidget(self.refresh_button)
+        self.refresh_button.setObjectName("refreshButton")
+        self.refresh_button.setCursor(Qt.PointingHandCursor)
 
-        layout.addLayout(top_layout)
+        controls_layout.addWidget(self.hide_dust_checkbox)
+        controls_layout.addWidget(self.refresh_button)
 
-        self.card_widget = QWidget()
-        self.card_widget.setFixedHeight(125)
-        self.card_widget.setStyleSheet("""
-            QWidget {
-                background-color: #1E222D;
-                border: 1px solid #2A2E39;
-                border-radius: 12px;
-            }
-        """)
+        layout.addLayout(title_layout, 1)
+        layout.addLayout(controls_layout)
 
-        card_layout = QVBoxLayout(self.card_widget)
-        card_layout.setContentsMargins(20, 18, 20, 18)
-        card_layout.setSpacing(4)
+        return header
 
-        card_title = QLabel("TOPLAM VARLIK")
-        card_title.setStyleSheet("""
-            color: #FFFFFF;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            border: none;
-            background: transparent;
-        """)
+    def _create_summary_card(self):
+        card = QFrame()
+        card.setObjectName("portfolioSummaryCard")
+        card.setMinimumHeight(150)
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(24)
+
+        balance_layout = QVBoxLayout()
+        balance_layout.setContentsMargins(0, 0, 0, 0)
+        balance_layout.setSpacing(7)
+
+        title = QLabel("TOPLAM PORTFÖY DEĞERİ")
+        title.setObjectName("summaryLabel")
 
         self.total_balance_label = QLabel("$0.00 USDT")
-        self.total_balance_label.setStyleSheet("""
-            color: #00C087;
-            font-size: 32px;
-            font-weight: 800;
-            border: none;
-            background: transparent;
-        """)
+        self.total_balance_label.setObjectName("summaryValue")
+        self.total_balance_label.setTextInteractionFlags(
+            Qt.TextSelectableByMouse
+        )
 
-        self.asset_count_label = QLabel("0 farklı kripto varlık listeleniyor")
-        self.asset_count_label.setStyleSheet("""
-            color: #848E9C;
-            font-size: 12px;
-            border: none;
-            background: transparent;
-        """)
+        self.asset_count_label = QLabel(
+            "0 farklı kripto varlık listeleniyor"
+        )
+        self.asset_count_label.setObjectName("summaryDescription")
 
-        card_layout.addWidget(card_title)
-        card_layout.addWidget(self.total_balance_label)
-        card_layout.addWidget(self.asset_count_label)
+        balance_layout.addWidget(title)
+        balance_layout.addWidget(self.total_balance_label)
+        balance_layout.addWidget(self.asset_count_label)
 
-        layout.addWidget(self.card_widget)
+        self.connection_badge = QFrame()
+        self.connection_badge.setObjectName("connectionBadge")
+        self.connection_badge.setSizePolicy(
+            QSizePolicy.Fixed,
+            QSizePolicy.Fixed,
+        )
+
+        badge_layout = QHBoxLayout(self.connection_badge)
+        badge_layout.setContentsMargins(12, 8, 12, 8)
+        badge_layout.setSpacing(8)
+
+        self.connection_dot = QLabel()
+        self.connection_dot.setObjectName("connectionDot")
+        self.connection_dot.setFixedSize(8, 8)
+
+        self.connection_text = QLabel("Bekleniyor")
+        self.connection_text.setObjectName("connectionText")
+
+        badge_layout.addWidget(self.connection_dot)
+        badge_layout.addWidget(self.connection_text)
+
+        layout.addLayout(balance_layout, 1)
+        layout.addWidget(
+            self.connection_badge,
+            0,
+            Qt.AlignTop | Qt.AlignRight,
+        )
+
+        return card
+
+    def _create_table_card(self):
+        card = QFrame()
+        card.setObjectName("portfolioTableCard")
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding,
+        )
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        table_header = QWidget()
+        table_header.setObjectName("tableHeader")
+
+        header_layout = QHBoxLayout(table_header)
+        header_layout.setContentsMargins(20, 16, 20, 16)
+        header_layout.setSpacing(12)
+
+        title_layout = QVBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(3)
+
+        title = QLabel("Varlık Dağılımı")
+        title.setObjectName("tableTitle")
+
+        description = QLabel(
+            "Portföyündeki tüm spot varlıkların güncel görünümü"
+        )
+        description.setObjectName("tableDescription")
+
+        title_layout.addWidget(title)
+        title_layout.addWidget(description)
+
+        header_layout.addLayout(title_layout)
+        header_layout.addStretch()
 
         self.table = QTableWidget()
+        self.table.setObjectName("portfolioTable")
         self.table.setFocusPolicy(Qt.NoFocus)
-        self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(self.headers)
 
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background-color: #161A25;
-                color: #FFFFFF;
-                gridline-color: transparent;
-                border: 1px solid #2A2E39;
-                border-radius: 8px;
-            }
-
-            QTableWidget QWidget {
-                background-color: #161A25;
-            }
-
-            QTableWidget::item {
-                padding: 12px;
-                border-bottom: 1px solid #263142;
-            }
-
-            QTableWidget::item:hover {
-                background-color: #263142;
-            }
-             
-            QTableWidget::item:selected {
-            background-color: #222634;
-            color: #FFFFFF;
-            border: none;
-            outline: none;
-                                 
-            }
-
-            QHeaderView::section:horizontal {
-                background-color: #1E222D;
-                color: #848E9C;
-                padding: 10px;
-                font-weight: 700;
-                font-size: 12px;
-                border: none;
-                border-bottom: 2px solid #2A2E39;
-                outline: none;                 
-            }
-                QHeaderView::section:horizontal:pressed {
-                background-color: #1E222D;
-                border: none;
-                border-bottom: 2px solid #2A2E39;
-            }
-
-                QHeaderView::section:horizontal:focus {
-                outline: none;
-            }
-
-            QHeaderView::section:vertical {
-                background-color: #161A25;
-                color: #BFD7FF;
-                padding-left: 14px;
-                padding-right: 14px;
-                font-weight: 800;
-                font-size: 14px;
-                border: none;
-                border-right: 1px solid #2A2E39;
-                border-bottom: 1px solid #263142;
-            }
-
-            QTableCornerButton::section {
-                background-color: #1E222D;
-                border: none;
-                border-bottom: 2px solid #2A2E39;
-            }
-
-            QHeaderView::down-arrow,
-            QHeaderView::up-arrow {
-                image: none;
-                width: 0px;
-                height: 0px;
-            }
-
-            QScrollBar:vertical {
-                background-color: #161A25;
-                width: 12px;
-                margin: 0px;
-            }
-
-            QScrollBar::handle:vertical {
-                background-color: #2D3748;
-                min-height: 20px;
-                border-radius: 6px;
-                margin: 2px;
-            }
-
-            QScrollBar::handle:vertical:hover {
-                background-color: #4A5568;
-            }
-
-            QScrollBar::add-line:vertical,
-            QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-        """)
-
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        self.table.setAlternatingRowColors(False)
         self.table.setSortingEnabled(False)
         self.table.setShowGrid(False)
+        self.table.setWordWrap(False)
 
-        self.table.verticalHeader().setVisible(True)
-        self.table.verticalHeader().setSectionResizeMode(
-            QHeaderView.ResizeToContents
+        self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
+        self.table.horizontalHeader().setHighlightSections(False)
+        self.table.horizontalHeader().setStretchLastSection(False)
+
+        self.table.horizontalHeader().setSectionResizeMode(
+            0,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            1,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            2,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            3,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            4,
+            QHeaderView.Stretch,
+        )
+
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(52)
+
+        layout.addWidget(table_header)
+        layout.addWidget(self.table, 1)
+
+        return card
+
+    def _connect_signals(self):
+        self.hide_dust_checkbox.stateChanged.connect(
+            self.update_table_view
+        )
+
+        self.refresh_button.clicked.connect(
+            self.load_balances
         )
 
         self.table.horizontalHeader().sortIndicatorChanged.connect(
             self.on_sort_indicator_changed
         )
 
-        layout.addWidget(self.table)
-
+    def _configure_refresh_timer(self):
         self.refresh_timer = QTimer(self)
         self.refresh_timer.setInterval(30000)
-        self.refresh_timer.timeout.connect(self.load_balances)
+        self.refresh_timer.timeout.connect(
+            self.load_balances
+        )
 
-        QTimer.singleShot(100, self.start_page)
+    def _apply_styles(self):
+        self.setStyleSheet(
+            page_style("portfolioPage")
+            + label_style()
+            + page_title_style()
+            + checkbox_style("hideDustCheckbox")
+            + primary_button_style("refreshButton")
+            + scroll_bar_style()
+            + f"""
+            QWidget#portfolioHeader {{
+                background: transparent;
+                border: none;
+            }}
+
+            QFrame#portfolioSummaryCard {{
+                background-color: {Theme.CARD_BACKGROUND};
+                border: 1px solid {Theme.BORDER};
+                border-radius: {Theme.RADIUS_XLARGE}px;
+            }}
+
+            QLabel#summaryLabel {{
+                color: {Theme.TEXT_SECONDARY};
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 1px;
+            }}
+
+            QLabel#summaryValue {{
+                color: {Theme.ACCENT};
+                font-size: 34px;
+                font-weight: 700;
+            }}
+
+            QLabel#summaryDescription {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 12px;
+                font-weight: 400;
+            }}
+
+            QFrame#connectionBadge {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                border: 1px solid {Theme.BORDER};
+                border-radius: 15px;
+            }}
+
+            QLabel#connectionDot {{
+                background-color: {Theme.TEXT_MUTED};
+                border-radius: 4px;
+            }}
+
+            QLabel#connectionText {{
+                color: {Theme.TEXT_SECONDARY};
+                font-size: 12px;
+                font-weight: 600;
+            }}
+
+            QFrame#portfolioTableCard {{
+                background-color: {Theme.CARD_BACKGROUND};
+                border: 1px solid {Theme.BORDER};
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
+
+            QWidget#tableHeader {{
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER};
+            }}
+
+            QLabel#tableTitle {{
+                color: {Theme.TEXT_PRIMARY};
+                font-size: 14px;
+                font-weight: 700;
+            }}
+
+            QLabel#tableDescription {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 11px;
+                font-weight: 400;
+            }}
+
+            QTableWidget#portfolioTable {{
+                background-color: transparent;
+                color: {Theme.TEXT_PRIMARY};
+                border: none;
+                border-bottom-left-radius: {Theme.RADIUS_LARGE}px;
+                border-bottom-right-radius: {Theme.RADIUS_LARGE}px;
+                gridline-color: transparent;
+                outline: none;
+            }}
+
+            QTableWidget#portfolioTable::item {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER_SOFT};
+                padding: 11px 12px;
+            }}
+
+            QTableWidget#portfolioTable::item:hover {{
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+            }}
+
+            QTableWidget#portfolioTable::item:selected {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: #1B2530;
+                border: none;
+            }}
+
+            QHeaderView::section:horizontal {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                color: {Theme.TEXT_SECONDARY};
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER};
+                padding: 12px;
+                font-family: "{Theme.FONT_FAMILY}";
+                font-size: 11px;
+                font-weight: 700;
+            }}
+
+            QHeaderView::section:horizontal:hover {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+            }}
+
+            QHeaderView::section:horizontal:pressed {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+            }}
+
+            QHeaderView::down-arrow,
+            QHeaderView::up-arrow {{
+                image: none;
+                width: 0;
+                height: 0;
+            }}
+
+            QTableCornerButton::section {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER};
+            }}
+            """
+        )
 
     def on_sort_indicator_changed(self, logical_index, order):
-        for i in range(self.table.columnCount()):
-            if i == logical_index:
-                arrow = " ▲" if order == Qt.AscendingOrder else " ▼"
-                self.table.horizontalHeaderItem(i).setText(
-                    self.headers[i] + arrow
+        if logical_index < 0:
+            return
+
+        for index in range(self.table.columnCount()):
+            header_item = self.table.horizontalHeaderItem(index)
+
+            if header_item is None:
+                continue
+
+            if index == logical_index:
+                arrow = (
+                    " ▲"
+                    if order == Qt.AscendingOrder
+                    else " ▼"
+                )
+                header_item.setText(
+                    self.headers[index] + arrow
                 )
             else:
-                self.table.horizontalHeaderItem(i).setText(self.headers[i])
+                header_item.setText(self.headers[index])
 
     def start_page(self):
         self.load_balances()
@@ -295,39 +477,131 @@ class PortfolioPage(QWidget):
         if self.worker is not None and self.worker.isRunning():
             return
 
-        self.refresh_button.setEnabled(False)
-        self.refresh_button.setText("Güncelleniyor...")
+        self._set_loading_state()
 
-        self.worker = PortfolioRefreshWorker(self.data_manager)
-        self.worker.result_ready.connect(self.on_balances_loaded)
-        self.worker.result_ready.connect(self.worker.deleteLater)
+        self.worker = PortfolioRefreshWorker(
+            self.data_manager
+        )
+        self.worker.result_ready.connect(
+            self.on_balances_loaded
+        )
+        self.worker.result_ready.connect(
+            self.worker.deleteLater
+        )
         self.worker.start()
 
     def on_balances_loaded(self, success, result):
         if success:
-            portfolio = self.data_manager.get_portfolio() or result
-            total = portfolio["total_usdt"]
+            portfolio = (
+                self.data_manager.get_portfolio()
+                or result
+            )
 
-            self.total_balance_label.setText(f"${total:,.2f} USDT")
-            self.raw_assets_data = portfolio["assets"]
+            total = float(
+                portfolio.get("total_usdt", 0.0)
+            )
+
+            self.total_balance_label.setText(
+                f"${total:,.2f} USDT"
+            )
+
+            self.raw_assets_data = portfolio.get(
+                "assets",
+                [],
+            )
+
             self.update_table_view()
+            self._set_connected_state()
 
         else:
-            self.total_balance_label.setText("Bağlantı Hatası")
-            print("Portfolio refresh error:", result)
+            self.total_balance_label.setText(
+                "Bağlantı Hatası"
+            )
+            self._set_error_state()
+
+            print(
+                "Portfolio refresh error:",
+                result,
+            )
 
         self.refresh_button.setEnabled(True)
-        self.refresh_button.setText("Bakiyeleri Yenile")
+        self.refresh_button.setText(
+            "Bakiyeleri Yenile"
+        )
+
         self.worker = None
 
-    def format_amount(self, value):
+    def _set_loading_state(self):
+        self.refresh_button.setEnabled(False)
+        self.refresh_button.setText(
+            "Güncelleniyor..."
+        )
+
+        self.connection_text.setText(
+            "Güncelleniyor"
+        )
+        self.connection_text.setStyleSheet(
+            f"""
+            color: {Theme.WARNING};
+            font-size: 12px;
+            font-weight: 600;
+            """
+        )
+
+        self.connection_dot.setStyleSheet(
+            f"""
+            background-color: {Theme.WARNING};
+            border-radius: 4px;
+            """
+        )
+
+    def _set_connected_state(self):
+        self.connection_text.setText("API Bağlı")
+        self.connection_text.setStyleSheet(
+            f"""
+            color: {Theme.ACCENT};
+            font-size: 12px;
+            font-weight: 600;
+            """
+        )
+
+        self.connection_dot.setStyleSheet(
+            f"""
+            background-color: {Theme.ACCENT};
+            border-radius: 4px;
+            """
+        )
+
+    def _set_error_state(self):
+        self.connection_text.setText(
+            "Bağlantı Hatası"
+        )
+        self.connection_text.setStyleSheet(
+            f"""
+            color: {Theme.ERROR};
+            font-size: 12px;
+            font-weight: 600;
+            """
+        )
+
+        self.connection_dot.setStyleSheet(
+            f"""
+            background-color: {Theme.ERROR};
+            border-radius: 4px;
+            """
+        )
+
+    @staticmethod
+    def format_amount(value):
         if value == 0:
             return "0"
 
         text = f"{value:.4f}".rstrip("0").rstrip(".")
+
         return text if text else "0"
 
-    def format_price(self, price):
+    @staticmethod
+    def format_price(price):
         if price >= 1:
             return f"${price:,.2f}"
 
@@ -345,47 +619,69 @@ class PortfolioPage(QWidget):
         visible_assets = [
             asset
             for asset in self.raw_assets_data
-            if not (hide_dust and asset["usdt_value"] < 1)
+            if not (
+                hide_dust
+                and asset.get("usdt_value", 0.0) < 1
+            )
         ]
 
         self.table.setRowCount(len(visible_assets))
 
         for row, asset in enumerate(visible_assets):
-            coin_item = QTableWidgetItem(asset["coin"])
-            coin_item.setForeground(QColor("#FFFFFF"))
-            coin_item.setTextAlignment(Qt.AlignCenter)
+            coin_item = QTableWidgetItem(
+                asset.get("coin", "")
+            )
+            coin_item.setForeground(
+                QColor(Theme.TEXT_PRIMARY)
+            )
+            coin_item.setTextAlignment(
+                Qt.AlignCenter
+            )
 
-            font = coin_item.font()
-            font.setBold(True)
-            coin_item.setFont(font)
+            coin_font = coin_item.font()
+            coin_font.setBold(True)
+            coin_item.setFont(coin_font)
 
             total_item = NumericTableWidgetItem(
-                asset["total"],
-                self.format_amount(asset["total"]),
+                asset.get("total", 0.0),
+                self.format_amount(
+                    asset.get("total", 0.0)
+                ),
             )
-            total_item.setForeground(QColor("#C7CDD6"))
 
             available_item = NumericTableWidgetItem(
-                asset["available"],
-                self.format_amount(asset["available"]),
+                asset.get("available", 0.0),
+                self.format_amount(
+                    asset.get("available", 0.0)
+                ),
             )
-            available_item.setForeground(QColor("#C7CDD6"))
 
             price_item = NumericTableWidgetItem(
-                asset["price"],
-                self.format_price(asset["price"]),
+                asset.get("price", 0.0),
+                self.format_price(
+                    asset.get("price", 0.0)
+                ),
             )
 
             value_item = NumericTableWidgetItem(
-                asset["usdt_value"],
-                f"${asset['usdt_value']:,.2f}",
-            
+                asset.get("usdt_value", 0.0),
+                (
+                    f"${asset.get('usdt_value', 0.0):,.2f}"
+                ),
             )
-            value_item.setForeground(QColor("#00C087"))
-            
-            font = value_item.font()
-            font.setBold(True)
-            value_item.setFont(font)
+
+            total_item.setForeground(
+                QColor(Theme.TEXT_SECONDARY)
+            )
+            available_item.setForeground(
+                QColor(Theme.TEXT_SECONDARY)
+            )
+            price_item.setForeground(
+                QColor(Theme.TEXT_PRIMARY)
+            )
+            value_item.setForeground(
+                QColor(Theme.ACCENT)
+            )
 
             for item in (
                 total_item,
@@ -394,9 +690,10 @@ class PortfolioPage(QWidget):
                 value_item,
             ):
                 item.setTextAlignment(Qt.AlignCenter)
-                font = item.font()
-                font.setBold(True)
-                item.setFont(font)
+
+                item_font = item.font()
+                item_font.setBold(True)
+                item.setFont(item_font)
 
             self.table.setItem(row, 0, coin_item)
             self.table.setItem(row, 1, value_item)
@@ -408,10 +705,20 @@ class PortfolioPage(QWidget):
             f"{len(visible_assets)} farklı kripto varlık listeleniyor"
         )
 
-        idx = self.table.horizontalHeader().sortIndicatorSection()
-        order = self.table.horizontalHeader().sortIndicatorOrder()
+        sort_column = (
+            self.table.horizontalHeader()
+            .sortIndicatorSection()
+        )
 
-        self.on_sort_indicator_changed(idx, order)
+        sort_order = (
+            self.table.horizontalHeader()
+            .sortIndicatorOrder()
+        )
+
+        self.on_sort_indicator_changed(
+            sort_column,
+            sort_order,
+        )
 
         self.table.setUpdatesEnabled(True)
         self.table.setSortingEnabled(True)
@@ -422,12 +729,13 @@ class PortfolioPage(QWidget):
         if not self.refresh_timer.isActive():
             self.refresh_timer.start()
 
-       
-
     def closeEvent(self, event):
         self.refresh_timer.stop()
 
-        if self.worker is not None and self.worker.isRunning():
+        if (
+            self.worker is not None
+            and self.worker.isRunning()
+        ):
             self.worker.quit()
             self.worker.wait(3000)
 
