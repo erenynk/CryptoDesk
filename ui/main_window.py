@@ -1,5 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent, QFont
+from ui.theme import Theme
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -24,18 +25,18 @@ from ui.watchlist import WatchlistPage
 
 
 class MainWindow(QMainWindow):
-    WINDOW_BACKGROUND = "#0A0E14"
-    SIDEBAR_BACKGROUND = "#10161D"
-    SIDEBAR_BORDER = "#222C37"
-    CONTENT_BACKGROUND = "#0D1117"
+    WINDOW_BACKGROUND = Theme.BACKGROUND
+    SIDEBAR_BACKGROUND = Theme.SIDEBAR_BACKGROUND
+    SIDEBAR_BORDER = Theme.BORDER_SOFT
+    CONTENT_BACKGROUND = Theme.CONTENT_BACKGROUND
 
-    TEXT_PRIMARY = "#F3F5F7"
-    TEXT_SECONDARY = "#9AA4B2"
-    TEXT_MUTED = "#667180"
+    TEXT_PRIMARY = Theme.TEXT_PRIMARY
+    TEXT_SECONDARY = Theme.TEXT_SECONDARY
+    TEXT_MUTED = Theme.TEXT_MUTED
 
-    MENU_HOVER = "#17202A"
-    MENU_SELECTED = "#192B27"
-    MENU_SELECTED_BORDER = "#16C784"
+    MENU_HOVER = Theme.CARD_BACKGROUND_HOVER
+    MENU_SELECTED = Theme.ACCENT_SOFT
+    MENU_SELECTED_BORDER = Theme.ACCENT
 
     def __init__(self):
         super().__init__()
@@ -107,7 +108,7 @@ class MainWindow(QMainWindow):
             QSizePolicy.Fixed,
         )
 
-        menu_font = QFont("Segoe UI", 10)
+        menu_font = QFont(Theme.FONT_FAMILY, 10)
         menu_font.setWeight(QFont.DemiBold)
         self.menu.setFont(menu_font)
 
@@ -265,11 +266,11 @@ class MainWindow(QMainWindow):
             }}
 
             QLabel#brandLogo {{
-                color: #07100D;
+                color: {Theme.BACKGROUND};
                 background-color: {self.MENU_SELECTED_BORDER};
                 border: none;
                 border-radius: 11px;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 18px;
                 font-weight: 800;
             }}
@@ -278,7 +279,7 @@ class MainWindow(QMainWindow):
                 color: {self.TEXT_PRIMARY};
                 background: transparent;
                 border: none;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 16px;
                 font-weight: 700;
             }}
@@ -287,7 +288,7 @@ class MainWindow(QMainWindow):
                 color: {self.TEXT_MUTED};
                 background: transparent;
                 border: none;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 10px;
                 font-weight: 500;
             }}
@@ -297,7 +298,7 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 border: none;
                 padding-left: 10px;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 10px;
                 font-weight: 700;
                 letter-spacing: 1px;
@@ -317,7 +318,7 @@ class MainWindow(QMainWindow):
                 border-radius: 10px;
                 padding: 0 14px;
                 margin: 3px 0;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 13px;
                 font-weight: 600;
             }}
@@ -325,13 +326,13 @@ class MainWindow(QMainWindow):
             QListWidget#navigationMenu::item:hover {{
                 color: {self.TEXT_PRIMARY};
                 background-color: {self.MENU_HOVER};
-                border-color: #202A35;
+                border-color: {Theme.BORDER};
             }}
 
             QListWidget#navigationMenu::item:selected {{
                 color: {self.TEXT_PRIMARY};
                 background-color: {self.MENU_SELECTED};
-                border: 1px solid #24473D;
+                border: 1px solid {Theme.ACCENT_BORDER};
                 border-left: 3px solid {self.MENU_SELECTED_BORDER};
                 padding-left: 12px;
             }}
@@ -339,19 +340,19 @@ class MainWindow(QMainWindow):
             QListWidget#navigationMenu::item:selected:active {{
                 color: {self.TEXT_PRIMARY};
                 background-color: {self.MENU_SELECTED};
-                border: 1px solid #24473D;
+                border: 1px solid {Theme.ACCENT_BORDER};
                 border-left: 3px solid {self.MENU_SELECTED_BORDER};
             }}
 
             QListWidget#navigationMenu::item:selected:!active {{
                 color: {self.TEXT_PRIMARY};
                 background-color: {self.MENU_SELECTED};
-                border: 1px solid #24473D;
+                border: 1px solid {Theme.ACCENT_BORDER};
                 border-left: 3px solid {self.MENU_SELECTED_BORDER};
             }}
 
             QFrame#sidebarFooter {{
-                background-color: #111A21;
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
                 border: 1px solid {self.SIDEBAR_BORDER};
                 border-radius: 11px;
             }}
@@ -360,7 +361,7 @@ class MainWindow(QMainWindow):
                 color: {self.TEXT_PRIMARY};
                 background: transparent;
                 border: none;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 12px;
                 font-weight: 650;
             }}
@@ -369,7 +370,7 @@ class MainWindow(QMainWindow):
                 color: {self.TEXT_MUTED};
                 background: transparent;
                 border: none;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 10px;
                 font-weight: 500;
             }}
