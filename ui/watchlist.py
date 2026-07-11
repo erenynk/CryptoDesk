@@ -100,6 +100,8 @@ class WatchlistPage(QWidget):
             "addSymbolCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="teal",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -156,6 +158,8 @@ class WatchlistPage(QWidget):
             "watchlistTableCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="teal",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -246,6 +250,15 @@ class WatchlistPage(QWidget):
             
 
                         
+            QWidget#watchlistPage {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #0B171C,
+                    stop:0.50 #10252B,
+                    stop:1 #13243A
+                );
+            }}
+
             QLabel#addCardTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -284,7 +297,11 @@ class WatchlistPage(QWidget):
             }}
 
             QTableWidget#watchlistTable::item:hover {{
-                background-color: {Theme.CARD_BACKGROUND_HOVER};
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(19,53,57,210),
+                    stop:1 rgba(22,43,68,195)
+                );
             }}
 
             QHeaderView::section:horizontal {{

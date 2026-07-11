@@ -52,7 +52,7 @@ class PortfolioPage(QWidget):
         self.raw_assets_data = []
 
         self.headers = [
-            "#",
+            "",
             "Varlık",
             "Toplam Değer",
             "Anlık Fiyat",
@@ -130,6 +130,7 @@ class PortfolioPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_XLARGE,
             shadow=True,
+            palette="blue",
         )
         card.setMinimumHeight(176)
         card.setSizePolicy(
@@ -148,7 +149,7 @@ class PortfolioPage(QWidget):
         title = QLabel("TOPLAM PORTFÖY DEĞERİ")
         title.setObjectName("summaryLabel")
 
-        self.total_balance_label = QLabel("$0.00 USDT")
+        self.total_balance_label = QLabel("$0.00")
         self.total_balance_label.setObjectName("summaryValue")
         self.total_balance_label.setTextInteractionFlags(
             Qt.TextSelectableByMouse
@@ -187,6 +188,7 @@ class PortfolioPage(QWidget):
             hover=False,
             radius=Theme.RADIUS_LARGE,
             shadow=True,
+            palette="blue",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -276,6 +278,15 @@ class PortfolioPage(QWidget):
            
 
             
+            QWidget#portfolioPage {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #0B1320,
+                    stop:0.52 #0E1B29,
+                    stop:1 #10272C
+                );
+            }}
+
             QLabel#summaryLabel {{
                 color: {Theme.TEXT_SECONDARY};
                 font-size: 11px;
@@ -316,7 +327,11 @@ class PortfolioPage(QWidget):
             }}
 
             QTableWidget#portfolioTable::item:hover {{
-                background-color: rgba(24, 34, 46, 210);
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(24,44,63,210),
+                    stop:1 rgba(20,54,56,190)
+                );
             }}
 
             QTableWidget#portfolioTable::item:selected {{
@@ -506,7 +521,7 @@ class PortfolioPage(QWidget):
         self.table.setRowCount(len(visible_assets))
 
         for row, asset in enumerate(visible_assets):
-            index_item = QTableWidgetItem(f"{row + 1:02d}")
+            index_item = QTableWidgetItem(str(row + 1))
             index_item.setForeground(
                 QColor(Theme.TEXT_MUTED)
             )

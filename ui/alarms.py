@@ -107,6 +107,8 @@ class AlarmsPage(QWidget):
             "alarmFormCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="violet",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -214,6 +216,8 @@ class AlarmsPage(QWidget):
             "alarmsTableCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="violet",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -332,6 +336,15 @@ class AlarmsPage(QWidget):
             + f"""
             
                       
+            QWidget#alarmsPage {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #101323,
+                    stop:0.52 #19172B,
+                    stop:1 #241D38
+                );
+            }}
+
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -361,8 +374,11 @@ class AlarmsPage(QWidget):
             }}
 
             QPushButton#conditionButton:hover {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_HOVER};
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(42,34,70,215),
+                    stop:1 rgba(28,32,54,200)
+                );
                 border-color: {Theme.BORDER_HOVER};
             }}
 

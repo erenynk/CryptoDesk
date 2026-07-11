@@ -88,6 +88,8 @@ class SettingsPage(QWidget):
             "credentialsCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="indigo",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -229,6 +231,8 @@ class SettingsPage(QWidget):
             "connectionCard",
             hover=False,
             radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="indigo",
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -288,6 +292,15 @@ class SettingsPage(QWidget):
             + f"""
             
             
+            QWidget#settingsPage {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #101522,
+                    stop:0.52 #171E31,
+                    stop:1 #232B49
+                );
+            }}
+
             QLabel#cardTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 16px;
@@ -327,18 +340,18 @@ class SettingsPage(QWidget):
                         
             QPushButton#visibilityButton {{
                 background-color: transparent;
-                color: #9AA4B2;
+                color: {Theme.TEXT_SECONDARY};
                 border: none;
-                border-left: 1px solid #28313D;
+                border-left: 1px solid {Theme.BORDER};
                 border-radius: 0px;
                 padding: 0px;
-                font-family: "Segoe UI";
+                font-family: "{Theme.FONT_FAMILY}";
                 font-size: 11px;
                 font-weight: 600;
             }}
 
             QPushButton#visibilityButton:pressed {{
-                color: #16C784;
+                color: {Theme.ACCENT};
                 background-color: transparent;
             }}
 
