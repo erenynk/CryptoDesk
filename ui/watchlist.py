@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from ui.widgets.card import Card
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
@@ -131,8 +131,11 @@ class WatchlistPage(QWidget):
         return header
 
     def _create_add_card(self):
-        card = QFrame()
-        card.setObjectName("addSymbolCard")
+        card = Card(
+            "addSymbolCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
@@ -183,8 +186,11 @@ class WatchlistPage(QWidget):
         return card
 
     def _create_table_card(self):
-        card = QFrame()
-        card.setObjectName("watchlistTableCard")
+        card = Card(
+            "watchlistTableCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+        )
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Expanding,
@@ -234,7 +240,7 @@ class WatchlistPage(QWidget):
         self.table.horizontalHeader().setHighlightSections(False)
 
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(52)
+        self.table.verticalHeader().setDefaultSectionSize(56)
         self.table.verticalHeader().setMinimumSectionSize(52)
         self.table.verticalHeader().setSectionResizeMode(
             QHeaderView.Fixed
@@ -311,12 +317,7 @@ class WatchlistPage(QWidget):
                 font-weight: 600;
             }}
 
-            QFrame#addSymbolCard {{
-                background-color: {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-
+            
             QLabel#addCardTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -330,15 +331,24 @@ class WatchlistPage(QWidget):
             }}
 
             QLineEdit#symbolInput {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
-                color: {Theme.TEXT_PRIMARY};
-                border: 1px solid {Theme.BORDER};
-                border-radius: {Theme.RADIUS_SMALL}px;
-                padding: 0 13px;
-                font-family: "{Theme.FONT_FAMILY}";
+                background-color: #10161D;
+                color: #F3F5F7;
+                border: 1px solid #28313D;
+                border-radius: 10px;
+                padding-left: 14px;
+                padding-right: 14px;
+                font-family: "Segoe UI";
                 font-size: 13px;
                 font-weight: 500;
-                selection-background-color: {Theme.ACCENT_SOFT};
+            }}
+
+            QLineEdit#symbolInput:hover {{
+                border-color: #3A4654;
+            }}
+
+            QLineEdit#symbolInput:focus {{
+                border: 1px solid #16C784;
+            
             }}
 
             QLineEdit#symbolInput:hover {{
@@ -359,12 +369,7 @@ class WatchlistPage(QWidget):
                 font-weight: 500;
             }}
 
-            QFrame#watchlistTableCard {{
-                background-color: {Theme.CARD_BACKGROUND};
-                border: 1px solid {Theme.BORDER};
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-
+            
             QWidget#tableHeader {{
                 background-color: transparent;
                 border: none;
@@ -408,7 +413,7 @@ class WatchlistPage(QWidget):
                 color: {Theme.TEXT_SECONDARY};
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER};
-                padding: 12px;
+                padding: 15px 14px;
                 font-family: "{Theme.FONT_FAMILY}";
                 font-size: 11px;
                 font-weight: 700;
