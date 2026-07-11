@@ -42,6 +42,7 @@ class SettingsPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
+        self._apply_settings_palette()
         self._connect_signals()
         self._load_saved_settings()
 
@@ -298,6 +299,48 @@ class SettingsPage(QWidget):
 
         return card
 
+    def _apply_settings_palette(self):
+        credentials_card = self.findChild(QFrame, "credentialsCard")
+        connection_card = self.findChild(QFrame, "connectionCard")
+
+        if credentials_card is not None:
+            credentials_card.setStyleSheet(
+                f"""
+                QFrame#credentialsCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0B141D,
+                    stop: 0.55 #0D1822,
+                    stop: 1 #101C27
+                );
+                    border: 1px solid #253542;
+                    border-radius: {Theme.RADIUS_LARGE}px;
+                }}
+                """
+            )
+
+        if connection_card is not None:
+            connection_card.setStyleSheet(
+                f"""
+                QFrame#connectionCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
+                    border: 1px solid #253542;
+                    border-radius: {Theme.RADIUS_LARGE}px;
+                }}
+                """
+            )
+
     def _connect_signals(self):
         self.save_button.clicked.connect(self.save)
         self.test_button.clicked.connect(
@@ -315,9 +358,13 @@ class SettingsPage(QWidget):
             
             QWidget#settingsPage {{
                 background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0A121A,
-                    stop:1 #0D1B25
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #101923,
+                    stop: 0.55 #14202B,
+                    stop: 1 #182631
                 );
             }}
 

@@ -202,7 +202,7 @@ class PerformanceChart(QWidget):
 
 
 class DashboardPage(QWidget):
-    RESPONSIVE_BREAKPOINT = 760
+    RESPONSIVE_BREAKPOINT = 920
 
     def __init__(self, data_manager):
         super().__init__()
@@ -217,6 +217,7 @@ class DashboardPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
+        self._apply_dashboard_palette()
         self._connect_signals()
         self.refresh()
 
@@ -616,6 +617,63 @@ class DashboardPage(QWidget):
         self.hero_card.adjustSize()
         self.content_widget.adjustSize()
 
+    def _apply_dashboard_palette(self):
+        self.hero_card.setStyleSheet(
+            f"""
+            QFrame#dashboardHeroCard {{
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0B141D,
+                    stop: 0.55 #0D1822,
+                    stop: 1 #101C27
+                );
+                border: 1px solid #253542;
+                border-radius: 20px;
+            }}
+            """
+        )
+
+        for card in self.account_cards:
+            card.setStyleSheet(
+                f"""
+                QFrame#dashboardAccountCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
+                    border: 1px solid #253542;
+                    border-radius: 14px;
+                }}
+                """
+            )
+
+        for card in self.summary_cards:
+            card.setStyleSheet(
+                f"""
+                QFrame#dashboardSummaryCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
+                    border: 1px solid #253542;
+                    border-radius: 16px;
+                }}
+                """
+            )
+
     def _connect_signals(self):
         self.data_manager.portfolio_updated.connect(
             self.on_portfolio_updated
@@ -630,9 +688,13 @@ class DashboardPage(QWidget):
             + f"""
             QWidget#dashboardPage {{
                 background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0A121A,
-                    stop:1 #0D1B25
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #101923,
+                    stop: 0.55 #14202B,
+                    stop: 1 #182631
                 );
             }}
 
@@ -863,15 +925,10 @@ class DashboardPage(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-
-        self._set_layout_mode("wide")
-
         portfolio = self.data_manager.get_portfolio() or {}
         performance = portfolio.get("performance", {})
-
         if not isinstance(performance, dict):
             performance = {}
-
         self._update_dashboard_summaries(performance)
 
     def on_portfolio_error(self, error):

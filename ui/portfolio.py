@@ -69,6 +69,7 @@ class PortfolioPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
+        self._apply_portfolio_card_styles()
         self._connect_signals()
         self._configure_refresh_timer()
 
@@ -289,6 +290,46 @@ class PortfolioPage(QWidget):
 
         return card
 
+    def _apply_portfolio_card_styles(self):
+        summary_radius = Theme.RADIUS_XLARGE
+        table_radius = Theme.RADIUS_LARGE
+
+        self.summary_card.setStyleSheet(
+            f"""
+            QFrame#portfolioSummaryCard {{
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0B141D,
+                    stop: 0.55 #0D1822,
+                    stop: 1 #101C27
+                );
+                border: 1px solid #253542;
+                border-radius: {summary_radius}px;
+            }}
+            """
+        )
+
+        self.table_card.setStyleSheet(
+            f"""
+            QFrame#portfolioTableCard {{
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
+                border: 1px solid #253542;
+                border-radius: {table_radius}px;
+            }}
+            """
+        )
+
     def _connect_signals(self):
         self.hide_dust_checkbox.stateChanged.connect(
             self.update_table_view
@@ -322,9 +363,13 @@ class PortfolioPage(QWidget):
             
             QWidget#portfolioPage {{
                 background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0A121A,
-                    stop:1 #0D1B25
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #101923,
+                    stop: 0.55 #14202B,
+                    stop: 1 #182631
                 );
             }}
 
@@ -396,11 +441,12 @@ class PortfolioPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 rgba(19, 37, 63, 252),
-                    stop: 1 rgba(8, 17, 28, 252)
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
                 );
                 border: none;
-                border-bottom: 1px solid #263F5D;
+                border-bottom: 1px solid #253542;
             }}
 
             QHeaderView#portfolioTableHeader::section {{
@@ -441,9 +487,17 @@ class PortfolioPage(QWidget):
             }}
 
             QTableCornerButton::section {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 rgba(22,38,65,248),stop:1 rgba(13,24,38,248));
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
                 border: none;
-                border-bottom: 1px solid {Theme.BORDER};
+                border-bottom: 1px solid #253542;
             }}
             """
         )

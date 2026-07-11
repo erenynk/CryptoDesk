@@ -56,6 +56,7 @@ class WatchlistPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
+        self._apply_watchlist_palette()
         self._connect_signals()
 
         self.load_symbols()
@@ -230,6 +231,48 @@ class WatchlistPage(QWidget):
 
         return card
 
+    def _apply_watchlist_palette(self):
+        add_card = self.findChild(QFrame, "addSymbolCard")
+        table_card = self.findChild(QFrame, "watchlistTableCard")
+
+        if add_card is not None:
+            add_card.setStyleSheet(
+                f"""
+                QFrame#addSymbolCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0B141D,
+                    stop: 0.55 #0D1822,
+                    stop: 1 #101C27
+                );
+                    border: 1px solid #253542;
+                    border-radius: {Theme.RADIUS_LARGE}px;
+                }}
+                """
+            )
+
+        if table_card is not None:
+            table_card.setStyleSheet(
+                f"""
+                QFrame#watchlistTableCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
+                    border: 1px solid #253542;
+                    border-radius: {Theme.RADIUS_LARGE}px;
+                }}
+                """
+            )
+
     def _connect_signals(self):
         self.symbol_input.returnPressed.connect(
             self.add_symbol
@@ -253,9 +296,13 @@ class WatchlistPage(QWidget):
                         
             QWidget#watchlistPage {{
                 background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0A121A,
-                    stop:1 #0D1B25
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #101923,
+                    stop: 0.55 #14202B,
+                    stop: 1 #182631
                 );
             }}
 
@@ -303,11 +350,12 @@ class WatchlistPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 rgba(19, 37, 63, 252),
-                    stop: 1 rgba(8, 17, 28, 252)
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
                 );
                 border: none;
-                border-bottom: 1px solid #263F5D;
+                border-bottom: 1px solid #253542;
             }}
 
             QHeaderView#watchlistTableHeader::section {{
@@ -331,9 +379,17 @@ class WatchlistPage(QWidget):
             }}
 
             QTableCornerButton::section {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 rgba(14,45,50,248),stop:1 rgba(11,24,33,248));
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
                 border: none;
-                border-bottom: 1px solid {Theme.BORDER};
+                border-bottom: 1px solid #253542;
             }}
             """
         )

@@ -63,6 +63,7 @@ class AlarmsPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
+        self._apply_alarms_palette()
         self._connect_signals()
 
         self.load_alarms()
@@ -319,6 +320,48 @@ class AlarmsPage(QWidget):
 
         return card
 
+    def _apply_alarms_palette(self):
+        form_card = self.findChild(QFrame, "alarmFormCard")
+        table_card = self.findChild(QFrame, "alarmsTableCard")
+
+        if form_card is not None:
+            form_card.setStyleSheet(
+                f"""
+                QFrame#alarmFormCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0B141D,
+                    stop: 0.55 #0D1822,
+                    stop: 1 #101C27
+                );
+                    border: 1px solid #253542;
+                    border-radius: {Theme.RADIUS_LARGE}px;
+                }}
+                """
+            )
+
+        if table_card is not None:
+            table_card.setStyleSheet(
+                f"""
+                QFrame#alarmsTableCard {{
+                    background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
+                    border: 1px solid #253542;
+                    border-radius: {Theme.RADIUS_LARGE}px;
+                }}
+                """
+            )
+
     def _connect_signals(self):
         self.symbol_input.returnPressed.connect(
             self.create_alarm
@@ -354,8 +397,9 @@ class AlarmsPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A121A,
-                    stop: 1 #0D1B25
+                    stop: 0 #101923,
+                    stop: 0.55 #14202B,
+                    stop: 1 #182631
                 );
             }}
 
@@ -432,11 +476,12 @@ class AlarmsPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 rgba(19, 37, 63, 252),
-                    stop: 1 rgba(8, 17, 28, 252)
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
                 );
                 border: none;
-                border-bottom: 1px solid #263F5D;
+                border-bottom: 1px solid #253542;
             }}
 
             QHeaderView#alarmsTableHeader::section {{
@@ -462,11 +507,17 @@ class AlarmsPage(QWidget):
             }}
 
             QTableCornerButton::section {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_SECONDARY};
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A131C,
+                    stop: 0.55 #0C1721,
+                    stop: 1 #0F1B26
+                );
                 border: none;
-                border-bottom:
-                    1px solid {Theme.BORDER};
+                border-bottom: 1px solid #253542;
             }}
             """
         )
