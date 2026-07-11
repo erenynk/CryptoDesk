@@ -16,9 +16,8 @@ from PySide6.QtWidgets import (
 
 
 class DashboardPage(QWidget):
-    BACKGROUND_COLOR = Theme.CONTENT_BACKGROUND
-    CARD_COLOR = Theme.CARD_BACKGROUND
-    CARD_HOVER_COLOR = Theme.CARD_BACKGROUND_HOVER
+    BACKGROUND_COLOR = Theme.CONTENT_BACKGROUND  
+    
     CARD_BORDER_COLOR = Theme.BORDER
 
     TEXT_PRIMARY = Theme.TEXT_PRIMARY
@@ -433,13 +432,7 @@ class DashboardPage(QWidget):
                 font-weight: 400;
             }}
 
-            
-            QFrame#portfolioCard {{
-                background-color: {self.CARD_COLOR};
-                border: 1px solid {self.CARD_BORDER_COLOR};
-                border-radius: 18px;
-            }}
-
+                        
             QLabel#portfolioLabel {{
                 color: {self.TEXT_SECONDARY};
                 font-size: 11px;
@@ -473,18 +466,7 @@ class DashboardPage(QWidget):
                 border: none;
             }}
 
-            QFrame#accountBox {{
-                background-color: #11171E;
-                border: 1px solid #222C37;
-                border-radius: 12px;
-            }}
-
-            QFrame#accountBox:hover {{
-                background-color: {Theme.CARD_BACKGROUND_HOVER};
-                border-color: {Theme.BORDER_HOVER};
             
-            }}
-
             QLabel#accountTitle {{
                 color: {self.TEXT_SECONDARY};
                 font-size: 11px;
@@ -503,17 +485,7 @@ class DashboardPage(QWidget):
                 font-weight: 400;
             }}
 
-            QFrame#summaryCard {{
-                background-color: {self.CARD_COLOR};
-                border: 1px solid {self.CARD_BORDER_COLOR};
-                border-radius: 15px;
-            }}
-
-            QFrame#summaryCard:hover {{
-                background-color: {self.CARD_HOVER_COLOR};
-                border-color: {Theme.BORDER_HOVER};
-            }}
-
+            
             QLabel#summaryTitle {{
                 color: {self.TEXT_PRIMARY};
                 font-size: 14px;
