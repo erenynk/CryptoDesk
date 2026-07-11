@@ -1,48 +1,43 @@
 from datetime import datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from services import watchlist_service
+from ui.theme import (
+    Theme,
+    label_style,
+    page_style,
+    page_title_style,
+    primary_button_style,
+    scroll_bar_style,
+)
 
-
-COIN_BADGES = {
-    "BTC": ("₿", "#F7931A"),
-    "ETH": ("◆", "#627EEA"),
-    "BNB": ("◆", "#F0B90B"),
-    "SOL": ("≋", "#14F195"),
-    "LTC": ("Ł", "#BEBEBE"),
-    "XRP": ("X", "#C7CDD6"),
-    "ADA": ("A", "#3CC8C8"),
-    "DOGE": ("Ð", "#C2A633"),
-    "DOT": ("●", "#E6007A"),
-    "AVAX": ("A", "#E84142"),
-    "LINK": ("⬡", "#2A5ADA"),
-    "TRX": ("T", "#EF0027"),
-}
 
 class NumericTableWidgetItem(QTableWidgetItem):
     def __init__(self, text):
         super().__init__(text)
-        self.setForeground(QColor("#FFFFFF"))
+
 
 class WatchlistPage(QWidget):
     def __init__(self, data_manager):
         super().__init__()
 
         self.data_manager = data_manager
+
         self.headers = [
             "Varlık",
             "Anlık Fiyat",
@@ -52,183 +47,433 @@ class WatchlistPage(QWidget):
             "İşlem",
         ]
 
-        self.setFont(QFont("Segoe UI", 10))
+        self.setObjectName("watchlistPage")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFont(QFont(Theme.FONT_FAMILY, 10))
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(28)
+        self._build_ui()
+        self._apply_styles()
+        self._connect_signals()
+
+        self.load_symbols()
+
+    def _build_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(
+            Theme.PAGE_MARGIN_HORIZONTAL,
+            Theme.PAGE_MARGIN_VERTICAL,
+            Theme.PAGE_MARGIN_HORIZONTAL,
+            Theme.PAGE_MARGIN_VERTICAL,
+        )
+        main_layout.setSpacing(20)
+
+        header = self._create_header()
+        main_layout.addWidget(header)
+
+        add_card = self._create_add_card()
+        main_layout.addWidget(add_card)
+
+        table_card = self._create_table_card()
+        main_layout.addWidget(table_card, 1)
+
+    def _create_header(self):
+        header = QWidget()
+        header.setObjectName("watchlistHeader")
+
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
+
+        title_layout = QVBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(5)
 
         title = QLabel("Watchlist")
-        title.setStyleSheet("""
-            font-size: 30px;
-            font-weight: 800;
-            color: #FFFFFF;
-        """)
-        layout.addWidget(title)
+        title.setObjectName("pageTitle")
+
+        subtitle = QLabel(
+            "Takip etmek istediğin OKX Spot varlıklarını yönet."
+        )
+        subtitle.setObjectName("pageSubtitle")
+        subtitle.setWordWrap(True)
+
+        title_layout.addWidget(title)
+        title_layout.addWidget(subtitle)
+
+        self.asset_count_badge = QFrame()
+        self.asset_count_badge.setObjectName("assetCountBadge")
+        self.asset_count_badge.setSizePolicy(
+            QSizePolicy.Fixed,
+            QSizePolicy.Fixed,
+        )
+
+        badge_layout = QHBoxLayout(self.asset_count_badge)
+        badge_layout.setContentsMargins(12, 7, 12, 7)
+        badge_layout.setSpacing(8)
+
+        self.asset_count_dot = QLabel()
+        self.asset_count_dot.setObjectName("assetCountDot")
+        self.asset_count_dot.setFixedSize(8, 8)
+
+        self.asset_count_label = QLabel("0 varlık")
+        self.asset_count_label.setObjectName("assetCountText")
+
+        badge_layout.addWidget(self.asset_count_dot)
+        badge_layout.addWidget(self.asset_count_label)
+
+        layout.addLayout(title_layout, 1)
+        layout.addWidget(
+            self.asset_count_badge,
+            0,
+            Qt.AlignTop | Qt.AlignRight,
+        )
+
+        return header
+
+    def _create_add_card(self):
+        card = QFrame()
+        card.setObjectName("addSymbolCard")
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(12)
+
+        title = QLabel("Varlık Ekle")
+        title.setObjectName("addCardTitle")
+
+        description = QLabel(
+            "Coin kodunu gir. Yalnızca OKX Spot piyasasında "
+            "bulunan varlıklar eklenebilir."
+        )
+        description.setObjectName("addCardDescription")
+        description.setWordWrap(True)
 
         input_layout = QHBoxLayout()
-        input_layout.setSpacing(12)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(10)
 
         self.symbol_input = QLineEdit()
-        self.symbol_input.setPlaceholderText("Ticker")
+        self.symbol_input.setObjectName("symbolInput")
+        self.symbol_input.setPlaceholderText("Örnek: BTC")
         self.symbol_input.setMinimumHeight(42)
-        self.symbol_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #161B26;
-                color: #FFFFFF;
-                border: 1px solid #2A3342;
-                border-radius: 8px;
-                padding: 0px 14px;
-                font-size: 14px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #3B82F6;
-            }
-        """)
-        self.symbol_input.returnPressed.connect(self.add_symbol)
-        input_layout.addWidget(self.symbol_input, 1)
+        self.symbol_input.setClearButtonEnabled(True)
 
-        self.add_button = QPushButton("Ekle")
-        self.add_button.setMinimumSize(70, 42)
-        self.add_button.setStyleSheet("""
-            QPushButton {
-                background-color: #263246;
-                color: #FFFFFF;
-                border: none;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #334155;
-            }
-            QPushButton:pressed {
-                background-color: #1E293B;
-            }
-        """)
-        self.add_button.clicked.connect(self.add_symbol)
+        self.add_button = QPushButton("Watchlist'e Ekle")
+        self.add_button.setObjectName("addButton")
+        self.add_button.setMinimumHeight(42)
+        self.add_button.setCursor(Qt.PointingHandCursor)
+
+        input_layout.addWidget(self.symbol_input, 1)
         input_layout.addWidget(self.add_button)
 
-        layout.addLayout(input_layout)
-
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #848E9C; font-size: 13px;")
+        self.status_label.setObjectName("statusLabel")
+        self.status_label.setWordWrap(True)
+        self.status_label.hide()
+
+        layout.addWidget(title)
+        layout.addWidget(description)
+        layout.addLayout(input_layout)
         layout.addWidget(self.status_label)
 
+        return card
+
+    def _create_table_card(self):
+        card = QFrame()
+        card.setObjectName("watchlistTableCard")
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding,
+        )
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        table_header = QWidget()
+        table_header.setObjectName("tableHeader")
+
+        header_layout = QHBoxLayout(table_header)
+        header_layout.setContentsMargins(20, 16, 20, 16)
+        header_layout.setSpacing(12)
+
+        title_layout = QVBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(3)
+
+        title = QLabel("Takip Edilen Varlıklar")
+        title.setObjectName("tableTitle")
+
+        description = QLabel(
+            "Eklenme fiyatı ve güncel değişim bilgileri"
+        )
+        description.setObjectName("tableDescription")
+
+        title_layout.addWidget(title)
+        title_layout.addWidget(description)
+
+        header_layout.addLayout(title_layout)
+        header_layout.addStretch()
+
         self.table = QTableWidget()
+        self.table.setObjectName("watchlistTable")
         self.table.setColumnCount(len(self.headers))
         self.table.setHorizontalHeaderLabels(self.headers)
+
         self.table.setFocusPolicy(Qt.NoFocus)
-        self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.NoSelection)
         self.table.setShowGrid(False)
+        self.table.setWordWrap(False)
 
-        self.table.verticalHeader().setVisible(True)
+        self.table.horizontalHeader().setFocusPolicy(Qt.NoFocus)
+        self.table.horizontalHeader().setHighlightSections(False)
+
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(52)
+        self.table.verticalHeader().setMinimumSectionSize(52)
         self.table.verticalHeader().setSectionResizeMode(
-            QHeaderView.ResizeToContents
+            QHeaderView.Fixed
         )
-        self.table.verticalHeader().setDefaultSectionSize(46)
-        self.table.verticalHeader().setMinimumSectionSize(46)
-        self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background-color: #161A25;
-                color: #FFFFFF;
-                gridline-color: transparent;
-                border: 1px solid #2A2E39;
-                border-radius: 8px;
-            }
+        self.table.horizontalHeader().setSectionResizeMode(
+            0,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            1,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            2,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            3,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            4,
+            QHeaderView.Stretch,
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            5,
+            QHeaderView.ResizeToContents,
+        )
 
-            QTableWidget QWidget {
-                background-color: transparent;
-            }
+        layout.addWidget(table_header)
+        layout.addWidget(self.table, 1)
 
-            QTableWidget::item {
-                padding: 18px 14px;
-                border-bottom: 1px solid #263142;
-            }
+        return card
 
-            QTableWidget::item:hover {
-                background-color: #222634;
-            }
+    def _connect_signals(self):
+        self.symbol_input.returnPressed.connect(
+            self.add_symbol
+        )
+        self.add_button.clicked.connect(
+            self.add_symbol
+        )
+        self.table.cellClicked.connect(
+            self.on_table_cell_clicked
+        )
 
-            QHeaderView::section:horizontal {
-                background-color: #1E222D;
-                color: #848E9C;
-                padding: 10px;
-                font-weight: 700;
+    def _apply_styles(self):
+        self.setStyleSheet(
+            page_style("watchlistPage")
+            + label_style()
+            + page_title_style()
+            + primary_button_style("addButton")
+            + scroll_bar_style()
+            + f"""
+            QWidget#watchlistHeader {{
+                background: transparent;
+                border: none;
+            }}
+
+            QFrame#assetCountBadge {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                border: 1px solid {Theme.BORDER};
+                border-radius: 15px;
+            }}
+
+            QLabel#assetCountDot {{
+                background-color: {Theme.ACCENT};
+                border-radius: 4px;
+            }}
+
+            QLabel#assetCountText {{
+                color: {Theme.TEXT_SECONDARY};
                 font-size: 12px;
-                border: none;
-                border-bottom: 2px solid #2A2E39;
-                outline: none;
-            }
+                font-weight: 600;
+            }}
 
-            QHeaderView::section:horizontal:pressed {
-                background-color: #1E222D;
-                border: none;
-                border-bottom: 2px solid #2A2E39;
-            }
+            QFrame#addSymbolCard {{
+                background-color: {Theme.CARD_BACKGROUND};
+                border: 1px solid {Theme.BORDER};
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
 
-            QHeaderView::section:horizontal:focus {
-                outline: none;
-            }
-
-            QHeaderView::section:vertical {
-                background-color: #161A25;
-                color: #BFD7FF;
-                padding-left: 14px;
-                padding-right: 14px;
-                font-weight: 800;
+            QLabel#addCardTitle {{
+                color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
+                font-weight: 700;
+            }}
+
+            QLabel#addCardDescription {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 12px;
+                font-weight: 400;
+            }}
+
+            QLineEdit#symbolInput {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                color: {Theme.TEXT_PRIMARY};
+                border: 1px solid {Theme.BORDER};
+                border-radius: {Theme.RADIUS_SMALL}px;
+                padding: 0 13px;
+                font-family: "{Theme.FONT_FAMILY}";
+                font-size: 13px;
+                font-weight: 500;
+                selection-background-color: {Theme.ACCENT_SOFT};
+            }}
+
+            QLineEdit#symbolInput:hover {{
+                border-color: {Theme.BORDER_HOVER};
+            }}
+
+            QLineEdit#symbolInput:focus {{
+                border-color: {Theme.ACCENT};
+            }}
+
+            QLineEdit#symbolInput::placeholder {{
+                color: {Theme.TEXT_MUTED};
+            }}
+
+            QLabel#statusLabel {{
+                color: {Theme.TEXT_SECONDARY};
+                font-size: 12px;
+                font-weight: 500;
+            }}
+
+            QFrame#watchlistTableCard {{
+                background-color: {Theme.CARD_BACKGROUND};
+                border: 1px solid {Theme.BORDER};
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
+
+            QWidget#tableHeader {{
+                background-color: transparent;
                 border: none;
-                border-right: 1px solid #2A2E39;
-                border-bottom: 1px solid #263142;
-            }
+                border-bottom: 1px solid {Theme.BORDER};
+            }}
 
-            QTableCornerButton::section {
-                background-color: #1E222D;
+            QLabel#tableTitle {{
+                color: {Theme.TEXT_PRIMARY};
+                font-size: 14px;
+                font-weight: 700;
+            }}
+
+            QLabel#tableDescription {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 11px;
+                font-weight: 400;
+            }}
+
+            QTableWidget#watchlistTable {{
+                background-color: transparent;
+                color: {Theme.TEXT_PRIMARY};
                 border: none;
-                border-bottom: 1px solid #2A2E39;
-            }
-        """)
+                gridline-color: transparent;
+                outline: none;
+            }}
 
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+            QTableWidget#watchlistTable::item {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER_SOFT};
+                padding: 11px 12px;
+            }}
 
-        layout.addWidget(self.table)
-        self.table.cellClicked.connect(self.on_table_cell_clicked)
+            QTableWidget#watchlistTable::item:hover {{
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+            }}
 
-        self.load_symbols()
+            QHeaderView::section:horizontal {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                color: {Theme.TEXT_SECONDARY};
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER};
+                padding: 12px;
+                font-family: "{Theme.FONT_FAMILY}";
+                font-size: 11px;
+                font-weight: 700;
+            }}
+
+            QHeaderView::section:horizontal:hover {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+            }}
+
+            QHeaderView::section:horizontal:pressed {{
+                color: {Theme.TEXT_PRIMARY};
+                background-color: {Theme.CARD_BACKGROUND_HOVER};
+            }}
+
+            QTableCornerButton::section {{
+                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                border: none;
+                border-bottom: 1px solid {Theme.BORDER};
+            }}
+            """
+        )
 
     def on_table_cell_clicked(self, row, column):
         if column != 5:
             return
 
         item = self.table.item(row, 0)
+
         if item is None:
             return
 
-        symbol = item.text()
-        self.remove_symbol(symbol)    
+        symbol = item.text().strip()
+
+        if symbol:
+            self.remove_symbol(symbol)
 
     def showEvent(self, event):
         super().showEvent(event)
         self.load_symbols()
 
     def set_status(self, message, error=False):
-        color = "#F6465D" if error else "#848E9C"
-        self.status_label.setStyleSheet(f"color: {color}; font-size: 13px;")
         self.status_label.setText(message)
+        self.status_label.setStyleSheet(
+            f"""
+            color: {
+                Theme.ERROR
+                if error
+                else Theme.TEXT_SECONDARY
+            };
+            font-size: 12px;
+            font-weight: 500;
+            """
+        )
+        self.status_label.show()
 
     def clear_status(self):
-        self.status_label.setText("")
+        self.status_label.clear()
+        self.status_label.hide()
 
     def add_symbol(self):
         raw_symbol = self.symbol_input.text()
-        normalized = watchlist_service.normalize_symbol(raw_symbol)
+        normalized = watchlist_service.normalize_symbol(
+            raw_symbol
+        )
 
         if not normalized:
             self.set_status(
@@ -238,13 +483,12 @@ class WatchlistPage(QWidget):
             return
 
         self.add_button.setEnabled(False)
-        self.add_button.setText("Kontrol...")
+        self.add_button.setText("Kontrol ediliyor...")
 
         try:
             success, result = (
-                self.data_manager.okx.is_spot_symbol_available(
-                    normalized
-                )
+                self.data_manager.okx
+                .is_spot_symbol_available(normalized)
             )
 
             if not success:
@@ -256,17 +500,24 @@ class WatchlistPage(QWidget):
 
             if not result:
                 self.set_status(
-                    f"{normalized} OKX Spot piyasasında bulunamadı.",
+                    (
+                        f"{normalized} OKX Spot piyasasında "
+                        "bulunamadı."
+                    ),
                     error=True,
                 )
                 return
 
-            current_price = self.data_manager.get_price(normalized)
+            current_price = self.data_manager.get_price(
+                normalized
+            )
 
-            if watchlist_service.add_symbol(
+            added = watchlist_service.add_symbol(
                 normalized,
                 current_price,
-            ):
+            )
+
+            if added:
                 self.symbol_input.clear()
                 self.clear_status()
                 self.load_symbols()
@@ -277,18 +528,31 @@ class WatchlistPage(QWidget):
                 error=True,
             )
 
+        except Exception as error:
+            self.set_status(
+                f"Coin kontrol edilemedi: {error}",
+                error=True,
+            )
+
         finally:
             self.add_button.setEnabled(True)
-            self.add_button.setText("Ekle")
+            self.add_button.setText("Watchlist'e Ekle")
 
     def remove_symbol(self, symbol):
-        if watchlist_service.remove_symbol(symbol):
+        removed = watchlist_service.remove_symbol(symbol)
+
+        if removed:
             self.clear_status()
             self.load_symbols()
-        else:
-            self.set_status(f"{symbol} silinemedi.", error=True)
+            return
 
-    def format_price(self, price):
+        self.set_status(
+            f"{symbol} silinemedi.",
+            error=True,
+        )
+
+    @staticmethod
+    def format_price(price):
         if price is None or price <= 0:
             return "-"
 
@@ -297,163 +561,96 @@ class WatchlistPage(QWidget):
 
         return f"${price:,.4f}"
 
-    def format_date(self, value):
+    @staticmethod
+    def format_date(value):
         if not value:
             return "-"
 
         try:
-            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            return dt.strftime("%d.%m.%Y %H:%M")
-        except ValueError:
+            date_value = datetime.fromisoformat(
+                value.replace("Z", "+00:00")
+            )
+            return date_value.strftime(
+                "%d.%m.%Y %H:%M"
+            )
+        except (TypeError, ValueError):
             return "-"
 
-    def format_change(self, current_price, added_price):
-        if not current_price or not added_price or added_price <= 0:
-            return "-", "#848E9C"
+    @staticmethod
+    def format_change(current_price, added_price):
+        if (
+            not current_price
+            or not added_price
+            or added_price <= 0
+        ):
+            return "-", Theme.TEXT_MUTED
 
-        change = ((current_price - added_price) / added_price) * 100
+        change = (
+            (current_price - added_price)
+            / added_price
+        ) * 100
 
         if change >= 0:
-            return f"+{change:.2f}%", "#00C087"
+            return f"+{change:.2f}%", Theme.ACCENT
 
-        return f"{change:.2f}%", "#F6465D"
+        return f"{change:.2f}%", Theme.ERROR
 
-    def make_item(self, text, color="#FFFFFF", bold=True, alignment=None):
-        item = NumericTableWidgetItem(text)
+    @staticmethod
+    def make_item(
+        text,
+        color=Theme.TEXT_PRIMARY,
+        bold=True,
+        alignment=Qt.AlignCenter,
+    ):
+        item = NumericTableWidgetItem(str(text))
         item.setForeground(QColor(color))
-
-        if alignment is None:
-            alignment = Qt.AlignCenter
-
         item.setTextAlignment(alignment)
 
-        font = QFont("Segoe UI", 10)
+        font = QFont(Theme.FONT_FAMILY, 10)
         font.setBold(bold)
         item.setFont(font)
 
         return item
 
-    def create_coin_cell(self, symbol):
-        badge_text, badge_color = COIN_BADGES.get(symbol, ("●", "#64748B"))
-
-        cell = QWidget()
-        layout = QHBoxLayout(cell)
-        layout.setContentsMargins(10, 0, 0, 0)
-        layout.setSpacing(10)
-        layout.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-
-        badge = QLabel(badge_text)
-        badge.setFixedSize(22, 22)
-        badge.setAlignment(Qt.AlignCenter)
-        badge.setStyleSheet(f"""
-            QLabel {{
-                background-color: {badge_color};
-                color: #0B1220;
-                border-radius: 11px;
-                font-size: 12px;
-                font-weight: 600;
-            }}
-        """)
-
-        name = QLabel(symbol)
-        name.setStyleSheet("""
-            QLabel {
-                color: #FFFFFF;
-                font-size: 13px;
-                font-weight: 600;
-                background: transparent;
-            }
-        """)
-
-        layout.addWidget(badge)
-        layout.addWidget(name)
-        layout.addStretch()
-
-        return cell
-
-    def create_delete_button(self, symbol):
-        button = QToolButton()
-        button.setText("×")
-        button.setFixedSize(26, 26)
-        button.setToolTip("Watchlist'ten kaldır")
-        button.setCursor(Qt.PointingHandCursor)
-        button.setStyleSheet("""
-            QToolButton {
-                background-color: #151D29;
-                color: #F6465D;
-                border: 1px solid #2A3342;
-                border-radius: 6px;
-                font-size: 18px;
-                line-height: 30px;             
-                font-weight: 400;
-                padding: 0px 0px 4px 0px;
-                margin: 0px;
-            }
-
-            QToolButton:hover {
-                background-color: #2A1F2A;
-                color: #FF5C6C;
-                border: 1px solid #5A2A35;
-            }
-
-            QToolButton:pressed {
-                background-color: #F6465D;
-                color: #FFFFFF;
-                border: 1px solid #F6465D;
-            }
-        """)
-        button.clicked.connect(
-            lambda _checked=False, s=symbol: self.remove_symbol(s)
-        )
-        return button
-
-    def create_action_cell(self, symbol):
-        cell = QWidget()
-        cell.setStyleSheet("background: transparent;")
-
-        layout = QHBoxLayout(cell)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.setAlignment(Qt.AlignCenter)
-
-        button = self.create_delete_button(symbol)
-        layout.addWidget(button, 0, Qt.AlignCenter)
-
-        return cell
-
     def load_symbols(self):
         items = watchlist_service.get_items()
 
+        self.table.setUpdatesEnabled(False)
         self.table.setRowCount(len(items))
 
         for row, item in enumerate(items):
-            symbol = watchlist_service.normalize_symbol(item["symbol"])
-            current_price = self.data_manager.get_price(symbol)
+            symbol = watchlist_service.normalize_symbol(
+                item.get("symbol", "")
+            )
+
+            current_price = self.data_manager.get_price(
+                symbol
+            )
             added_price = item.get("added_price")
             created_at = item.get("created_at")
 
-            change_text, change_color = self.format_change(
-                current_price,
-                added_price,
+            change_text, change_color = (
+                self.format_change(
+                    current_price,
+                    added_price,
+                )
             )
 
-            coin_item = self.make_item(
-                symbol,
-                color="#FFFFFF",
-                bold=True,
-                alignment=Qt.AlignCenter,
+            self.table.setItem(
+                row,
+                0,
+                self.make_item(
+                    symbol,
+                    color=Theme.TEXT_PRIMARY,
+                ),
             )
-
-            self.table.setItem(row, 0, coin_item)
 
             self.table.setItem(
                 row,
                 1,
                 self.make_item(
                     self.format_price(current_price),
-                    color="#00C087",
-                    bold=True,
-                    alignment=Qt.AlignHCenter | Qt.AlignVCenter,
+                    color=Theme.ACCENT,
                 ),
             )
 
@@ -462,9 +659,7 @@ class WatchlistPage(QWidget):
                 2,
                 self.make_item(
                     self.format_price(added_price),
-                    color="#FFFFFF",
-                    bold=True,
-                    alignment=Qt.AlignCenter,
+                    color=Theme.TEXT_PRIMARY,
                 ),
             )
 
@@ -474,8 +669,6 @@ class WatchlistPage(QWidget):
                 self.make_item(
                     change_text,
                     color=change_color,
-                    bold=True,
-                    alignment=Qt.AlignCenter,
                 ),
             )
 
@@ -484,16 +677,21 @@ class WatchlistPage(QWidget):
                 4,
                 self.make_item(
                     self.format_date(created_at),
-                    color="#C7CDD6",
-                    bold=True,
-                    alignment=Qt.AlignVCenter | Qt.AlignCenter,
+                    color=Theme.TEXT_SECONDARY,
                 ),
             )
 
-            delete_item = self.make_item(
-                "×",
-                color="#F6465D",
-                bold=True,
-                alignment=Qt.AlignCenter,
+            self.table.setItem(
+                row,
+                5,
+                self.make_item(
+                    "Kaldır",
+                    color=Theme.ERROR,
+                ),
             )
-            self.table.setItem(row, 5, delete_item)
+
+        self.table.setUpdatesEnabled(True)
+
+        self.asset_count_label.setText(
+            f"{len(items)} varlık"
+        )
