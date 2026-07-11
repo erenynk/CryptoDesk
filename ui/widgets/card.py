@@ -24,7 +24,7 @@ class Card(QFrame):
     def _update_style(self):
         style = f"""
         QFrame#{self.objectName()} {{
-            background-color: {Theme.CARD_BACKGROUND};
+            background-color: rgba(17, 24, 33, 242);
             border: 1px solid {Theme.BORDER};
             border-radius: {self._radius}px;
         }}
@@ -33,7 +33,7 @@ class Card(QFrame):
         if self._hover:
             style += f"""
             QFrame#{self.objectName()}:hover {{
-                background-color: {Theme.CARD_BACKGROUND_HOVER};
+                background-color: rgba(21, 30, 41, 248);
                 border-color: {Theme.BORDER_HOVER};
             }}
             """
