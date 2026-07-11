@@ -1,6 +1,8 @@
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QFont
 from ui.widgets.card import Card
+from ui.widgets.page_header import PageHeader
+from ui.widgets.button import AppButton
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -21,8 +23,7 @@ from ui.theme import (
     checkbox_style,
     label_style,
     page_style,
-    page_title_style,
-    primary_button_style,
+    page_title_style,    
     scroll_bar_style,
 )
 
@@ -88,49 +89,38 @@ class PortfolioPage(QWidget):
         self.main_layout.addWidget(self.table_card, 1)
 
     def _create_header(self):
-        header = QWidget()
-        header.setObjectName("portfolioHeader")
+        controls = QWidget()
+        controls.setObjectName("portfolioHeaderControls")
 
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(5)
-
-        title = QLabel("Portfolio")
-        title.setObjectName("pageTitle")
-
-        subtitle = QLabel(
-            "Funding ve Trading hesaplarındaki varlıklarını yönet."
-        )
-        subtitle.setObjectName("pageSubtitle")
-        subtitle.setWordWrap(True)
-
-        title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-
-        controls_layout = QHBoxLayout()
+        controls_layout = QHBoxLayout(controls)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(14)
 
         self.hide_dust_checkbox = QCheckBox(
             "Küçük Bakiyeleri Gizle (< $1)"
         )
-        self.hide_dust_checkbox.setObjectName("hideDustCheckbox")
+        self.hide_dust_checkbox.setObjectName(
+            "hideDustCheckbox"
+        )
 
-        self.refresh_button = QPushButton("Bakiyeleri Yenile")
-        self.refresh_button.setObjectName("refreshButton")
-        self.refresh_button.setCursor(Qt.PointingHandCursor)
+        self.refresh_button = AppButton(
+            "Bakiyeleri Yenile",
+            variant=AppButton.PRIMARY,
+            object_name="refreshButton",
+        )
 
         controls_layout.addWidget(self.hide_dust_checkbox)
         controls_layout.addWidget(self.refresh_button)
 
-        layout.addLayout(title_layout, 1)
-        layout.addLayout(controls_layout)
-
-        return header
+        return PageHeader(
+            title="Portfolio",
+            subtitle=(
+                "Funding ve Trading hesaplarındaki "
+                "varlıklarını yönet."
+            ),
+            right_widget=controls,
+            object_name="portfolioHeader",
+        )
 
     def _create_summary_card(self):
         card = Card(
@@ -312,14 +302,10 @@ class PortfolioPage(QWidget):
             page_style("portfolioPage")
             + label_style()
             + page_title_style()
-            + checkbox_style("hideDustCheckbox")
-            + primary_button_style("refreshButton")
+            + checkbox_style("hideDustCheckbox")            
             + scroll_bar_style()
             + f"""
-            QWidget#portfolioHeader {{
-                background: transparent;
-                border: none;
-            }}
+           
 
             
             QLabel#summaryLabel {{
