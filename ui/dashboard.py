@@ -1,4 +1,4 @@
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, QTimer, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -202,7 +202,7 @@ class PerformanceChart(QWidget):
 
 
 class DashboardPage(QWidget):
-    RESPONSIVE_BREAKPOINT = 920
+    RESPONSIVE_BREAKPOINT = 760
 
     def __init__(self, data_manager):
         super().__init__()
@@ -807,15 +807,20 @@ class DashboardPage(QWidget):
             """
         )
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-
+    def _sync_layout_mode(self):
         available_width = self.scroll_area.viewport().width()
+
+        if available_width <= 0:
+            available_width = self.width()
 
         if available_width < self.RESPONSIVE_BREAKPOINT:
             self._set_layout_mode("narrow")
         else:
             self._set_layout_mode("wide")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._sync_layout_mode()
 
     def refresh(self):
         portfolio = self.data_manager.get_portfolio()
@@ -925,10 +930,17 @@ class DashboardPage(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+
+        self._set_layout_mode("wide")
+        QTimer.singleShot(0, self._sync_layout_mode)
+        QTimer.singleShot(120, self._sync_layout_mode)
+
         portfolio = self.data_manager.get_portfolio() or {}
         performance = portfolio.get("performance", {})
+
         if not isinstance(performance, dict):
             performance = {}
+
         self._update_dashboard_summaries(performance)
 
     def on_portfolio_error(self, error):
