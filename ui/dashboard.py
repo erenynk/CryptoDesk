@@ -1,10 +1,10 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -16,16 +16,24 @@ class DashboardPage(QWidget):
     CARD_COLOR = "#151B23"
     CARD_HOVER_COLOR = "#18202A"
     CARD_BORDER_COLOR = "#28313D"
+
     TEXT_PRIMARY = "#F3F5F7"
     TEXT_SECONDARY = "#9AA4B2"
     TEXT_MUTED = "#667180"
+
     ACCENT_GREEN = "#16C784"
     ERROR_RED = "#F05D6C"
+
+    RESPONSIVE_BREAKPOINT = 900
 
     def __init__(self, data_manager):
         super().__init__()
 
         self.data_manager = data_manager
+        self.layout_mode = None
+
+        self.summary_cards = []
+        self.account_widgets = []
 
         self.setObjectName("dashboardPage")
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -37,25 +45,63 @@ class DashboardPage(QWidget):
         self.refresh()
 
     def _build_ui(self):
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(32, 28, 32, 32)
-        main_layout.setSpacing(24)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        header_layout = self._create_header()
-        main_layout.addLayout(header_layout)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("dashboardScrollArea")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded
+        )
+
+        self.content_widget = QWidget()
+        self.content_widget.setObjectName("dashboardContent")
+        self.content_widget.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Preferred,
+        )
+
+        self.main_layout = QVBoxLayout(self.content_widget)
+        self.main_layout.setContentsMargins(32, 28, 32, 32)
+        self.main_layout.setSpacing(24)
+
+        self.header_widget = self._create_header()
+        self.main_layout.addWidget(self.header_widget)
 
         self.portfolio_card = self._create_portfolio_card()
-        main_layout.addWidget(self.portfolio_card)
+        self.main_layout.addWidget(self.portfolio_card)
 
-        summary_grid = self._create_summary_grid()
-        main_layout.addLayout(summary_grid)
+        self.summary_container = QWidget()
+        self.summary_container.setObjectName("summaryContainer")
 
-        main_layout.addStretch()
+        self.summary_grid = QGridLayout(self.summary_container)
+        self.summary_grid.setContentsMargins(0, 0, 0, 0)
+        self.summary_grid.setHorizontalSpacing(16)
+        self.summary_grid.setVerticalSpacing(16)
+
+        self._create_summary_cards()
+
+        self.main_layout.addWidget(self.summary_container)
+        self.main_layout.addStretch()
+
+        self.scroll_area.setWidget(self.content_widget)
+        root_layout.addWidget(self.scroll_area)
+
+        self._set_layout_mode("wide")
 
     def _create_header(self):
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(16)
+        header = QWidget()
+        header.setObjectName("headerWidget")
+
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
 
         title_layout = QVBoxLayout()
         title_layout.setContentsMargins(0, 0, 0, 0)
@@ -65,9 +111,11 @@ class DashboardPage(QWidget):
         title.setObjectName("pageTitle")
 
         subtitle = QLabel(
-            "Portföy durumunu ve hesap dağılımını tek ekrandan takip et."
+            "Portföy durumunu ve hesap dağılımını "
+            "tek ekrandan takip et."
         )
         subtitle.setObjectName("pageSubtitle")
+        subtitle.setWordWrap(True)
 
         title_layout.addWidget(title)
         title_layout.addWidget(subtitle)
@@ -87,29 +135,32 @@ class DashboardPage(QWidget):
         self.status_dot.setObjectName("statusDot")
         self.status_dot.setFixedSize(8, 8)
 
-        self.status = QLabel("Bekleniyor...")
+        self.status = QLabel("Bekleniyor")
         self.status.setObjectName("statusText")
 
         status_layout.addWidget(self.status_dot)
         status_layout.addWidget(self.status)
 
-        header_layout.addLayout(title_layout)
-        header_layout.addStretch()
-        header_layout.addWidget(
+        layout.addLayout(title_layout, 1)
+        layout.addWidget(
             self.status_badge,
-            alignment=Qt.AlignTop,
+            0,
+            Qt.AlignTop | Qt.AlignRight,
         )
 
-        return header_layout
+        return header
 
     def _create_portfolio_card(self):
         card = QFrame()
         card.setObjectName("portfolioCard")
-        card.setMinimumHeight(250)
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Preferred,
+        )
 
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(28, 26, 28, 26)
-        card_layout.setSpacing(18)
+        card_layout.setSpacing(20)
 
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
@@ -128,20 +179,21 @@ class DashboardPage(QWidget):
         portfolio_description.setObjectName(
             "portfolioDescription"
         )
+        portfolio_description.setWordWrap(True)
 
         label_layout.addWidget(portfolio_label)
         label_layout.addWidget(portfolio_description)
 
-        currency_label = QLabel("USDT")
-        currency_label.setObjectName("currencyBadge")
-        currency_label.setAlignment(Qt.AlignCenter)
-        currency_label.setFixedSize(58, 30)
+        self.currency_label = QLabel("USDT")
+        self.currency_label.setObjectName("currencyBadge")
+        self.currency_label.setAlignment(Qt.AlignCenter)
+        self.currency_label.setFixedSize(58, 30)
 
-        top_layout.addLayout(label_layout)
-        top_layout.addStretch()
+        top_layout.addLayout(label_layout, 1)
         top_layout.addWidget(
-            currency_label,
-            alignment=Qt.AlignTop,
+            self.currency_label,
+            0,
+            Qt.AlignTop | Qt.AlignRight,
         )
 
         self.value = QLabel("$0.00")
@@ -149,43 +201,53 @@ class DashboardPage(QWidget):
         self.value.setTextInteractionFlags(
             Qt.TextSelectableByMouse
         )
+        self.value.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Preferred,
+        )
 
         divider = QFrame()
         divider.setObjectName("cardDivider")
         divider.setFrameShape(QFrame.HLine)
         divider.setFixedHeight(1)
 
-        account_layout = QHBoxLayout()
-        account_layout.setContentsMargins(0, 0, 0, 0)
-        account_layout.setSpacing(20)
+        self.account_container = QWidget()
+        self.account_container.setObjectName("accountContainer")
+
+        self.account_grid = QGridLayout(self.account_container)
+        self.account_grid.setContentsMargins(0, 0, 0, 0)
+        self.account_grid.setHorizontalSpacing(16)
+        self.account_grid.setVerticalSpacing(12)
 
         funding_box = self._create_account_box(
             title="Funding",
             description="Fon hesabı",
         )
         self.funding_value = funding_box["value"]
+        self.account_widgets.append(funding_box["widget"])
 
         trading_box = self._create_account_box(
             title="Trading",
             description="Spot işlem hesabı",
         )
         self.trading_value = trading_box["value"]
-
-        account_layout.addWidget(funding_box["widget"])
-        account_layout.addWidget(trading_box["widget"])
+        self.account_widgets.append(trading_box["widget"])
 
         card_layout.addLayout(top_layout)
         card_layout.addWidget(self.value)
-        card_layout.addStretch()
         card_layout.addWidget(divider)
-        card_layout.addLayout(account_layout)
+        card_layout.addWidget(self.account_container)
 
         return card
 
     def _create_account_box(self, title, description):
         widget = QFrame()
         widget.setObjectName("accountBox")
-        widget.setMinimumHeight(82)
+        widget.setMinimumHeight(80)
+        widget.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
 
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(16, 13, 16, 13)
@@ -214,13 +276,8 @@ class DashboardPage(QWidget):
             "value": value_label,
         }
 
-    def _create_summary_grid(self):
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(16)
-
-        cards = (
+    def _create_summary_cards(self):
+        definitions = (
             (
                 "Portföy Performansı",
                 "Günlük ve dönemsel değişimler",
@@ -235,30 +292,24 @@ class DashboardPage(QWidget):
             ),
         )
 
-        for column, (title, description) in enumerate(cards):
-            card = self._create_placeholder_card(
+        for title, description in definitions:
+            card = self._create_summary_card(
                 title,
                 description,
             )
-            grid.addWidget(card, 0, column)
+            self.summary_cards.append(card)
 
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(2, 1)
-
-        return grid
-
-    def _create_placeholder_card(self, title, description):
+    def _create_summary_card(self, title, description):
         card = QFrame()
         card.setObjectName("summaryCard")
-        card.setMinimumHeight(140)
+        card.setMinimumHeight(116)
         card.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 19, 20, 19)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(7)
 
         title_label = QLabel(title)
@@ -272,7 +323,6 @@ class DashboardPage(QWidget):
 
         coming_soon = QLabel("Yakında")
         coming_soon.setObjectName("comingSoon")
-        coming_soon.setAlignment(Qt.AlignLeft)
 
         layout.addWidget(title_label)
         layout.addWidget(description_label)
@@ -280,6 +330,87 @@ class DashboardPage(QWidget):
         layout.addWidget(coming_soon)
 
         return card
+
+    def _clear_grid(self, grid):
+        while grid.count():
+            item = grid.takeAt(0)
+            widget = item.widget()
+
+            if widget is not None:
+                widget.setParent(self.content_widget)
+
+    def _set_layout_mode(self, mode):
+        if mode == self.layout_mode:
+            return
+
+        self._clear_grid(self.account_grid)
+        self._clear_grid(self.summary_grid)
+
+        if mode == "narrow":
+            self.main_layout.setContentsMargins(
+                24,
+                24,
+                24,
+                28,
+            )
+            self.main_layout.setSpacing(20)
+
+            self.account_grid.addWidget(
+                self.account_widgets[0],
+                0,
+                0,
+            )
+            self.account_grid.addWidget(
+                self.account_widgets[1],
+                1,
+                0,
+            )
+            self.account_grid.setColumnStretch(0, 1)
+
+            for row, card in enumerate(self.summary_cards):
+                self.summary_grid.addWidget(card, row, 0)
+
+            self.summary_grid.setColumnStretch(0, 1)
+
+        else:
+            self.main_layout.setContentsMargins(
+                32,
+                28,
+                32,
+                32,
+            )
+            self.main_layout.setSpacing(24)
+
+            self.account_grid.addWidget(
+                self.account_widgets[0],
+                0,
+                0,
+            )
+            self.account_grid.addWidget(
+                self.account_widgets[1],
+                0,
+                1,
+            )
+            self.account_grid.setColumnStretch(0, 1)
+            self.account_grid.setColumnStretch(1, 1)
+
+            for column, card in enumerate(self.summary_cards):
+                self.summary_grid.addWidget(
+                    card,
+                    0,
+                    column,
+                )
+                self.summary_grid.setColumnStretch(
+                    column,
+                    1,
+                )
+
+        self.layout_mode = mode
+
+        self.account_container.adjustSize()
+        self.summary_container.adjustSize()
+        self.portfolio_card.adjustSize()
+        self.content_widget.adjustSize()
 
     def _connect_signals(self):
         self.data_manager.portfolio_updated.connect(
@@ -294,6 +425,23 @@ class DashboardPage(QWidget):
             f"""
             QWidget#dashboardPage {{
                 background-color: {self.BACKGROUND_COLOR};
+            }}
+
+            QScrollArea#dashboardScrollArea {{
+                background-color: {self.BACKGROUND_COLOR};
+                border: none;
+            }}
+
+            QScrollArea#dashboardScrollArea > QWidget > QWidget {{
+                background-color: {self.BACKGROUND_COLOR};
+            }}
+
+            QWidget#dashboardContent,
+            QWidget#headerWidget,
+            QWidget#summaryContainer,
+            QWidget#accountContainer {{
+                background: transparent;
+                border: none;
             }}
 
             QLabel {{
@@ -363,7 +511,7 @@ class DashboardPage(QWidget):
             QLabel#portfolioValue {{
                 color: {self.ACCENT_GREEN};
                 font-size: 40px;
-                font-weight: 750;
+                font-weight: 700;
             }}
 
             QFrame#cardDivider {{
@@ -375,6 +523,11 @@ class DashboardPage(QWidget):
                 background-color: #11171E;
                 border: 1px solid #222C37;
                 border-radius: 12px;
+            }}
+
+            QFrame#accountBox:hover {{
+                background-color: #141C24;
+                border-color: #2D3946;
             }}
 
             QLabel#accountTitle {{
@@ -409,7 +562,7 @@ class DashboardPage(QWidget):
             QLabel#summaryTitle {{
                 color: {self.TEXT_PRIMARY};
                 font-size: 14px;
-                font-weight: 650;
+                font-weight: 600;
             }}
 
             QLabel#summaryDescription {{
@@ -423,8 +576,46 @@ class DashboardPage(QWidget):
                 font-size: 11px;
                 font-weight: 600;
             }}
+
+            QScrollBar:vertical {{
+                background: transparent;
+                width: 10px;
+                margin: 6px 2px 6px 2px;
+            }}
+
+            QScrollBar::handle:vertical {{
+                background-color: #2B3541;
+                min-height: 36px;
+                border-radius: 4px;
+            }}
+
+            QScrollBar::handle:vertical:hover {{
+                background-color: #3A4654;
+            }}
+
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {{
+                height: 0;
+                background: transparent;
+                border: none;
+            }}
+
+            QScrollBar::add-page:vertical,
+            QScrollBar::sub-page:vertical {{
+                background: transparent;
+            }}
             """
         )
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        available_width = self.scroll_area.viewport().width()
+
+        if available_width < self.RESPONSIVE_BREAKPOINT:
+            self._set_layout_mode("narrow")
+        else:
+            self._set_layout_mode("wide")
 
     def refresh(self):
         portfolio = self.data_manager.get_portfolio()
@@ -436,7 +627,9 @@ class DashboardPage(QWidget):
         self.on_portfolio_updated(portfolio)
 
     def on_portfolio_updated(self, portfolio):
-        total = float(portfolio.get("total_usdt", 0.0))
+        total = float(
+            portfolio.get("total_usdt", 0.0)
+        )
         funding_total = float(
             portfolio.get("funding_usdt", 0.0)
         )
@@ -459,6 +652,7 @@ class DashboardPage(QWidget):
 
     def _set_waiting_status(self):
         self.status.setText("Bekleniyor")
+
         self.status.setStyleSheet(
             f"""
             color: {self.TEXT_SECONDARY};
@@ -466,6 +660,7 @@ class DashboardPage(QWidget):
             font-weight: 600;
             """
         )
+
         self.status_dot.setStyleSheet(
             f"""
             background-color: {self.TEXT_MUTED};
@@ -475,6 +670,7 @@ class DashboardPage(QWidget):
 
     def _set_connected_status(self):
         self.status.setText("API Bağlı")
+
         self.status.setStyleSheet(
             f"""
             color: {self.ACCENT_GREEN};
@@ -482,6 +678,7 @@ class DashboardPage(QWidget):
             font-weight: 600;
             """
         )
+
         self.status_dot.setStyleSheet(
             f"""
             background-color: {self.ACCENT_GREEN};
@@ -491,6 +688,7 @@ class DashboardPage(QWidget):
 
     def _set_error_status(self):
         self.status.setText("Bağlantı Hatası")
+
         self.status.setStyleSheet(
             f"""
             color: {self.ERROR_RED};
@@ -498,6 +696,7 @@ class DashboardPage(QWidget):
             font-weight: 600;
             """
         )
+
         self.status_dot.setStyleSheet(
             f"""
             background-color: {self.ERROR_RED};
