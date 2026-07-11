@@ -4,6 +4,7 @@ from ui.widgets.card import Card
 from ui.widgets.input import AppLineEdit
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
+from ui.widgets.status_badge import StatusBadge
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -107,39 +108,11 @@ class AlarmsPage(QWidget):
         title_layout.addWidget(title)
         title_layout.addWidget(subtitle)
 
-        self.alarm_count_badge = QFrame()
-        self.alarm_count_badge.setObjectName(
-            "alarmCountBadge"
+        self.alarm_count_badge = StatusBadge(
+            text="0 aktif alarm",
+            status=StatusBadge.NEUTRAL,
+            object_name="alarmCountBadge",
         )
-        self.alarm_count_badge.setSizePolicy(
-            QSizePolicy.Fixed,
-            QSizePolicy.Fixed,
-        )
-
-        badge_layout = QHBoxLayout(
-            self.alarm_count_badge
-        )
-        badge_layout.setContentsMargins(
-            12,
-            7,
-            12,
-            7,
-        )
-        badge_layout.setSpacing(8)
-
-        self.alarm_count_dot = QLabel()
-        self.alarm_count_dot.setObjectName(
-            "alarmCountDot"
-        )
-        self.alarm_count_dot.setFixedSize(8, 8)
-
-        self.alarm_count_label = QLabel("0 alarm")
-        self.alarm_count_label.setObjectName(
-            "alarmCountText"
-        )
-
-        badge_layout.addWidget(self.alarm_count_dot)
-        badge_layout.addWidget(self.alarm_count_label)
 
         layout.addLayout(title_layout, 1)
         layout.addWidget(
@@ -407,25 +380,7 @@ class AlarmsPage(QWidget):
                 border: none;
             }}
 
-            QFrame#alarmCountBadge {{
-                background-color:
-                    {Theme.CARD_BACKGROUND_SECONDARY};
-                border: 1px solid {Theme.BORDER};
-                border-radius: 15px;
-            }}
-
-            QLabel#alarmCountDot {{
-                background-color: {Theme.ACCENT};
-                border-radius: 4px;
-            }}
-
-            QLabel#alarmCountText {{
-                color: {Theme.TEXT_SECONDARY};
-                font-size: 12px;
-                font-weight: 600;
-            }}
-
-            
+                      
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 14px;
@@ -802,19 +757,13 @@ class AlarmsPage(QWidget):
         finally:
             self.table.setUpdatesEnabled(True)
 
-        self.alarm_count_label.setText(
-            f"{active_count} aktif alarm"
-        )
-
-        self.alarm_count_dot.setStyleSheet(
-            f"""
-            background-color: {
-                Theme.ACCENT
+        self.alarm_count_badge.set_status(
+            f"{active_count} aktif alarm",
+            (
+                StatusBadge.SUCCESS
                 if active_count > 0
-                else Theme.TEXT_MUTED
-            };
-            border-radius: 4px;
-            """
+                else StatusBadge.NEUTRAL
+            ),
         )
 
     def _populate_alarm_row(self, row, alarm):
