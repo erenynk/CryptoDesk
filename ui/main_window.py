@@ -1,6 +1,13 @@
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QCloseEvent, QFont
-from ui.theme import Theme
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtGui import (
+    QCloseEvent,
+    QColor,
+    QFont,
+    QIcon,
+    QPainter,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -21,6 +28,7 @@ from ui.dashboard import DashboardPage
 from ui.notification_popup import NotificationManager
 from ui.portfolio import PortfolioPage
 from ui.settings import SettingsPage
+from ui.theme import Theme
 from ui.watchlist import WatchlistPage
 
 
@@ -36,7 +44,6 @@ class MainWindow(QMainWindow):
 
     MENU_HOVER = Theme.CARD_BACKGROUND_HOVER
     MENU_SELECTED = Theme.ACCENT_SOFT
-    MENU_SELECTED_BORDER = Theme.ACCENT
 
     def __init__(self):
         super().__init__()
@@ -75,16 +82,16 @@ class MainWindow(QMainWindow):
     def _create_sidebar(self):
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(238)
+        sidebar.setFixedWidth(252)
 
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(18, 24, 18, 20)
+        sidebar_layout.setContentsMargins(20, 26, 20, 22)
         sidebar_layout.setSpacing(0)
 
         brand_widget = self._create_brand()
         sidebar_layout.addWidget(brand_widget)
 
-        sidebar_layout.addSpacing(30)
+        sidebar_layout.addSpacing(34)
 
         navigation_label = QLabel("MENÜ")
         navigation_label.setObjectName("navigationLabel")
@@ -97,12 +104,9 @@ class MainWindow(QMainWindow):
         self.menu.setFocusPolicy(Qt.NoFocus)
         self.menu.setEditTriggers(QListWidget.NoEditTriggers)
         self.menu.setSelectionMode(QListWidget.SingleSelection)
-        self.menu.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarAlwaysOff
-        )
-        self.menu.setVerticalScrollBarPolicy(
-            Qt.ScrollBarAlwaysOff
-        )
+        self.menu.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.menu.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.menu.setIconSize(QSize(20, 20))
         self.menu.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
@@ -113,23 +117,24 @@ class MainWindow(QMainWindow):
         self.menu.setFont(menu_font)
 
         menu_items = (
-            "Dashboard",
-            "Portfolio",
-            "Watchlist",
-            "Alarmlar",
-            "Ayarlar",
+            ("Dashboard", "dashboard"),
+            ("Portfolio", "portfolio"),
+            ("Watchlist", "watchlist"),
+            ("Alarmlar", "alarms"),
+            ("Ayarlar", "settings"),
         )
 
-        for text in menu_items:
-            item = QListWidgetItem(text)
-            item.setSizeHint(item.sizeHint().expandedTo(
-                self._menu_item_size()
-            ))
+        icon_color = QColor(Theme.TEXT_SECONDARY)
+
+        for text, icon_name in menu_items:
+            item = QListWidgetItem(
+                self._create_nav_icon(icon_name, icon_color),
+                text,
+            )
+            item.setSizeHint(self._menu_item_size())
             self.menu.addItem(item)
 
-        self.menu.setFixedHeight(
-            len(menu_items) * 52
-        )
+        self.menu.setFixedHeight(len(menu_items) * 56)
 
         sidebar_layout.addWidget(self.menu)
         sidebar_layout.addStretch()
@@ -145,16 +150,16 @@ class MainWindow(QMainWindow):
 
         layout = QHBoxLayout(brand)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(11)
+        layout.setSpacing(12)
 
-        logo = QLabel("C")
+        logo = QLabel("CD")
         logo.setObjectName("brandLogo")
         logo.setAlignment(Qt.AlignCenter)
-        logo.setFixedSize(38, 38)
+        logo.setFixedSize(42, 42)
 
         text_layout = QVBoxLayout()
         text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(1)
+        text_layout.setSpacing(2)
 
         title = QLabel("CryptoDesk")
         title.setObjectName("brandTitle")
@@ -176,8 +181,16 @@ class MainWindow(QMainWindow):
         footer.setObjectName("sidebarFooter")
 
         layout = QVBoxLayout(footer)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(4)
+        layout.setContentsMargins(14, 13, 14, 13)
+        layout.setSpacing(5)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(8)
+
+        dot = QLabel()
+        dot.setObjectName("footerStatusDot")
+        dot.setFixedSize(8, 8)
 
         title = QLabel("OKX Spot")
         title.setObjectName("footerTitle")
@@ -185,35 +198,103 @@ class MainWindow(QMainWindow):
         description = QLabel("Güvenli bağlantı")
         description.setObjectName("footerDescription")
 
-        layout.addWidget(title)
+        top_row.addWidget(dot)
+        top_row.addWidget(title)
+        top_row.addStretch()
+
+        layout.addLayout(top_row)
         layout.addWidget(description)
 
         return footer
 
     @staticmethod
     def _menu_item_size():
-        from PySide6.QtCore import QSize
+        return QSize(196, 48)
 
-        return QSize(180, 44)
+    @staticmethod
+    def _create_nav_icon(name, color):
+        size = 22
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        pen = QPen(color)
+        pen.setWidthF(1.7)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+
+        if name == "dashboard":
+            painter.drawRoundedRect(QRectF(3, 3, 7, 7), 1.5, 1.5)
+            painter.drawRoundedRect(QRectF(12, 3, 7, 7), 1.5, 1.5)
+            painter.drawRoundedRect(QRectF(3, 12, 7, 7), 1.5, 1.5)
+            painter.drawRoundedRect(QRectF(12, 12, 7, 7), 1.5, 1.5)
+
+        elif name == "portfolio":
+            painter.drawRoundedRect(QRectF(3, 6, 16, 12), 2, 2)
+            painter.drawLine(QPointF(7, 6), QPointF(7, 4))
+            painter.drawLine(QPointF(15, 6), QPointF(15, 4))
+            painter.drawLine(QPointF(7, 4), QPointF(15, 4))
+            painter.drawLine(QPointF(3, 10), QPointF(19, 10))
+
+        elif name == "watchlist":
+            points = (
+                QPointF(11, 2.5),
+                QPointF(13.7, 8),
+                QPointF(19.7, 8.8),
+                QPointF(15.3, 13.1),
+                QPointF(16.3, 19),
+                QPointF(11, 16.2),
+                QPointF(5.7, 19),
+                QPointF(6.7, 13.1),
+                QPointF(2.3, 8.8),
+                QPointF(8.3, 8),
+            )
+            for index in range(len(points)):
+                painter.drawLine(
+                    points[index],
+                    points[(index + 1) % len(points)],
+                )
+
+        elif name == "alarms":
+            painter.drawArc(QRectF(5, 4, 12, 13), 25 * 16, 130 * 16)
+            painter.drawArc(QRectF(5, 4, 12, 13), 205 * 16, 130 * 16)
+            painter.drawLine(QPointF(5, 13), QPointF(3.5, 16))
+            painter.drawLine(QPointF(3.5, 16), QPointF(18.5, 16))
+            painter.drawLine(QPointF(18.5, 16), QPointF(17, 13))
+            painter.drawArc(QRectF(8.5, 16, 5, 4), 200 * 16, 140 * 16)
+
+        elif name == "settings":
+            painter.drawEllipse(QRectF(8, 8, 6, 6))
+            painter.drawEllipse(QRectF(4, 4, 14, 14))
+            for angle in range(0, 360, 45):
+                import math
+                rad = math.radians(angle)
+                x1 = 11 + 7 * math.cos(rad)
+                y1 = 11 + 7 * math.sin(rad)
+                x2 = 11 + 9 * math.cos(rad)
+                y2 = 11 + 9 * math.sin(rad)
+                painter.drawLine(
+                    QPointF(x1, y1),
+                    QPointF(x2, y2),
+                )
+
+        painter.end()
+        return QIcon(pixmap)
 
     def _create_pages(self):
-        self.dashboard_page = DashboardPage(
-            self.data_manager
-        )
+        self.dashboard_page = DashboardPage(self.data_manager)
 
         self.portfolio_page = PortfolioPage(
             self.data_manager,
             self.dashboard_page,
         )
 
-        self.watchlist_page = WatchlistPage(
-            self.data_manager
-        )
-
-        self.alarms_page = AlarmsPage(
-            self.data_manager
-        )
-
+        self.watchlist_page = WatchlistPage(self.data_manager)
+        self.alarms_page = AlarmsPage(self.data_manager)
         self.settings_page = SettingsPage()
 
         self.pages.addWidget(self.dashboard_page)
@@ -257,7 +338,15 @@ class MainWindow(QMainWindow):
             }}
 
             QFrame#sidebar {{
-                background-color: {self.SIDEBAR_BACKGROUND};
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #0A1018,
+                    stop: 0.55 #0D141D,
+                    stop: 1 #101821
+                );
                 border-right: 1px solid {self.SIDEBAR_BORDER};
             }}
 
@@ -266,12 +355,19 @@ class MainWindow(QMainWindow):
             }}
 
             QLabel#brandLogo {{
-                color: {Theme.BACKGROUND};
-                background-color: {self.MENU_SELECTED_BORDER};
-                border: none;
-                border-radius: 11px;
+                color: {Theme.ACCENT};
+                background: qradialgradient(
+                    cx: 0.42,
+                    cy: 0.38,
+                    radius: 0.9,
+                    stop: 0 rgba(24, 201, 139, 72),
+                    stop: 0.55 rgba(18, 63, 55, 210),
+                    stop: 1 rgba(8, 16, 24, 245)
+                );
+                border: 1px solid {Theme.ACCENT_BORDER};
+                border-radius: 13px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 18px;
+                font-size: 14px;
                 font-weight: 800;
             }}
 
@@ -280,7 +376,7 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 border: none;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 16px;
+                font-size: 17px;
                 font-weight: 700;
             }}
 
@@ -315,9 +411,9 @@ class MainWindow(QMainWindow):
                 color: {self.TEXT_SECONDARY};
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 10px;
-                padding: 0 14px;
-                margin: 3px 0;
+                border-radius: 12px;
+                padding: 0 16px;
+                margin: 4px 0;
                 font-family: "{Theme.FONT_FAMILY}";
                 font-size: 13px;
                 font-weight: 600;
@@ -325,36 +421,41 @@ class MainWindow(QMainWindow):
 
             QListWidget#navigationMenu::item:hover {{
                 color: {self.TEXT_PRIMARY};
-                background-color: {self.MENU_HOVER};
-                border-color: {Theme.BORDER};
+                background-color: rgba(22, 31, 43, 220);
+                border: 1px solid {Theme.BORDER_HOVER};
             }}
 
-            QListWidget#navigationMenu::item:selected {{
-                color: {self.TEXT_PRIMARY};
-                background-color: {self.MENU_SELECTED};
-                border: 1px solid {Theme.ACCENT_BORDER};
-                border-left: 3px solid {self.MENU_SELECTED_BORDER};
-                padding-left: 12px;
-            }}
-
-            QListWidget#navigationMenu::item:selected:active {{
-                color: {self.TEXT_PRIMARY};
-                background-color: {self.MENU_SELECTED};
-                border: 1px solid {Theme.ACCENT_BORDER};
-                border-left: 3px solid {self.MENU_SELECTED_BORDER};
-            }}
-
+            QListWidget#navigationMenu::item:selected,
+            QListWidget#navigationMenu::item:selected:active,
             QListWidget#navigationMenu::item:selected:!active {{
                 color: {self.TEXT_PRIMARY};
-                background-color: {self.MENU_SELECTED};
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 0,
+                    stop: 0 rgba(21, 54, 47, 230),
+                    stop: 1 rgba(20, 32, 42, 220)
+                );
                 border: 1px solid {Theme.ACCENT_BORDER};
-                border-left: 3px solid {self.MENU_SELECTED_BORDER};
+                border-top-color: #326251;
+                border-bottom-color: #1C3B32;
+                border-radius: 12px;
+                padding: 0 16px;
+                margin: 4px 0;
+                font-weight: 700;
             }}
 
             QFrame#sidebarFooter {{
-                background-color: {Theme.CARD_BACKGROUND_SECONDARY};
+                background-color: rgba(13, 21, 29, 235);
                 border: 1px solid {self.SIDEBAR_BORDER};
-                border-radius: 11px;
+                border-radius: 14px;
+            }}
+
+            QLabel#footerStatusDot {{
+                background-color: {Theme.ACCENT};
+                border: none;
+                border-radius: 4px;
             }}
 
             QLabel#footerTitle {{
@@ -362,7 +463,7 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 border: none;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 12px;
+                font-size: 13px;
                 font-weight: 650;
             }}
 
@@ -373,6 +474,7 @@ class MainWindow(QMainWindow):
                 font-family: "{Theme.FONT_FAMILY}";
                 font-size: 10px;
                 font-weight: 500;
+                padding-left: 16px;
             }}
 
             QStackedWidget#pageStack {{
@@ -433,12 +535,8 @@ class MainWindow(QMainWindow):
         self.notification_manager.show_alarm(
             title=f"{symbol} Fiyat Alarmı",
             message=message,
-            current_price=self.format_alarm_price(
-                current_price
-            ),
-            target_price=self.format_alarm_price(
-                target_price
-            ),
+            current_price=self.format_alarm_price(current_price),
+            target_price=self.format_alarm_price(target_price),
             note=alarm.get("note", ""),
         )
 
