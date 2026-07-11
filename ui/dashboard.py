@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from ui.widgets.card import Card
 from ui.widgets.status_badge import StatusBadge
+from ui.widgets.page_header import PageHeader
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -24,7 +25,7 @@ class DashboardPage(QWidget):
     TEXT_MUTED = "#667180"
 
     ACCENT_GREEN = "#16C784"
-    ERROR_RED = "#F05D6C"
+    
 
     RESPONSIVE_BREAKPOINT = 900
 
@@ -73,7 +74,22 @@ class DashboardPage(QWidget):
         self.main_layout.setContentsMargins(32, 28, 32, 32)
         self.main_layout.setSpacing(24)
 
-        self.header_widget = self._create_header()
+        self.status_badge = StatusBadge(
+            text="Bekleniyor",
+            status=StatusBadge.NEUTRAL,
+            object_name="dashboardStatusBadge",
+        )
+
+        self.header_widget = PageHeader(
+            title="Dashboard",
+            subtitle=(
+                "Portföy durumunu ve hesap dağılımını "
+                "tek ekrandan takip et."
+            ),
+            right_widget=self.status_badge,
+            object_name="dashboardHeader",
+        )
+
         self.main_layout.addWidget(self.header_widget)
 
         self.portfolio_card = self._create_portfolio_card()
@@ -642,9 +658,4 @@ class DashboardPage(QWidget):
             StatusBadge.ERROR,
         )
 
-        self.status_dot.setStyleSheet(
-            f"""
-            background-color: {self.ERROR_RED};
-            border-radius: 4px;
-            """
-        )
+        
