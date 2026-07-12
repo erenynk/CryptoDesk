@@ -46,15 +46,15 @@ class AlarmsPage(QWidget):
 
         self.headers = [
             "",
-            "Varlık",
-            "Hedef Fiyat",
-            "Koşul",
-            "Anlık Fiyat",
-            "Alarm Notu",
-            "Durum",
-            "Oluşturulma",
-            "Aktif/Pasif",
-            "Sil",
+            "VARLIK",
+            "HEDEF FİYAT",
+            "KOŞUL",
+            "ANLIK FİYAT",
+            "ALARM NOTU",
+            "DURUM",
+            "OLUŞTURULMA",
+            "AKTİF/PASİF",
+            "SİL",
         ]
 
         self.setObjectName("alarmsPage")
@@ -328,18 +328,18 @@ class AlarmsPage(QWidget):
             form_card.setStyleSheet(
                 f"""
                 QFrame#alarmFormCard {{
-                    background: qlineargradient(
+                background: qlineargradient(
                     x1: 0,
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0B141D,
-                    stop: 0.55 #0D1822,
-                    stop: 1 #101C27
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                    border: 1px solid #253542;
-                    border-radius: {Theme.RADIUS_LARGE}px;
-                }}
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
                 """
             )
 
@@ -347,18 +347,18 @@ class AlarmsPage(QWidget):
             table_card.setStyleSheet(
                 f"""
                 QFrame#alarmsTableCard {{
-                    background: qlineargradient(
+                background: qlineargradient(
                     x1: 0,
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                    border: 1px solid #253542;
-                    border-radius: {Theme.RADIUS_LARGE}px;
-                }}
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
                 """
             )
 
@@ -397,9 +397,9 @@ class AlarmsPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #101923,
-                    stop: 0.55 #14202B,
-                    stop: 1 #182631
+                    stop: 0 #172630,
+                    stop: 0.50 #13212B,
+                    stop: 1 #101923
                 );
             }}
 
@@ -476,12 +476,12 @@ class AlarmsPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
                 border: none;
-                border-bottom: 1px solid #253542;
+                border-bottom: 1px solid #293B46;
             }}
 
             QHeaderView#alarmsTableHeader::section {{
@@ -490,8 +490,9 @@ class AlarmsPage(QWidget):
                 border: none;
                 padding: 12px 9px;
                 font-family: "{Theme.FONT_FAMILY}";
-                font-size: 13px;
-                font-weight: 700;
+                font-size: 14px;
+                font-weight: 800;
+                letter-spacing: 1px;
             }}
 
             QHeaderView::section:horizontal:hover {{
@@ -512,12 +513,12 @@ class AlarmsPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
                 border: none;
-                border-bottom: 1px solid #253542;
+                border-bottom: 1px solid #293B46;
             }}
             """
         )

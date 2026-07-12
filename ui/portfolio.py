@@ -56,11 +56,11 @@ class PortfolioPage(QWidget):
 
         self.headers = [
             "",
-            "Varlık",
-            "Toplam Değer",
-            "Anlık Fiyat",
-            "Toplam Miktar",
-            "PnL",
+            "VARLIK",
+            "TOPLAM DEĞER",
+            "ANLIK FİYAT",
+            "TOPLAM MİKTAR",
+            "PNL",
         ]
 
         self.setObjectName("portfolioPage")
@@ -302,12 +302,12 @@ class PortfolioPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0B141D,
-                    stop: 0.55 #0D1822,
-                    stop: 1 #101C27
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                border: 1px solid #253542;
-                border-radius: {summary_radius}px;
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_XLARGE}px;
             }}
             """
         )
@@ -320,12 +320,12 @@ class PortfolioPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                border: 1px solid #253542;
-                border-radius: {table_radius}px;
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_LARGE}px;
             }}
             """
         )
@@ -367,9 +367,9 @@ class PortfolioPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #101923,
-                    stop: 0.55 #14202B,
-                    stop: 1 #182631
+                    stop: 0 #172630,
+                    stop: 0.50 #13212B,
+                    stop: 1 #101923
                 );
             }}
 
@@ -441,12 +441,12 @@ class PortfolioPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
                 border: none;
-                border-bottom: 1px solid #253542;
+                border-bottom: 1px solid #293B46;
             }}
 
             QHeaderView#portfolioTableHeader::section {{
@@ -457,6 +457,7 @@ class PortfolioPage(QWidget):
                 font-family: "{Theme.FONT_FAMILY}";
                 font-size: 14px;
                 font-weight: 800;
+                letter-spacing: 1px;
             }}
 
             QHeaderView#portfolioTableHeader::section {{
@@ -492,12 +493,12 @@ class PortfolioPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
                 border: none;
-                border-bottom: 1px solid #253542;
+                border-bottom: 1px solid #293B46;
             }}
             """
         )

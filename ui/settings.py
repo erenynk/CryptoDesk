@@ -307,18 +307,18 @@ class SettingsPage(QWidget):
             credentials_card.setStyleSheet(
                 f"""
                 QFrame#credentialsCard {{
-                    background: qlineargradient(
+                background: qlineargradient(
                     x1: 0,
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0B141D,
-                    stop: 0.55 #0D1822,
-                    stop: 1 #101C27
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                    border: 1px solid #253542;
-                    border-radius: {Theme.RADIUS_LARGE}px;
-                }}
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
                 """
             )
 
@@ -326,18 +326,18 @@ class SettingsPage(QWidget):
             connection_card.setStyleSheet(
                 f"""
                 QFrame#connectionCard {{
-                    background: qlineargradient(
+                background: qlineargradient(
                     x1: 0,
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                    border: 1px solid #253542;
-                    border-radius: {Theme.RADIUS_LARGE}px;
-                }}
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
                 """
             )
 
@@ -362,9 +362,9 @@ class SettingsPage(QWidget):
                     y1: 0,
                     x2: 1,
                     y2: 1,
-                    stop: 0 #101923,
-                    stop: 0.55 #14202B,
-                    stop: 1 #182631
+                    stop: 0 #172630,
+                    stop: 0.50 #13212B,
+                    stop: 1 #101923
                 );
             }}
 
@@ -397,11 +397,12 @@ class SettingsPage(QWidget):
                     x1: 0,
                     y1: 0,
                     x2: 1,
-                    y2: 0,
-                    stop: 0 rgba(14, 24, 37, 248),
-                    stop: 1 rgba(10, 19, 30, 248)
+                    y2: 1,
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
                 );
-                border: 1px solid {Theme.BORDER};
+                border: 1px solid #293B46;
                 border-radius: {Theme.RADIUS_SMALL}px;
             }}
 

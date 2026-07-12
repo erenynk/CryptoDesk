@@ -1,4 +1,4 @@
-from PySide6.QtCore import QPointF, QRectF, QTimer, Qt
+from PySide6.QtCore import QRectF, QTimer, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -6,9 +6,12 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
+    QPixmap,
+    QRadialGradient,
 )
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -18,187 +21,394 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from services import alarm_service, watchlist_service
 from ui.theme import Theme, scroll_bar_style
-from ui.widgets.card import Card
 from ui.widgets.page_header import PageHeader
 from ui.widgets.status_badge import StatusBadge
-from services import alarm_service, watchlist_service
 
 
-class PerformanceChart(QWidget):
-    PERIODS = (
-        ("1G", "1d"),
-        ("7G", "7d"),
-        ("30G", "30d"),
-        ("90G", "90d"),
-        ("1Y", "1y"),
-    )
+class SurfaceEngine:
+    _noise_tile = None
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    @classmethod
+    def noise_tile(cls):
+        if cls._noise_tile is not None:
+            return cls._noise_tile
 
-        self._changes = {key: None for _, key in self.PERIODS}
-        self.setMinimumHeight(170)
-        self.setSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Expanding,
+        size = 96
+        tile = QPixmap(size, size)
+        tile.fill(Qt.transparent)
+
+        painter = QPainter(tile)
+        painter.setPen(Qt.NoPen)
+
+        for y in range(size):
+            for x in range(size):
+                seed = (
+                    x * 37
+                    + y * 61
+                    + x * y * 3
+                ) % 113
+
+                if seed == 0:
+                    painter.setBrush(
+                        QColor(255, 255, 255, 5)
+                    )
+                    painter.drawRect(x, y, 1, 1)
+                elif seed == 47:
+                    painter.setBrush(
+                        QColor(0, 0, 0, 5)
+                    )
+                    painter.drawRect(x, y, 1, 1)
+                elif seed == 79:
+                    painter.setBrush(
+                        QColor(120, 150, 165, 3)
+                    )
+                    painter.drawRect(x, y, 1, 1)
+
+        painter.end()
+        cls._noise_tile = tile
+        return cls._noise_tile
+
+    @staticmethod
+    def draw_surface(
+        painter,
+        rect,
+        radius,
+        base_color,
+        start_color,
+        end_color,
+        glow_color,
+        border_color,
+        border_top_color,
+    ):
+        path = QPainterPath()
+        path.addRoundedRect(
+            rect,
+            radius,
+            radius,
         )
 
-    def set_changes(self, changes):
-        for _, key in self.PERIODS:
-            value = changes.get(key)
-            self._changes[key] = (
-                float(value)
-                if isinstance(value, (int, float))
-                else None
-            )
-        self.update()
+        painter.save()
+        painter.setClipPath(path)
 
-    def paintEvent(self, event):
-        super().paintEvent(event)
-
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        outer = self.rect().adjusted(10, 12, -10, -10)
-        chart_rect = QRectF(
-            outer.left(),
-            outer.top() + 24,
-            outer.width(),
-            max(outer.height() - 52, 60),
+        painter.fillPath(
+            path,
+            QColor(base_color),
         )
+
+        base_gradient = QLinearGradient(
+            rect.left(),
+            rect.top(),
+            rect.right(),
+            rect.bottom(),
+        )
+        base_gradient.setColorAt(
+            0.00,
+            QColor(start_color),
+        )
+        base_gradient.setColorAt(
+            1.00,
+            QColor(end_color),
+        )
+        painter.fillPath(
+            path,
+            base_gradient,
+        )
+
+        glow = QRadialGradient(
+            rect.left() + rect.width() * 0.14,
+            rect.top() + rect.height() * 0.08,
+            max(rect.width(), rect.height()) * 1.05,
+        )
+        glow.setColorAt(
+            0.00,
+            QColor(glow_color),
+        )
+
+        faded_glow = QColor(glow_color)
+        faded_glow.setAlpha(
+            max(1, faded_glow.alpha() // 3)
+        )
+        glow.setColorAt(
+            0.48,
+            faded_glow,
+        )
+        glow.setColorAt(
+            1.00,
+            QColor(0, 0, 0, 0),
+        )
+        painter.fillPath(
+            path,
+            glow,
+        )
+
+        wash = QLinearGradient(
+            rect.left(),
+            rect.top(),
+            rect.left(),
+            rect.bottom(),
+        )
+        wash.setColorAt(
+            0.00,
+            QColor(255, 255, 255, 5),
+        )
+        wash.setColorAt(
+            0.34,
+            QColor(255, 255, 255, 2),
+        )
+        wash.setColorAt(
+            0.70,
+            QColor(0, 0, 0, 2),
+        )
+        wash.setColorAt(
+            1.00,
+            QColor(0, 0, 0, 7),
+        )
+        painter.fillPath(
+            path,
+            wash,
+        )
+
+        painter.setOpacity(0.72)
+        painter.drawTiledPixmap(
+            rect.toRect(),
+            SurfaceEngine.noise_tile(),
+        )
+        painter.setOpacity(1.0)
+        painter.restore()
 
         painter.setPen(
-            QPen(QColor(255, 255, 255, 16), 1)
-        )
-        painter.drawLine(
-            QPointF(chart_rect.left(), chart_rect.center().y()),
-            QPointF(chart_rect.right(), chart_rect.center().y()),
-        )
-
-        values = [
-            self._changes[key]
-            for _, key in self.PERIODS
-        ]
-        available = [value for value in values if value is not None]
-
-        if not available:
-            painter.setPen(QColor(Theme.TEXT_MUTED))
-            painter.drawText(
-                outer,
-                Qt.AlignCenter,
-                "Portföy geçmişi oluştuğunda dönemsel değişimler burada görünecek",
+            QPen(
+                QColor(border_color),
+                1.0,
             )
-            self._draw_period_labels(painter, chart_rect)
-            return
-
-        max_abs = max(max(abs(value) for value in available), 1.0)
-        points = []
-
-        for index, value in enumerate(values):
-            x = (
-                chart_rect.left()
-                + chart_rect.width()
-                * index
-                / max(len(values) - 1, 1)
-            )
-
-            if value is None:
-                y = chart_rect.center().y()
-            else:
-                normalized = value / max_abs
-                y = (
-                    chart_rect.center().y()
-                    - normalized
-                    * chart_rect.height()
-                    * 0.42
-                )
-
-            points.append(QPointF(x, y))
-
-        path = QPainterPath(points[0])
-        for point in points[1:]:
-            path.lineTo(point)
-
-        fill_path = QPainterPath(path)
-        fill_path.lineTo(
-            QPointF(points[-1].x(), chart_rect.bottom())
         )
-        fill_path.lineTo(
-            QPointF(points[0].x(), chart_rect.bottom())
-        )
-        fill_path.closeSubpath()
-
-        gradient = QLinearGradient(
-            0,
-            chart_rect.top(),
-            0,
-            chart_rect.bottom(),
-        )
-        gradient.setColorAt(0, QColor(24, 201, 139, 70))
-        gradient.setColorAt(1, QColor(24, 201, 139, 4))
-        painter.fillPath(fill_path, gradient)
-
-        painter.setPen(QPen(QColor(Theme.ACCENT), 2.1))
+        painter.setBrush(Qt.NoBrush)
         painter.drawPath(path)
 
-        label_font = QFont(Theme.FONT_FAMILY, 9)
-        label_font.setBold(True)
-        painter.setFont(label_font)
 
-        for index, point in enumerate(points):
-            value = values[index]
-            color = QColor(Theme.TEXT_MUTED)
+    @staticmethod
+    def draw_page_background(painter, rect):
+        painter.fillRect(
+            rect,
+            QColor("#101923"),
+        )
 
-            if value is not None:
-                color = QColor(
-                    Theme.ACCENT
-                    if value >= 0
-                    else Theme.ERROR
-                )
+        base = QLinearGradient(
+            rect.left(),
+            rect.top(),
+            rect.right(),
+            rect.bottom(),
+        )
+        base.setColorAt(
+            0.00,
+            QColor("#172630"),
+        )
+        base.setColorAt(
+            1.00,
+            QColor("#101923"),
+        )
+        painter.fillRect(
+            rect,
+            base,
+        )
 
-            painter.setBrush(color)
-            painter.setPen(Qt.NoPen)
-            painter.drawEllipse(point, 4, 4)
+        glow = QRadialGradient(
+            rect.left() + rect.width() * 0.12,
+            rect.top() + rect.height() * 0.06,
+            max(rect.width(), rect.height()) * 1.10,
+        )
+        glow.setColorAt(
+            0.00,
+            QColor(48, 67, 86, 18),
+        )
+        glow.setColorAt(
+            0.46,
+            QColor(35, 49, 66, 6),
+        )
+        glow.setColorAt(
+            1.00,
+            QColor(0, 0, 0, 0),
+        )
+        painter.fillRect(
+            rect,
+            glow,
+        )
 
-            painter.setPen(color)
-            text = "—" if value is None else f"{value:+.2f}%"
-            painter.drawText(
-                QRectF(
-                    point.x() - 38,
-                    point.y() - 28,
-                    76,
-                    20,
-                ),
-                Qt.AlignCenter,
-                text,
+        painter.setOpacity(0.80)
+        painter.drawTiledPixmap(
+            rect.toRect(),
+            SurfaceEngine.noise_tile(),
+        )
+        painter.setOpacity(1.0)
+
+
+class CorporateSurface(QFrame):
+    PALETTES = {
+        "hero": {
+            "base": "#101B24",
+            "start": "#182B38",
+            "end": "#0D1720",
+            "glow": (58, 78, 103, 18),
+            "border": "#293B46",
+            "border_top": "#304550",
+            "radius": 24,
+            "shadow_blur": 62,
+            "shadow_alpha": 82,
+            "shadow_offset": 8,
+        },
+        "account": {
+            "base": "#0F1922",
+            "start": "#162733",
+            "end": "#0D1720",
+            "glow": (51, 70, 92, 15),
+            "border": "#253640",
+            "border_top": "#2C404B",
+            "radius": 17,
+            "shadow_blur": 50,
+            "shadow_alpha": 64,
+            "shadow_offset": 7,
+        },
+        "strip": {
+            "base": "#0F1922",
+            "start": "#162733",
+            "end": "#0D1720",
+            "glow": (49, 68, 90, 14),
+            "border": "#24353F",
+            "border_top": "#2B3E49",
+            "radius": 19,
+            "shadow_blur": 50,
+            "shadow_alpha": 72,
+            "shadow_offset": 7,
+        },
+        "overview": {
+            "base": "#0F1922",
+            "start": "#162733",
+            "end": "#0D1720",
+            "glow": (48, 67, 88, 14),
+            "border": "#24343E",
+            "border_top": "#2A3D47",
+            "radius": 19,
+            "shadow_blur": 50,
+            "shadow_alpha": 72,
+            "shadow_offset": 7,
+        },
+    }
+
+    def __init__(
+        self,
+        role: str,
+        object_name: str,
+        hover_enabled: bool = False,
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        if role not in self.PALETTES:
+            raise ValueError(
+                f"Geçersiz yüzey rolü: {role}"
             )
 
-        self._draw_period_labels(painter, chart_rect)
+        self._role = role
+        self._hover_enabled = hover_enabled
+        self._hovered = False
 
-    def _draw_period_labels(self, painter, chart_rect):
-        painter.setPen(QColor(Theme.TEXT_SECONDARY))
-        font = QFont(Theme.FONT_FAMILY, 9)
-        font.setBold(True)
-        painter.setFont(font)
+        self.setObjectName(object_name)
+        self.setAttribute(
+            Qt.WA_StyledBackground,
+            False,
+        )
+        self.setAttribute(
+            Qt.WA_TranslucentBackground,
+            True,
+        )
 
-        for index, (label, _) in enumerate(self.PERIODS):
-            x = (
-                chart_rect.left()
-                + chart_rect.width()
-                * index
-                / max(len(self.PERIODS) - 1, 1)
+        palette = self.PALETTES[self._role]
+
+        self._shadow = QGraphicsDropShadowEffect(self)
+        self._shadow.setBlurRadius(
+            palette["shadow_blur"]
+        )
+        self._shadow.setOffset(
+            0,
+            palette["shadow_offset"],
+        )
+        self._shadow.setColor(
+            QColor(
+                0,
+                0,
+                0,
+                palette["shadow_alpha"],
             )
-            painter.drawText(
-                QRectF(
-                    x - 30,
-                    chart_rect.bottom() + 10,
-                    60,
-                    20,
-                ),
-                Qt.AlignCenter,
-                label,
+        )
+        self.setGraphicsEffect(self._shadow)
+
+    def enterEvent(self, event):
+        if self._hover_enabled:
+            self._hovered = True
+            self._shadow.setBlurRadius(
+                self.PALETTES[self._role][
+                    "shadow_blur"
+                ]
+                + 6
             )
+            self.update()
+
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if self._hover_enabled:
+            self._hovered = False
+            self._shadow.setBlurRadius(
+                self.PALETTES[self._role][
+                    "shadow_blur"
+                ]
+            )
+            self.update()
+
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(
+            QPainter.Antialiasing,
+        )
+        painter.setRenderHint(
+            QPainter.SmoothPixmapTransform,
+        )
+
+        palette = self.PALETTES[self._role]
+        rect = QRectF(self.rect()).adjusted(
+            1,
+            1,
+            -1,
+            -1,
+        )
+
+        border_color = (
+            "#3A5664"
+            if self._hovered
+            and self._hover_enabled
+            else palette["border"]
+        )
+
+        glow = QColor(*palette["glow"])
+
+        SurfaceEngine.draw_surface(
+            painter=painter,
+            rect=rect,
+            radius=palette["radius"],
+            base_color=palette["base"],
+            start_color=palette["start"],
+            end_color=palette["end"],
+            glow_color=glow,
+            border_color=border_color,
+            border_top_color=palette["border_top"],
+        )
+
+        painter.end()
+        super().paintEvent(event)
 
 
 class DashboardPage(QWidget):
@@ -210,14 +420,15 @@ class DashboardPage(QWidget):
         self.data_manager = data_manager
         self.layout_mode = None
         self.account_cards = []
-        self.summary_cards = []
+        self.summary_sections = []
+        self.period_cells = []
 
         self.setObjectName("dashboardPage")
-        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
 
         self._build_ui()
         self._apply_styles()
-        self._apply_dashboard_palette()
         self._connect_signals()
         self.refresh()
 
@@ -230,11 +441,19 @@ class DashboardPage(QWidget):
         self.scroll_area.setObjectName("dashboardScrollArea")
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.NoFrame)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded
+        )
 
         self.content_widget = QWidget()
         self.content_widget.setObjectName("dashboardContent")
+        self.content_widget.setAttribute(
+            Qt.WA_TranslucentBackground,
+            True,
+        )
         self.content_widget.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Preferred,
@@ -247,7 +466,7 @@ class DashboardPage(QWidget):
             Theme.PAGE_MARGIN_HORIZONTAL,
             Theme.PAGE_MARGIN_VERTICAL,
         )
-        self.main_layout.setSpacing(Theme.PAGE_SPACING)
+        self.main_layout.setSpacing(16)
 
         self.status_badge = StatusBadge(
             text="Bekleniyor",
@@ -266,19 +485,15 @@ class DashboardPage(QWidget):
         )
         self.main_layout.addWidget(self.header)
 
-        self.hero_card = self._create_hero_card()
-        self.main_layout.addWidget(self.hero_card)
+        self.hero_surface = self._create_hero_surface()
+        self.main_layout.addWidget(self.hero_surface)
 
-        self.summary_container = QWidget()
-        self.summary_container.setObjectName("summaryContainer")
+        self.period_surface = self._create_period_surface()
+        self.main_layout.addWidget(self.period_surface)
 
-        self.summary_grid = QGridLayout(self.summary_container)
-        self.summary_grid.setContentsMargins(0, 0, 0, 0)
-        self.summary_grid.setHorizontalSpacing(16)
-        self.summary_grid.setVerticalSpacing(16)
+        self.overview_surface = self._create_overview_surface()
+        self.main_layout.addWidget(self.overview_surface)
 
-        self._create_summary_cards()
-        self.main_layout.addWidget(self.summary_container)
         self.main_layout.addStretch()
 
         self.scroll_area.setWidget(self.content_widget)
@@ -286,75 +501,77 @@ class DashboardPage(QWidget):
 
         self._set_layout_mode("wide")
 
-    def _create_hero_card(self):
-        card = Card(
-            "dashboardHeroCard",
-            hover=False,
-            radius=20,
-            shadow=True,
-            palette="blue_dark",
+    def _create_hero_surface(self):
+        surface = CorporateSurface(
+            role="hero",
+            object_name="dashboardHeroSurface",
         )
-        card.setMinimumHeight(350)
-        card.setSizePolicy(
+        surface.setMinimumHeight(358)
+        surface.setSizePolicy(
             QSizePolicy.Expanding,
-            QSizePolicy.Preferred,
+            QSizePolicy.Fixed,
         )
 
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(30, 28, 30, 28)
-        layout.setSpacing(22)
-
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(6)
-
-        eyebrow = QLabel("TOPLAM PORTFÖY")
-        eyebrow.setObjectName("heroEyebrow")
-
-        description = QLabel(
-            "Funding ve Trading hesaplarının birleşik güncel değeri"
-        )
-        description.setObjectName("heroDescription")
-        description.setWordWrap(True)
-
-        title_layout.addWidget(eyebrow)
-        title_layout.addWidget(description)
+        layout = QVBoxLayout(surface)
+        layout.setContentsMargins(40, 32, 40, 32)
+        layout.setSpacing(24)
 
         self.hero_body = QWidget()
         self.hero_body.setObjectName("heroBody")
-        self.hero_body_grid = QGridLayout(self.hero_body)
-        self.hero_body_grid.setContentsMargins(0, 0, 0, 0)
-        self.hero_body_grid.setHorizontalSpacing(28)
-        self.hero_body_grid.setVerticalSpacing(16)
+
+        self.hero_grid = QGridLayout(self.hero_body)
+        self.hero_grid.setContentsMargins(0, 0, 0, 0)
+        self.hero_grid.setHorizontalSpacing(24)
+        self.hero_grid.setVerticalSpacing(16)
 
         self.metric_widget = QWidget()
         self.metric_widget.setObjectName("metricWidget")
 
         metric_layout = QVBoxLayout(self.metric_widget)
-        metric_layout.setContentsMargins(0, 0, 0, 0)
+        metric_layout.setContentsMargins(0, 8, 0, 8)
         metric_layout.setSpacing(8)
+
+        eyebrow = QLabel("TOPLAM PORTFÖY")
+        eyebrow.setObjectName("heroEyebrow")
 
         self.value = QLabel("$0.00")
         self.value.setObjectName("heroValue")
+        self.value.setMinimumWidth(380)
+        self.value.setAlignment(
+            Qt.AlignLeft | Qt.AlignVCenter
+        )
         self.value.setTextInteractionFlags(
             Qt.TextSelectableByMouse
         )
 
+        self.value_glow = QGraphicsDropShadowEffect(
+            self.value
+        )
+        self.value_glow.setBlurRadius(20)
+        self.value_glow.setOffset(0, 0)
+        self.value_glow.setColor(
+            QColor(16, 185, 129, 58)
+        )
+        self.value.setGraphicsEffect(
+            self.value_glow
+        )
+
         self.hero_caption = QLabel(
-            "Dönemsel portföy performansı"
+            "Funding ve Trading toplamı"
         )
         self.hero_caption.setObjectName("heroCaption")
 
+        self.hero_status = QLabel(
+            "Portföy verileri bekleniyor"
+        )
+        self.hero_status.setObjectName("heroStatus")
+
+        metric_layout.addWidget(eyebrow)
+        metric_layout.addSpacing(6)
         metric_layout.addWidget(self.value)
         metric_layout.addWidget(self.hero_caption)
+        metric_layout.addWidget(self.hero_status)
         metric_layout.addStretch()
-
-        self.performance_chart = PerformanceChart()
-
-        divider = QFrame()
-        divider.setObjectName("heroDivider")
-        divider.setFrameShape(QFrame.HLine)
-        divider.setFixedHeight(1)
 
         self.account_container = QWidget()
         self.account_container.setObjectName("accountContainer")
@@ -362,9 +579,9 @@ class DashboardPage(QWidget):
         self.account_grid = QGridLayout(self.account_container)
         self.account_grid.setContentsMargins(0, 0, 0, 0)
         self.account_grid.setHorizontalSpacing(16)
-        self.account_grid.setVerticalSpacing(14)
+        self.account_grid.setVerticalSpacing(16)
 
-        funding = self._create_account_card(
+        funding = self._create_account_surface(
             title="Funding",
             description="Fon hesabı",
             accent_text="Cüzdan bakiyesi",
@@ -372,7 +589,7 @@ class DashboardPage(QWidget):
         self.funding_value = funding["value"]
         self.account_cards.append(funding["widget"])
 
-        trading = self._create_account_card(
+        trading = self._create_account_surface(
             title="Trading",
             description="Spot işlem hesabı",
             accent_text="İşlem bakiyesi",
@@ -380,30 +597,60 @@ class DashboardPage(QWidget):
         self.trading_value = trading["value"]
         self.account_cards.append(trading["widget"])
 
-        layout.addLayout(title_layout)
+        self.hero_grid.addWidget(
+            self.metric_widget,
+            0,
+            0,
+            2,
+            1,
+        )
+        self.hero_grid.addWidget(
+            self.account_cards[0],
+            0,
+            1,
+        )
+        self.hero_grid.addWidget(
+            self.account_cards[1],
+            1,
+            1,
+        )
+        self.hero_grid.setColumnStretch(0, 3)
+        self.hero_grid.setColumnStretch(1, 2)
+
+        divider = QFrame()
+        divider.setObjectName("heroDivider")
+        divider.setFixedHeight(1)
+
+        footer = QLabel(
+            "Portföy dağılımı ve dönemsel performans özeti"
+        )
+        footer.setObjectName("heroFooter")
+
         layout.addWidget(self.hero_body)
         layout.addWidget(divider)
-        layout.addWidget(self.account_container)
+        layout.addWidget(footer)
 
-        return card
+        return surface
 
-    def _create_account_card(self, title, description, accent_text):
-        card = Card(
-            "dashboardAccountCard",
-            hover=True,
-            radius=14,
-            shadow=False,
-            palette="blue_dark",
+    def _create_account_surface(
+        self,
+        title,
+        description,
+        accent_text,
+    ):
+        surface = CorporateSurface(
+            role="account",
+            object_name="dashboardAccountSurface",
         )
-        card.setMinimumHeight(98)
-        card.setSizePolicy(
+        surface.setMinimumHeight(112)
+        surface.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
-        layout = QHBoxLayout(card)
-        layout.setContentsMargins(18, 16, 18, 16)
-        layout.setSpacing(14)
+        layout = QHBoxLayout(surface)
+        layout.setContentsMargins(24, 16, 24, 16)
+        layout.setSpacing(16)
 
         accent_bar = QFrame()
         accent_bar.setObjectName("accountAccentBar")
@@ -420,15 +667,16 @@ class DashboardPage(QWidget):
         title_label = QLabel(title)
         title_label.setObjectName("accountTitle")
 
-        accent_label = QLabel(accent_text)
-        accent_label.setObjectName("accountMeta")
+        meta_label = QLabel(accent_text)
+        meta_label.setObjectName("accountMeta")
 
         top_line.addWidget(title_label)
         top_line.addStretch()
-        top_line.addWidget(accent_label)
+        top_line.addWidget(meta_label)
 
         value_label = QLabel("$0.00")
         value_label.setObjectName("accountValue")
+        value_label.setMinimumWidth(180)
         value_label.setTextInteractionFlags(
             Qt.TextSelectableByMouse
         )
@@ -444,70 +692,138 @@ class DashboardPage(QWidget):
         layout.addLayout(text_layout, 1)
 
         return {
-            "widget": card,
+            "widget": surface,
             "value": value_label,
         }
 
-    def _create_summary_cards(self):
-        performance = self._create_summary_card(
-            title="Portföy Performansı",
-            description="Son kayıtlı dönemsel değişim",
+    def _create_period_surface(self):
+        surface = CorporateSurface(
+            role="strip",
+            object_name="dashboardPeriodSurface",
+            hover_enabled=False,
         )
-        self.performance_summary_value = performance["value"]
-        self.performance_summary_detail = performance["detail"]
-        self.summary_cards.append(performance["widget"])
-
-        alarms = self._create_summary_card(
-            title="Aktif Alarmlar",
-            description="Kurulu fiyat alarmı durumu",
-        )
-        self.alarms_summary_value = alarms["value"]
-        self.alarms_summary_detail = alarms["detail"]
-        self.summary_cards.append(alarms["widget"])
-
-        watchlist = self._create_summary_card(
-            title="Watchlist Özeti",
-            description="Takip edilen varlık görünümü",
-        )
-        self.watchlist_summary_value = watchlist["value"]
-        self.watchlist_summary_detail = watchlist["detail"]
-        self.summary_cards.append(watchlist["widget"])
-
-    def _create_summary_card(self, title, description):
-        card = Card(
-            "dashboardSummaryCard",
-            hover=True,
-            radius=16,
-            shadow=False,
-            palette="blue_dark",
-        )
-        card.setMinimumHeight(158)
-        card.setSizePolicy(
+        surface.setMinimumHeight(124)
+        surface.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(7)
+        self.period_layout = QGridLayout(surface)
+        self.period_layout.setContentsMargins(
+            24,
+            16,
+            24,
+            16,
+        )
+        self.period_layout.setHorizontalSpacing(0)
+        self.period_layout.setVerticalSpacing(12)
 
-        top_row = QHBoxLayout()
-        top_row.setContentsMargins(0, 0, 0, 0)
-        top_row.setSpacing(10)
+        self.period_value_labels = {}
+
+        periods = (
+            ("1 Gün", "1d"),
+            ("7 Gün", "7d"),
+            ("30 Gün", "30d"),
+            ("90 Gün", "90d"),
+            ("1 Yıl", "1y"),
+        )
+
+        for title, key in periods:
+            cell = QWidget()
+            cell.setObjectName("periodCell")
+            cell.setMinimumHeight(82)
+
+            cell_layout = QVBoxLayout(cell)
+            cell_layout.setContentsMargins(
+                16,
+                4,
+                16,
+                4,
+            )
+            cell_layout.setSpacing(6)
+
+            title_label = QLabel(title)
+            title_label.setObjectName("periodTitle")
+
+            value_label = QLabel("—")
+            value_label.setObjectName("periodValue")
+
+            detail_label = QLabel("Değişim")
+            detail_label.setObjectName("periodDetail")
+
+            cell_layout.addWidget(title_label)
+            cell_layout.addStretch()
+            cell_layout.addWidget(value_label)
+            cell_layout.addWidget(detail_label)
+
+            self.period_cells.append(cell)
+            self.period_value_labels[key] = value_label
+
+        self._rebuild_period_layout("wide")
+        return surface
+
+    def _create_overview_surface(self):
+        surface = CorporateSurface(
+            role="overview",
+            object_name="dashboardOverviewSurface",
+            hover_enabled=False,
+        )
+        surface.setMinimumHeight(188)
+        surface.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
+        self.overview_layout = QGridLayout(surface)
+        self.overview_layout.setContentsMargins(
+            24,
+            24,
+            24,
+            24,
+        )
+        self.overview_layout.setHorizontalSpacing(0)
+        self.overview_layout.setVerticalSpacing(12)
+
+        portfolio = self._create_summary_section(
+            "Portfolio",
+            "Toplam varlık görünümü",
+        )
+        self.performance_summary_value = portfolio["value"]
+        self.performance_summary_detail = portfolio["detail"]
+        self.summary_sections.append(portfolio["widget"])
+
+        alarms = self._create_summary_section(
+            "Alarmlar",
+            "Aktif alarm durumu",
+        )
+        self.alarms_summary_value = alarms["value"]
+        self.alarms_summary_detail = alarms["detail"]
+        self.summary_sections.append(alarms["widget"])
+
+        watchlist = self._create_summary_section(
+            "Watchlist",
+            "Takip edilen varlıklar",
+        )
+        self.watchlist_summary_value = watchlist["value"]
+        self.watchlist_summary_detail = watchlist["detail"]
+        self.summary_sections.append(watchlist["widget"])
+
+        self._rebuild_overview_layout("wide")
+        return surface
+
+    def _create_summary_section(self, title, description):
+        widget = QWidget()
+        widget.setObjectName("overviewSection")
+
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(24, 8, 24, 8)
+        layout.setSpacing(8)
 
         title_label = QLabel(title)
         title_label.setObjectName("summaryTitle")
 
-        indicator = QLabel("•")
-        indicator.setObjectName("summaryIndicator")
-
-        top_row.addWidget(title_label)
-        top_row.addStretch()
-        top_row.addWidget(indicator)
-
         description_label = QLabel(description)
         description_label.setObjectName("summaryDescription")
-        description_label.setWordWrap(True)
 
         value_label = QLabel("—")
         value_label.setObjectName("summaryValue")
@@ -516,14 +832,14 @@ class DashboardPage(QWidget):
         detail_label.setObjectName("summaryDetail")
         detail_label.setWordWrap(True)
 
-        layout.addLayout(top_row)
+        layout.addWidget(title_label)
         layout.addWidget(description_label)
         layout.addStretch()
         layout.addWidget(value_label)
         layout.addWidget(detail_label)
 
         return {
-            "widget": card,
+            "widget": widget,
             "value": value_label,
             "detail": detail_label,
         }
@@ -537,39 +853,116 @@ class DashboardPage(QWidget):
             if widget is not None:
                 widget.setParent(None)
 
+    def _rebuild_period_layout(self, mode):
+        self._clear_grid(self.period_layout)
+
+        if mode == "narrow":
+            for row, cell in enumerate(self.period_cells):
+                self.period_layout.addWidget(
+                    cell,
+                    row,
+                    0,
+                )
+        else:
+            for column, cell in enumerate(self.period_cells):
+                self.period_layout.addWidget(
+                    cell,
+                    0,
+                    column * 2,
+                )
+                self.period_layout.setColumnStretch(
+                    column * 2,
+                    1,
+                )
+
+                if column < len(self.period_cells) - 1:
+                    divider = QFrame()
+                    divider.setObjectName("verticalDivider")
+                    divider.setFixedWidth(1)
+                    self.period_layout.addWidget(
+                        divider,
+                        0,
+                        column * 2 + 1,
+                    )
+
+    def _rebuild_overview_layout(self, mode):
+        self._clear_grid(self.overview_layout)
+
+        if mode == "narrow":
+            for row, section in enumerate(
+                self.summary_sections
+            ):
+                self.overview_layout.addWidget(
+                    section,
+                    row * 2,
+                    0,
+                )
+
+                if row < len(self.summary_sections) - 1:
+                    divider = QFrame()
+                    divider.setObjectName("horizontalDivider")
+                    divider.setFixedHeight(1)
+                    self.overview_layout.addWidget(
+                        divider,
+                        row * 2 + 1,
+                        0,
+                    )
+        else:
+            for column, section in enumerate(
+                self.summary_sections
+            ):
+                self.overview_layout.addWidget(
+                    section,
+                    0,
+                    column * 2,
+                )
+                self.overview_layout.setColumnStretch(
+                    column * 2,
+                    1,
+                )
+
+                if column < len(self.summary_sections) - 1:
+                    divider = QFrame()
+                    divider.setObjectName("verticalDivider")
+                    divider.setFixedWidth(1)
+                    self.overview_layout.addWidget(
+                        divider,
+                        0,
+                        column * 2 + 1,
+                    )
+
     def _set_layout_mode(self, mode):
         if mode == self.layout_mode:
             return
 
-        self._clear_grid(self.hero_body_grid)
-        self._clear_grid(self.account_grid)
-        self._clear_grid(self.summary_grid)
-
         if mode == "narrow":
-            self.main_layout.setContentsMargins(22, 22, 22, 28)
-            self.main_layout.setSpacing(20)
+            self.main_layout.setContentsMargins(
+                22,
+                22,
+                22,
+                28,
+            )
+            self.main_layout.setSpacing(16)
 
-            self.hero_body_grid.addWidget(
+            self._clear_grid(self.hero_grid)
+            self.hero_grid.addWidget(
                 self.metric_widget,
                 0,
                 0,
             )
-            self.hero_body_grid.addWidget(
-                self.performance_chart,
+            self.hero_grid.addWidget(
+                self.account_cards[0],
                 1,
                 0,
             )
+            self.hero_grid.addWidget(
+                self.account_cards[1],
+                2,
+                0,
+            )
 
-            for row, card in enumerate(self.account_cards):
-                self.account_grid.addWidget(card, row, 0)
-
-            for row, card in enumerate(self.summary_cards):
-                self.summary_grid.addWidget(card, row, 0)
-
-            self.hero_body_grid.setColumnStretch(0, 1)
-            self.account_grid.setColumnStretch(0, 1)
-            self.summary_grid.setColumnStretch(0, 1)
-
+            self._rebuild_period_layout("narrow")
+            self._rebuild_overview_layout("narrow")
         else:
             self.main_layout.setContentsMargins(
                 Theme.PAGE_MARGIN_HORIZONTAL,
@@ -577,102 +970,34 @@ class DashboardPage(QWidget):
                 Theme.PAGE_MARGIN_HORIZONTAL,
                 Theme.PAGE_MARGIN_VERTICAL,
             )
-            self.main_layout.setSpacing(Theme.PAGE_SPACING)
+            self.main_layout.setSpacing(16)
 
-            self.hero_body_grid.addWidget(
+            self._clear_grid(self.hero_grid)
+            self.hero_grid.addWidget(
                 self.metric_widget,
                 0,
                 0,
-            )
-            self.hero_body_grid.addWidget(
-                self.performance_chart,
-                0,
+                2,
                 1,
             )
-            self.hero_body_grid.setColumnStretch(0, 2)
-            self.hero_body_grid.setColumnStretch(1, 3)
-
-            self.account_grid.addWidget(
+            self.hero_grid.addWidget(
                 self.account_cards[0],
                 0,
-                0,
-            )
-            self.account_grid.addWidget(
-                self.account_cards[1],
-                0,
                 1,
             )
-            self.account_grid.setColumnStretch(0, 1)
-            self.account_grid.setColumnStretch(1, 1)
+            self.hero_grid.addWidget(
+                self.account_cards[1],
+                1,
+                1,
+            )
+            self.hero_grid.setColumnStretch(0, 3)
+            self.hero_grid.setColumnStretch(1, 2)
 
-            for column, card in enumerate(self.summary_cards):
-                self.summary_grid.addWidget(card, 0, column)
-                self.summary_grid.setColumnStretch(column, 1)
+            self._rebuild_period_layout("wide")
+            self._rebuild_overview_layout("wide")
 
         self.layout_mode = mode
-
-        self.hero_body.adjustSize()
-        self.account_container.adjustSize()
-        self.summary_container.adjustSize()
-        self.hero_card.adjustSize()
         self.content_widget.adjustSize()
-
-    def _apply_dashboard_palette(self):
-        self.hero_card.setStyleSheet(
-            f"""
-            QFrame#dashboardHeroCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #0B141D,
-                    stop: 0.55 #0D1822,
-                    stop: 1 #101C27
-                );
-                border: 1px solid #253542;
-                border-radius: 20px;
-            }}
-            """
-        )
-
-        for card in self.account_cards:
-            card.setStyleSheet(
-                f"""
-                QFrame#dashboardAccountCard {{
-                    background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
-                );
-                    border: 1px solid #253542;
-                    border-radius: 14px;
-                }}
-                """
-            )
-
-        for card in self.summary_cards:
-            card.setStyleSheet(
-                f"""
-                QFrame#dashboardSummaryCard {{
-                    background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #0A131C,
-                    stop: 0.55 #0C1721,
-                    stop: 1 #0F1B26
-                );
-                    border: 1px solid #253542;
-                    border-radius: 16px;
-                }}
-                """
-            )
 
     def _connect_signals(self):
         self.data_manager.portfolio_updated.connect(
@@ -687,28 +1012,23 @@ class DashboardPage(QWidget):
             scroll_bar_style()
             + f"""
             QWidget#dashboardPage {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #101923,
-                    stop: 0.55 #14202B,
-                    stop: 1 #182631
-                );
+                background: transparent;
             }}
 
             QScrollArea#dashboardScrollArea,
-            QScrollArea#dashboardScrollArea > QWidget > QWidget {{
+            QScrollArea#dashboardScrollArea
+            > QWidget
+            > QWidget {{
                 background: transparent;
                 border: none;
             }}
 
             QWidget#dashboardContent,
-            QWidget#summaryContainer,
-            QWidget#accountContainer,
             QWidget#heroBody,
-            QWidget#metricWidget {{
+            QWidget#metricWidget,
+            QWidget#accountContainer,
+            QWidget#periodCell,
+            QWidget#overviewSection {{
                 background: transparent;
                 border: none;
             }}
@@ -717,35 +1037,44 @@ class DashboardPage(QWidget):
                 background: transparent;
                 border: none;
                 color: {Theme.TEXT_PRIMARY};
-                font-family: "{Theme.FONT_FAMILY}";
+                font-family: "Inter", "{Theme.FONT_FAMILY}";
             }}
 
             QLabel#heroEyebrow {{
-                color: {Theme.TEXT_SECONDARY};
-                font-size: 11px;
+                color: #94A3B8;
+                font-size: 13px;
                 font-weight: 700;
-                letter-spacing: 1px;
-            }}
-
-            QLabel#heroDescription {{
-                color: {Theme.TEXT_MUTED};
-                font-size: 12px;
+                letter-spacing: 0.5px;
             }}
 
             QLabel#heroValue {{
-                color: {Theme.ACCENT};
-                font-size: 46px;
+                color: #10B981;
+                font-size: 62px;
                 font-weight: 700;
             }}
 
             QLabel#heroCaption {{
-                color: {Theme.TEXT_SECONDARY};
+                color: #94A3B8;
                 font-size: 12px;
                 font-weight: 600;
             }}
 
-            QFrame#heroDivider {{
-                background-color: rgba(255,255,255,20);
+            QLabel#heroStatus {{
+                color: #6F8093;
+                font-size: 10px;
+                font-weight: 600;
+            }}
+
+            QLabel#heroFooter {{
+                color: #94A3B8;
+                font-size: 12px;
+                font-weight: 650;
+            }}
+
+            QFrame#heroDivider,
+            QFrame#horizontalDivider,
+            QFrame#verticalDivider {{
+                background-color: rgba(125, 158, 176, 24);
                 border: none;
             }}
 
@@ -756,56 +1085,86 @@ class DashboardPage(QWidget):
             }}
 
             QLabel#accountTitle {{
-                color: {Theme.TEXT_SECONDARY};
+                color: #94A3B8;
                 font-size: 11px;
                 font-weight: 700;
             }}
 
             QLabel#accountMeta {{
-                color: {Theme.TEXT_MUTED};
+                color: #6F8093;
                 font-size: 10px;
             }}
 
             QLabel#accountValue {{
                 color: {Theme.TEXT_PRIMARY};
-                font-size: 20px;
-                font-weight: 700;
-            }}
-
-            QLabel#accountDescription {{
-                color: {Theme.TEXT_MUTED};
-                font-size: 11px;
-            }}
-
-            QLabel#summaryTitle {{
-                color: {Theme.TEXT_PRIMARY};
-                font-size: 14px;
-                font-weight: 700;
-            }}
-
-            QLabel#summaryIndicator {{
-                color: {Theme.ACCENT};
-                font-size: 18px;
-            }}
-
-            QLabel#summaryDescription {{
-                color: {Theme.TEXT_SECONDARY};
-                font-size: 12px;
-            }}
-
-            QLabel#summaryValue {{
-                color: {Theme.ACCENT};
                 font-size: 24px;
                 font-weight: 700;
             }}
 
+            QLabel#accountDescription {{
+                color: #6F8093;
+                font-size: 11px;
+            }}
+
+            QLabel#periodTitle {{
+                color: #94A3B8;
+                font-size: 11px;
+                font-weight: 700;
+            }}
+
+            QLabel#periodValue {{
+                color: #6F8093;
+                font-size: 28px;
+                font-weight: 700;
+            }}
+
+            QLabel#periodDetail {{
+                color: #6F8093;
+                font-size: 10px;
+                font-weight: 600;
+            }}
+
+            QLabel#summaryTitle {{
+                color: {Theme.TEXT_PRIMARY};
+                font-size: 16px;
+                font-weight: 700;
+            }}
+
+            QLabel#summaryDescription {{
+                color: #94A3B8;
+                font-size: 12px;
+            }}
+
+            QLabel#summaryValue {{
+                color: #10B981;
+                font-size: 32px;
+                font-weight: 700;
+            }}
+
             QLabel#summaryDetail {{
-                color: {Theme.TEXT_MUTED};
+                color: #6F8093;
                 font-size: 11px;
                 font-weight: 600;
             }}
             """
         )
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(
+            QPainter.Antialiasing,
+        )
+        painter.setRenderHint(
+            QPainter.SmoothPixmapTransform,
+        )
+
+        SurfaceEngine.draw_page_background(
+            painter,
+            QRectF(self.rect()),
+        )
+
+        painter.end()
+        super().paintEvent(event)
 
     def _sync_layout_mode(self):
         available_width = self.scroll_area.viewport().width()
@@ -849,12 +1208,33 @@ class DashboardPage(QWidget):
         )
 
         performance = portfolio.get("performance", {})
+
         if not isinstance(performance, dict):
             performance = {}
 
-        self.performance_chart.set_changes(performance)
+        self._update_period_cards(performance)
         self._update_dashboard_summaries(performance)
         self._set_connected_status()
+
+    def _update_period_cards(self, performance):
+        for key, label in self.period_value_labels.items():
+            value = performance.get(key)
+
+            if isinstance(value, (int, float)):
+                color = (
+                    Theme.ACCENT
+                    if value >= 0
+                    else Theme.ERROR
+                )
+                label.setText(f"{float(value):+.2f}%")
+                label.setStyleSheet(
+                    f"color: {color};"
+                )
+            else:
+                label.setText("—")
+                label.setStyleSheet(
+                    f"color: #6F8093;"
+                )
 
     def _update_dashboard_summaries(self, performance):
         one_day = performance.get("1d")
@@ -864,7 +1244,8 @@ class DashboardPage(QWidget):
                 f"{float(one_day):+.2f}%"
             )
             self.performance_summary_value.setStyleSheet(
-                f"color: {Theme.ACCENT if one_day >= 0 else Theme.ERROR};"
+                f"color: "
+                f"{Theme.ACCENT if one_day >= 0 else Theme.ERROR};"
             )
             self.performance_summary_detail.setText(
                 "1 günlük portföy değişimi"
@@ -884,7 +1265,9 @@ class DashboardPage(QWidget):
             and not alarm.get("is_triggered")
         ]
         triggered_count = sum(
-            1 for alarm in alarms if alarm.get("is_triggered")
+            1
+            for alarm in alarms
+            if alarm.get("is_triggered")
         )
 
         self.alarms_summary_value.setText(
@@ -910,7 +1293,10 @@ class DashboardPage(QWidget):
                 and added_price > 0
             ):
                 changes.append(
-                    ((current_price - added_price) / added_price)
+                    (
+                        (current_price - added_price)
+                        / added_price
+                    )
                     * 100
                 )
 
@@ -921,7 +1307,8 @@ class DashboardPage(QWidget):
         if changes:
             average_change = sum(changes) / len(changes)
             self.watchlist_summary_detail.setText(
-                f"Ortalama değişim {average_change:+.2f}%"
+                f"Ortalama değişim "
+                f"{average_change:+.2f}%"
             )
         else:
             self.watchlist_summary_detail.setText(
@@ -941,6 +1328,7 @@ class DashboardPage(QWidget):
         if not isinstance(performance, dict):
             performance = {}
 
+        self._update_period_cards(performance)
         self._update_dashboard_summaries(performance)
 
     def on_portfolio_error(self, error):
@@ -951,15 +1339,24 @@ class DashboardPage(QWidget):
             "Bekleniyor",
             StatusBadge.NEUTRAL,
         )
+        self.hero_status.setText(
+            "Portföy verileri bekleniyor"
+        )
 
     def _set_connected_status(self):
         self.status_badge.set_status(
             "API Bağlı",
             StatusBadge.SUCCESS,
         )
+        self.hero_status.setText(
+            "Portföy verileri güncel"
+        )
 
     def _set_error_status(self):
         self.status_badge.set_status(
             "Bağlantı Hatası",
             StatusBadge.ERROR,
+        )
+        self.hero_status.setText(
+            "Portföy verileri alınamadı"
         )
