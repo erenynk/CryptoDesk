@@ -646,9 +646,9 @@ class DashboardPage(QWidget):
         self._set_layout_mode("wide")
 
     def _create_hero_surface(self):
-        surface = CorporateSurface(
-            role="hero",
-            object_name="dashboardHeroSurface",
+        surface = ElevatedInnerPanel(
+            "dashboardHeroSurface",
+            radius=24,
         )
         surface.setMinimumHeight(358)
         surface.setSizePolicy(
@@ -864,10 +864,9 @@ class DashboardPage(QWidget):
         }
 
     def _create_period_surface(self):
-        surface = CorporateSurface(
-            role="strip",
-            object_name="dashboardPeriodSurface",
-            hover_enabled=False,
+        surface = ElevatedInnerPanel(
+            "dashboardPeriodSurface",
+            radius=18,
         )
         surface.setMinimumHeight(124)
         surface.setSizePolicy(
@@ -1200,8 +1199,10 @@ class DashboardPage(QWidget):
                 border: none;
             }}
 
+            QFrame#dashboardHeroSurface,
             QFrame#dashboardInnerPanel,
             QFrame#dashboardAccountPanel,
+            QFrame#dashboardPeriodSurface,
             QFrame#dashboardSummarySurface {{
                 background: transparent;
                 border: none;
