@@ -254,21 +254,33 @@ class CorporateSurface(QFrame):
             "border": "#293B46",
             "border_top": "#304550",
             "radius": 24,
-            "shadow_blur": 62,
-            "shadow_alpha": 82,
-            "shadow_offset": 8,
+            "shadow_blur": 48,
+            "shadow_alpha": 72,
+            "shadow_offset": 6,
         },
         "account": {
-            "base": "#0F1922",
-            "start": "#162733",
+            "base": "#101B24",
+            "start": "#182B38",
             "end": "#0D1720",
-            "glow": (51, 70, 92, 15),
-            "border": "#253640",
-            "border_top": "#2C404B",
+            "glow": (58, 78, 103, 18),
+            "border": "#293B46",
+            "border_top": "#304550",
             "radius": 17,
-            "shadow_blur": 50,
-            "shadow_alpha": 64,
-            "shadow_offset": 7,
+            "shadow_blur": 34,
+            "shadow_alpha": 62,
+            "shadow_offset": 5,
+        },
+        "total": {
+            "base": "#101B24",
+            "start": "#182B38",
+            "end": "#0D1720",
+            "glow": (58, 78, 103, 18),
+            "border": "#293B46",
+            "border_top": "#304550",
+            "radius": 17,
+            "shadow_blur": 34,
+            "shadow_alpha": 62,
+            "shadow_offset": 5,
         },
         "strip": {
             "base": "#0F1922",
@@ -278,21 +290,21 @@ class CorporateSurface(QFrame):
             "border": "#24353F",
             "border_top": "#2B3E49",
             "radius": 19,
-            "shadow_blur": 50,
-            "shadow_alpha": 72,
-            "shadow_offset": 7,
+            "shadow_blur": 42,
+            "shadow_alpha": 66,
+            "shadow_offset": 6,
         },
         "overview": {
-            "base": "#0F1922",
-            "start": "#162733",
+            "base": "#101B24",
+            "start": "#182B38",
             "end": "#0D1720",
-            "glow": (48, 67, 88, 14),
-            "border": "#24343E",
-            "border_top": "#2A3D47",
-            "radius": 19,
-            "shadow_blur": 50,
-            "shadow_alpha": 72,
-            "shadow_offset": 7,
+            "glow": (58, 78, 103, 18),
+            "border": "#293B46",
+            "border_top": "#304550",
+            "radius": 17,
+            "shadow_blur": 34,
+            "shadow_alpha": 62,
+            "shadow_offset": 5,
         },
     }
 
@@ -351,7 +363,7 @@ class CorporateSurface(QFrame):
                 self.PALETTES[self._role][
                     "shadow_blur"
                 ]
-                + 6
+                + 4
             )
             self.update()
 
@@ -379,7 +391,7 @@ class CorporateSurface(QFrame):
         )
 
         palette = self.PALETTES[self._role]
-        rect = QRectF(self.rect()).adjusted(
+        surface_rect = QRectF(self.rect()).adjusted(
             1,
             1,
             -1,
@@ -397,7 +409,7 @@ class CorporateSurface(QFrame):
 
         SurfaceEngine.draw_surface(
             painter=painter,
-            rect=rect,
+            rect=surface_rect,
             radius=palette["radius"],
             base_color=palette["base"],
             start_color=palette["start"],
@@ -406,6 +418,138 @@ class CorporateSurface(QFrame):
             border_color=border_color,
             border_top_color=palette["border_top"],
         )
+
+        painter.end()
+        super().paintEvent(event)
+
+
+class ElevatedInnerPanel(QFrame):
+    def __init__(
+        self,
+        object_name,
+        radius=17,
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        self._radius = radius
+
+        self.setObjectName(object_name)
+        self.setAttribute(
+            Qt.WA_StyledBackground,
+            False,
+        )
+        self.setAttribute(
+            Qt.WA_TranslucentBackground,
+            True,
+        )
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        full_rect = QRectF(self.rect())
+
+        # Surface is pulled in so the shadow has room to breathe.
+        surface_rect = full_rect.adjusted(
+            10,
+            8,
+            -10,
+            -12,
+        )
+
+        # Stronger depth, but every layer is rounded.
+        shadow_layers = (
+            (8, 18, 5),
+            (5, 26, 4),
+            (2, 34, 3),
+        )
+
+        for spread, alpha, y_offset in shadow_layers:
+            shadow_rect = surface_rect.adjusted(
+                -spread,
+                -spread + y_offset,
+                spread,
+                spread + y_offset,
+            )
+
+            shadow_path = QPainterPath()
+            shadow_path.addRoundedRect(
+                shadow_rect,
+                self._radius + spread,
+                self._radius + spread,
+            )
+
+            painter.fillPath(
+                shadow_path,
+                QColor(0, 0, 0, alpha),
+            )
+
+        surface_path = QPainterPath()
+        surface_path.addRoundedRect(
+            surface_rect,
+            self._radius,
+            self._radius,
+        )
+
+        painter.fillPath(
+            surface_path,
+            QColor("#101B24"),
+        )
+
+        gradient = QLinearGradient(
+            surface_rect.topLeft(),
+            surface_rect.bottomRight(),
+        )
+        gradient.setColorAt(
+            0.00,
+            QColor("#182B38"),
+        )
+        gradient.setColorAt(
+            0.50,
+            QColor("#121F29"),
+        )
+        gradient.setColorAt(
+            1.00,
+            QColor("#0D1720"),
+        )
+        painter.fillPath(
+            surface_path,
+            gradient,
+        )
+
+        glow = QRadialGradient(
+            surface_rect.left()
+            + surface_rect.width() * 0.14,
+            surface_rect.top()
+            + surface_rect.height() * 0.08,
+            max(
+                surface_rect.width(),
+                surface_rect.height(),
+            )
+            * 0.95,
+        )
+        glow.setColorAt(
+            0.00,
+            QColor(50, 69, 90, 14),
+        )
+        glow.setColorAt(
+            1.00,
+            QColor(0, 0, 0, 0),
+        )
+        painter.fillPath(
+            surface_path,
+            glow,
+        )
+
+        painter.setPen(
+            QPen(
+                QColor("#293B46"),
+                1.0,
+            )
+        )
+        painter.setBrush(Qt.NoBrush)
+        painter.drawPath(surface_path)
 
         painter.end()
         super().paintEvent(event)
@@ -513,22 +657,34 @@ class DashboardPage(QWidget):
         )
 
         layout = QVBoxLayout(surface)
-        layout.setContentsMargins(40, 32, 40, 32)
-        layout.setSpacing(24)
+        layout.setContentsMargins(30, 28, 30, 26)
+        layout.setSpacing(18)
 
         self.hero_body = QWidget()
         self.hero_body.setObjectName("heroBody")
 
         self.hero_grid = QGridLayout(self.hero_body)
         self.hero_grid.setContentsMargins(0, 0, 0, 0)
-        self.hero_grid.setHorizontalSpacing(24)
+        self.hero_grid.setHorizontalSpacing(16)
         self.hero_grid.setVerticalSpacing(16)
 
-        self.metric_widget = QWidget()
-        self.metric_widget.setObjectName("metricWidget")
+        self.metric_widget = ElevatedInnerPanel(
+            "dashboardInnerPanel",
+            radius=17,
+        )
+        self.metric_widget.setMinimumHeight(236)
+        self.metric_widget.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding,
+        )
 
         metric_layout = QVBoxLayout(self.metric_widget)
-        metric_layout.setContentsMargins(0, 8, 0, 8)
+        metric_layout.setContentsMargins(
+            38,
+            32,
+            38,
+            36,
+        )
         metric_layout.setSpacing(8)
 
         eyebrow = QLabel("TOPLAM PORTFÖY")
@@ -536,7 +692,7 @@ class DashboardPage(QWidget):
 
         self.value = QLabel("$0.00")
         self.value.setObjectName("heroValue")
-        self.value.setMinimumWidth(380)
+        self.value.setMinimumWidth(340)
         self.value.setAlignment(
             Qt.AlignLeft | Qt.AlignVCenter
         )
@@ -547,10 +703,10 @@ class DashboardPage(QWidget):
         self.value_glow = QGraphicsDropShadowEffect(
             self.value
         )
-        self.value_glow.setBlurRadius(20)
+        self.value_glow.setBlurRadius(18)
         self.value_glow.setOffset(0, 0)
         self.value_glow.setColor(
-            QColor(16, 185, 129, 58)
+            QColor(16, 185, 129, 52)
         )
         self.value.setGraphicsEffect(
             self.value_glow
@@ -567,16 +723,20 @@ class DashboardPage(QWidget):
         self.hero_status.setObjectName("heroStatus")
 
         metric_layout.addWidget(eyebrow)
-        metric_layout.addSpacing(6)
+        metric_layout.addSpacing(4)
         metric_layout.addWidget(self.value)
         metric_layout.addWidget(self.hero_caption)
         metric_layout.addWidget(self.hero_status)
         metric_layout.addStretch()
 
         self.account_container = QWidget()
-        self.account_container.setObjectName("accountContainer")
+        self.account_container.setObjectName(
+            "accountContainer"
+        )
 
-        self.account_grid = QGridLayout(self.account_container)
+        self.account_grid = QGridLayout(
+            self.account_container
+        )
         self.account_grid.setContentsMargins(0, 0, 0, 0)
         self.account_grid.setHorizontalSpacing(16)
         self.account_grid.setVerticalSpacing(16)
@@ -638,18 +798,23 @@ class DashboardPage(QWidget):
         description,
         accent_text,
     ):
-        surface = CorporateSurface(
-            role="account",
-            object_name="dashboardAccountSurface",
+        panel = ElevatedInnerPanel(
+            "dashboardAccountPanel",
+            radius=17,
         )
-        surface.setMinimumHeight(112)
-        surface.setSizePolicy(
+        panel.setMinimumHeight(110)
+        panel.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
-        layout = QHBoxLayout(surface)
-        layout.setContentsMargins(24, 16, 24, 16)
+        layout = QHBoxLayout(panel)
+        layout.setContentsMargins(
+            34,
+            26,
+            34,
+            30,
+        )
         layout.setSpacing(16)
 
         accent_bar = QFrame()
@@ -682,7 +847,9 @@ class DashboardPage(QWidget):
         )
 
         description_label = QLabel(description)
-        description_label.setObjectName("accountDescription")
+        description_label.setObjectName(
+            "accountDescription"
+        )
 
         text_layout.addLayout(top_line)
         text_layout.addWidget(value_label)
@@ -692,7 +859,7 @@ class DashboardPage(QWidget):
         layout.addLayout(text_layout, 1)
 
         return {
-            "widget": surface,
+            "widget": panel,
             "value": value_label,
         }
 
@@ -763,67 +930,87 @@ class DashboardPage(QWidget):
         return surface
 
     def _create_overview_surface(self):
-        surface = CorporateSurface(
-            role="overview",
-            object_name="dashboardOverviewSurface",
-            hover_enabled=False,
+        container = QWidget()
+        container.setObjectName("overviewContainer")
+        container.setAttribute(
+            Qt.WA_TranslucentBackground,
+            True,
         )
-        surface.setMinimumHeight(188)
-        surface.setSizePolicy(
+        container.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
-        self.overview_layout = QGridLayout(surface)
+        self.overview_layout = QGridLayout(container)
         self.overview_layout.setContentsMargins(
-            24,
-            24,
-            24,
-            24,
+            0,
+            0,
+            0,
+            0,
         )
-        self.overview_layout.setHorizontalSpacing(0)
-        self.overview_layout.setVerticalSpacing(12)
+        self.overview_layout.setHorizontalSpacing(16)
+        self.overview_layout.setVerticalSpacing(16)
 
-        portfolio = self._create_summary_section(
+        portfolio = self._create_summary_card(
             "Portfolio",
             "Toplam varlık görünümü",
         )
         self.performance_summary_value = portfolio["value"]
         self.performance_summary_detail = portfolio["detail"]
-        self.summary_sections.append(portfolio["widget"])
+        self.summary_sections.append(
+            portfolio["widget"]
+        )
 
-        alarms = self._create_summary_section(
+        alarms = self._create_summary_card(
             "Alarmlar",
             "Aktif alarm durumu",
         )
         self.alarms_summary_value = alarms["value"]
         self.alarms_summary_detail = alarms["detail"]
-        self.summary_sections.append(alarms["widget"])
+        self.summary_sections.append(
+            alarms["widget"]
+        )
 
-        watchlist = self._create_summary_section(
+        watchlist = self._create_summary_card(
             "Watchlist",
             "Takip edilen varlıklar",
         )
         self.watchlist_summary_value = watchlist["value"]
         self.watchlist_summary_detail = watchlist["detail"]
-        self.summary_sections.append(watchlist["widget"])
+        self.summary_sections.append(
+            watchlist["widget"]
+        )
 
         self._rebuild_overview_layout("wide")
-        return surface
+        return container
 
-    def _create_summary_section(self, title, description):
-        widget = QWidget()
-        widget.setObjectName("overviewSection")
+    def _create_summary_card(self, title, description):
+        surface = ElevatedInnerPanel(
+            "dashboardSummarySurface",
+            radius=18,
+        )
+        surface.setMinimumHeight(176)
+        surface.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
 
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(24, 8, 24, 8)
+        layout = QVBoxLayout(surface)
+        layout.setContentsMargins(
+            34,
+            28,
+            34,
+            32,
+        )
         layout.setSpacing(8)
 
         title_label = QLabel(title)
         title_label.setObjectName("summaryTitle")
 
         description_label = QLabel(description)
-        description_label.setObjectName("summaryDescription")
+        description_label.setObjectName(
+            "summaryDescription"
+        )
 
         value_label = QLabel("—")
         value_label.setObjectName("summaryValue")
@@ -839,7 +1026,7 @@ class DashboardPage(QWidget):
         layout.addWidget(detail_label)
 
         return {
-            "widget": widget,
+            "widget": surface,
             "value": value_label,
             "detail": detail_label,
         }
@@ -889,47 +1076,27 @@ class DashboardPage(QWidget):
         self._clear_grid(self.overview_layout)
 
         if mode == "narrow":
-            for row, section in enumerate(
+            for row, card in enumerate(
                 self.summary_sections
             ):
                 self.overview_layout.addWidget(
-                    section,
-                    row * 2,
+                    card,
+                    row,
                     0,
                 )
-
-                if row < len(self.summary_sections) - 1:
-                    divider = QFrame()
-                    divider.setObjectName("horizontalDivider")
-                    divider.setFixedHeight(1)
-                    self.overview_layout.addWidget(
-                        divider,
-                        row * 2 + 1,
-                        0,
-                    )
         else:
-            for column, section in enumerate(
+            for column, card in enumerate(
                 self.summary_sections
             ):
                 self.overview_layout.addWidget(
-                    section,
+                    card,
                     0,
-                    column * 2,
+                    column,
                 )
                 self.overview_layout.setColumnStretch(
-                    column * 2,
+                    column,
                     1,
                 )
-
-                if column < len(self.summary_sections) - 1:
-                    divider = QFrame()
-                    divider.setObjectName("verticalDivider")
-                    divider.setFixedWidth(1)
-                    self.overview_layout.addWidget(
-                        divider,
-                        0,
-                        column * 2 + 1,
-                    )
 
     def _set_layout_mode(self, mode):
         if mode == self.layout_mode:
@@ -1025,10 +1192,17 @@ class DashboardPage(QWidget):
 
             QWidget#dashboardContent,
             QWidget#heroBody,
-            QWidget#metricWidget,
             QWidget#accountContainer,
+            QWidget#overviewContainer,
             QWidget#periodCell,
             QWidget#overviewSection {{
+                background: transparent;
+                border: none;
+            }}
+
+            QFrame#dashboardInnerPanel,
+            QFrame#dashboardAccountPanel,
+            QFrame#dashboardSummarySurface {{
                 background: transparent;
                 border: none;
             }}
@@ -1049,7 +1223,7 @@ class DashboardPage(QWidget):
 
             QLabel#heroValue {{
                 color: #10B981;
-                font-size: 62px;
+                font-size: 54px;
                 font-weight: 700;
             }}
 
