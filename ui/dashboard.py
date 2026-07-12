@@ -492,9 +492,34 @@ class ElevatedInnerPanel(QFrame):
             self._radius,
         )
 
+        is_hero_surface = (
+            self.objectName() == "dashboardHeroSurface"
+        )
+
+        base_color = (
+            QColor("#111C25")
+            if is_hero_surface
+            else QColor("#101B24")
+        )
+        start_color = (
+            QColor("#15232D")
+            if is_hero_surface
+            else QColor("#182B38")
+        )
+        middle_color = (
+            QColor("#121E27")
+            if is_hero_surface
+            else QColor("#121F29")
+        )
+        end_color = (
+            QColor("#0F1921")
+            if is_hero_surface
+            else QColor("#0D1720")
+        )
+
         painter.fillPath(
             surface_path,
-            QColor("#101B24"),
+            base_color,
         )
 
         gradient = QLinearGradient(
@@ -503,15 +528,15 @@ class ElevatedInnerPanel(QFrame):
         )
         gradient.setColorAt(
             0.00,
-            QColor("#182B38"),
+            start_color,
         )
         gradient.setColorAt(
             0.50,
-            QColor("#121F29"),
+            middle_color,
         )
         gradient.setColorAt(
             1.00,
-            QColor("#0D1720"),
+            end_color,
         )
         painter.fillPath(
             surface_path,
@@ -531,7 +556,12 @@ class ElevatedInnerPanel(QFrame):
         )
         glow.setColorAt(
             0.00,
-            QColor(50, 69, 90, 14),
+            QColor(
+                45,
+                62,
+                81,
+                10 if is_hero_surface else 14,
+            ),
         )
         glow.setColorAt(
             1.00,
@@ -668,10 +698,8 @@ class DashboardPage(QWidget):
         self.hero_grid.setHorizontalSpacing(16)
         self.hero_grid.setVerticalSpacing(16)
 
-        self.metric_widget = ElevatedInnerPanel(
-            "dashboardInnerPanel",
-            radius=17,
-        )
+        self.metric_widget = QWidget()
+        self.metric_widget.setObjectName("metricWidget")
         self.metric_widget.setMinimumHeight(236)
         self.metric_widget.setSizePolicy(
             QSizePolicy.Expanding,
@@ -713,7 +741,7 @@ class DashboardPage(QWidget):
         )
 
         self.hero_caption = QLabel(
-            "Funding ve Trading toplamı"
+            "Funding ve Trading Toplamı"
         )
         self.hero_caption.setObjectName("heroCaption")
 
@@ -1191,6 +1219,7 @@ class DashboardPage(QWidget):
 
             QWidget#dashboardContent,
             QWidget#heroBody,
+            QWidget#metricWidget,
             QWidget#accountContainer,
             QWidget#overviewContainer,
             QWidget#periodCell,
