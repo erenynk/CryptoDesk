@@ -303,8 +303,14 @@ def main():
     screen = app.primaryScreen()
     available = screen.availableGeometry()
 
-    window_width = min(1320, available.width())
-    window_height = min(780, available.height())
+    window_width = min(
+        int(1320 * 1.10),
+        available.width(),
+    )
+    window_height = min(
+        int(780 * 1.10),
+        available.height(),
+    )
 
     window.resize(window_width, window_height)
 
