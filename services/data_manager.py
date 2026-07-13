@@ -1,7 +1,9 @@
+from datetime import datetime, timedelta
 from typing import Any
 
 from PySide6.QtCore import QObject, Signal
 
+from database.settings_db import get_app_setting
 from services.okx_service import OKXService
 from services.portfolio_history_service import PortfolioHistoryService
 from services.price_cache import PriceCache
@@ -10,6 +12,8 @@ from services.price_cache import PriceCache
 class DataManager(QObject):
     portfolio_updated = Signal(dict)
     portfolio_error = Signal(str)
+
+    HISTORY_MAINTENANCE_INTERVAL = timedelta(hours=24)
 
     _instance = None
 
@@ -33,6 +37,15 @@ class DataManager(QObject):
         self.portfolio = None
         self.last_error = None
         self.loading = False
+        self._last_history_maintenance = None
+        self._portfolio_history_enabled = bool(
+            get_app_setting(
+                "portfolio_history_enabled",
+                True,
+            )
+        )
+
+        self._run_history_maintenance_if_needed()
 
     def refresh_client(self):
         self.okx.refresh_client()
@@ -47,7 +60,8 @@ class DataManager(QObject):
             ok, result = self.okx.get_spot_balances(self.cache)
 
             if ok:
-                self._save_portfolio_snapshot(result)
+                self._attach_history_data(result)
+                self._run_history_maintenance_if_needed()
 
                 self.portfolio = result
                 self.last_error = None
@@ -66,105 +80,206 @@ class DataManager(QObject):
         finally:
             self.loading = False
 
-    def _save_portfolio_snapshot(self, portfolio: dict[str, Any]) -> None:
+    def _attach_history_data(self, portfolio: dict[str, Any]) -> None:
         """
-        Başarılı portföy yenilemesinden sonra geçmiş kaydı oluşturur.
+        Snapshot kaydeder ve ayrı performans gruplarını portföye ekler.
 
-        Snapshot hataları ana portföy yenilemesini bozmaz. Geçmiş servisinde
-        oluşabilecek geçici SQLite hataları kullanıcıya portföy hatası olarak
-        yansıtılmaz.
+        Dashboard uyumluluğu için portfolio["performance"] toplam portföy
+        performansını taşımaya devam eder. Ayrıntılı sonuçlar
+        portfolio["performance_breakdown"] alanında tutulur.
         """
+        total_usdt = self._safe_float(
+            portfolio.get("total_usdt", 0.0)
+        )
+        funding_usdt = self._safe_float(
+            portfolio.get("funding_usdt", 0.0)
+        )
+        trading_usdt = self._safe_float(
+            portfolio.get("trading_usdt", 0.0)
+        )
+
+        assets = portfolio.get("assets", [])
+        asset_count = len(assets) if isinstance(assets, list) else 0
+
         try:
-            total_usdt = self._extract_float(
-                portfolio,
-                "total_usdt",
-                "total_value",
-                "total_balance",
-                "total",
-            )
-            funding_usdt = self._extract_float(
-                portfolio,
-                "funding_usdt",
-                "funding_value",
-                "funding_balance",
-                "funding",
-            )
-            trading_usdt = self._extract_float(
-                portfolio,
-                "trading_usdt",
-                "trading_value",
-                "trading_balance",
-                "trading",
-            )
-            asset_count = self._extract_asset_count(portfolio)
+            if self._portfolio_history_enabled:
+                self.portfolio_history.save_snapshot(
+                    total_usdt=total_usdt,
+                    funding_usdt=funding_usdt,
+                    trading_usdt=trading_usdt,
+                    asset_count=asset_count,
+                )
 
-            self.portfolio_history.save_snapshot(
-                total_usdt=total_usdt,
-                funding_usdt=funding_usdt,
-                trading_usdt=trading_usdt,
-                asset_count=asset_count,
+            performance_breakdown = (
+                self.portfolio_history
+                .calculate_performance_breakdown(
+                    current_total_usdt=total_usdt,
+                    current_funding_usdt=funding_usdt,
+                    current_trading_usdt=trading_usdt,
+                )
             )
+
+            portfolio["performance"] = (
+                performance_breakdown["total"]
+            )
+            portfolio["performance_breakdown"] = (
+                performance_breakdown
+            )
+            portfolio["analytics"] = (
+                self.portfolio_history
+                .calculate_portfolio_analytics(
+                    current_total_usdt=total_usdt,
+                    current_funding_usdt=funding_usdt,
+                    current_trading_usdt=trading_usdt,
+                )
+            )
+        except Exception:
+            empty_performance = self._empty_performance()
+
+            portfolio["performance"] = empty_performance.copy()
+            portfolio["performance_breakdown"] = {
+                "total": empty_performance.copy(),
+                "funding": empty_performance.copy(),
+                "trading": empty_performance.copy(),
+            }
+            portfolio["analytics"] = self._empty_analytics()
+
+    def _run_history_maintenance_if_needed(self) -> None:
+        if not self._portfolio_history_enabled:
+            return
+
+        now = datetime.now(
+            self.portfolio_history.APP_TIMEZONE
+        )
+
+        if self._last_history_maintenance is not None:
+            elapsed = now - self._last_history_maintenance
+
+            if elapsed < self.HISTORY_MAINTENANCE_INTERVAL:
+                return
+
+        try:
+            self.portfolio_history.optimize_history()
+            self._last_history_maintenance = now
         except Exception:
             pass
 
+    def apply_app_settings(self, settings: dict[str, Any]) -> None:
+        """
+        Çalışma zamanı uygulama tercihlerini uygular.
+        """
+        if not isinstance(settings, dict):
+            return
+
+        self._portfolio_history_enabled = bool(
+            settings.get(
+                "portfolio_history_enabled",
+                True,
+            )
+        )
+
+        if self._portfolio_history_enabled:
+            self._run_history_maintenance_if_needed()
+
+    def get_portfolio_history(
+        self,
+        period: str,
+        max_points: int = 500,
+    ) -> list[dict[str, Any]]:
+        try:
+            return self.portfolio_history.get_history_series(
+                period=period,
+                max_points=max_points,
+            )
+        except Exception:
+            return []
+
+    def get_available_history_periods(self) -> dict[str, bool]:
+        try:
+            return (
+                self.portfolio_history
+                .get_available_history_periods()
+            )
+        except Exception:
+            return {
+                "1d": False,
+                "7d": False,
+                "30d": False,
+                "90d": False,
+                "1y": False,
+            }
+
+    def get_portfolio_analytics(self) -> dict[str, Any]:
+        """
+        Son portföy yenilemesinde oluşturulan analiz verisini döndürür.
+        """
+        if not isinstance(self.portfolio, dict):
+            return self._empty_analytics()
+
+        analytics = self.portfolio.get("analytics")
+
+        if not isinstance(analytics, dict):
+            return self._empty_analytics()
+
+        return analytics
+
     @staticmethod
-    def _extract_float(
-        source: dict[str, Any],
-        *keys: str,
-    ) -> float:
-        for key in keys:
-            if key not in source:
-                continue
+    def _empty_analytics() -> dict[str, Any]:
+        empty_account_change = {
+            "amount_usdt": None,
+            "percent": None,
+            "baseline_usdt": None,
+            "baseline_timestamp": None,
+        }
 
-            value = source.get(key)
+        period_changes = {}
 
-            if isinstance(value, dict):
-                for nested_key in (
-                    "total_usdt",
-                    "value",
-                    "balance",
-                    "total",
-                    "usdt",
-                ):
-                    if nested_key in value:
-                        value = value.get(nested_key)
-                        break
+        for period in ("1d", "7d", "30d", "90d", "1y"):
+            period_changes[period] = {
+                "total": empty_account_change.copy(),
+                "funding": empty_account_change.copy(),
+                "trading": empty_account_change.copy(),
+            }
 
-            try:
-                number = float(value)
+        empty_summary_group = {
+            "highest_usdt": None,
+            "lowest_usdt": None,
+            "average_usdt": None,
+        }
 
-                if number == number:
-                    return number
-            except (TypeError, ValueError, OverflowError):
-                continue
-
-        return 0.0
+        return {
+            "period_changes": period_changes,
+            "summary": {
+                "snapshot_count": 0,
+                "first_timestamp": None,
+                "last_timestamp": None,
+                "total": empty_summary_group.copy(),
+                "funding": empty_summary_group.copy(),
+                "trading": empty_summary_group.copy(),
+            },
+        }
 
     @staticmethod
-    def _extract_asset_count(portfolio: dict[str, Any]) -> int:
-        for key in (
-            "assets",
-            "balances",
-            "coins",
-            "holdings",
-            "items",
-        ):
-            value = portfolio.get(key)
+    def _safe_float(value: Any) -> float:
+        try:
+            number = float(value)
 
-            if isinstance(value, (list, tuple, set, dict)):
-                return len(value)
+            if number != number:
+                return 0.0
 
-        for key in (
-            "asset_count",
-            "coin_count",
-            "count",
-        ):
-            try:
-                return max(0, int(portfolio.get(key, 0)))
-            except (TypeError, ValueError, OverflowError):
-                continue
+            return number
+        except (TypeError, ValueError, OverflowError):
+            return 0.0
 
-        return 0
+    @staticmethod
+    def _empty_performance() -> dict[str, None]:
+        return {
+            "1d": None,
+            "7d": None,
+            "30d": None,
+            "90d": None,
+            "1y": None,
+        }
 
     def get_portfolio(self):
         return self.portfolio

@@ -1,24 +1,30 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal, Qt
 from ui.widgets.card import Card
 from ui.widgets.button import AppButton
 from ui.widgets.input import AppLineEdit
 from ui.widgets.status_badge import StatusBadge
 from ui.widgets.page_header import PageHeader
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from api.okx_client import OKXClient
-from database.settings_db import load_settings, save_settings
+from database.settings_db import (
+    get_all_app_settings,
+    load_settings,
+    save_app_settings,
+    save_settings,
+)
 from services.okx_service import OKXService
 from ui.theme import (
     Theme,
@@ -31,11 +37,13 @@ from ui.theme import (
 
 
 class SettingsPage(QWidget):
+    app_settings_changed = Signal(dict)
     def __init__(self):
         super().__init__()
 
         self.okx_service = OKXService()
         self.password_fields = []
+        self.app_setting_controls = {}
 
         self.setObjectName("settingsPage")
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -47,7 +55,25 @@ class SettingsPage(QWidget):
         self._load_saved_settings()
 
     def _build_ui(self):
-        main_layout = QVBoxLayout(self)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("settingsScrollArea")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded
+        )
+
+        content_widget = QWidget()
+        content_widget.setObjectName("settingsContent")
+
+        main_layout = QVBoxLayout(content_widget)
         main_layout.setContentsMargins(
             Theme.PAGE_MARGIN_HORIZONTAL,
             Theme.PAGE_MARGIN_VERTICAL,
@@ -65,7 +91,13 @@ class SettingsPage(QWidget):
         connection_card = self._create_connection_card()
         main_layout.addWidget(connection_card)
 
+        application_card = self._create_application_settings_card()
+        main_layout.addWidget(application_card)
+
         main_layout.addStretch()
+
+        self.scroll_area.setWidget(content_widget)
+        root_layout.addWidget(self.scroll_area)
 
     def _create_header(self):
         self.connection_badge = StatusBadge(
@@ -299,9 +331,158 @@ class SettingsPage(QWidget):
 
         return card
 
+    def _create_application_settings_card(self):
+        card = Card(
+            "applicationSettingsCard",
+            hover=False,
+            radius=Theme.RADIUS_LARGE,
+            shadow=True,
+            palette="blue_dark",
+        )
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(0)
+
+        title = QLabel("Uygulama Tercihleri")
+        title.setObjectName("cardTitle")
+
+        description = QLabel(
+            "Başlangıç, sistem tepsisi, widget ve veri "
+            "davranışlarını yönet."
+        )
+        description.setObjectName("cardDescription")
+        description.setWordWrap(True)
+
+        layout.addWidget(title)
+        layout.addWidget(description)
+        layout.addSpacing(16)
+
+        settings = (
+            (
+                "windows_startup_enabled",
+                "Windows ile başlat",
+                "Bilgisayar açıldığında uygulamayı otomatik başlatır.",
+            ),
+            (
+                "balance_widget_enabled",
+                "Balance Widget'ı göster",
+                "Masaüstü bakiye widget'ını açar veya kapatır.",
+            ),
+            (
+                "minimize_to_tray_enabled",
+                "Kapatınca sistem tepsisine küçült",
+                "Pencere kapatıldığında uygulamayı arka planda tutar.",
+            ),
+            (
+                "notifications_enabled",
+                "Bildirimleri göster",
+                "Alarm tetiklendiğinde masaüstü bildirimi gösterir.",
+            ),
+            (
+                "alarm_sound_enabled",
+                "Alarm sesini çal",
+                "Bildirimle birlikte alarm sesi oynatır.",
+            ),
+            (
+                "refresh_on_start_enabled",
+                "Başlangıçta portföyü yenile",
+                "Uygulama açıldığında portföy verisini günceller.",
+            ),
+            (
+                "portfolio_history_enabled",
+                "Portföy geçmişini kaydet",
+                "Performans hesapları için snapshot kaydı oluşturur.",
+            ),
+        )
+
+        for index, (key, label, description_text) in enumerate(settings):
+            row = self._create_setting_row(
+                key=key,
+                label=label,
+                description=description_text,
+            )
+            layout.addWidget(row)
+
+            if index < len(settings) - 1:
+                divider = QFrame()
+                divider.setObjectName("settingsRowDivider")
+                divider.setFixedHeight(1)
+                layout.addWidget(divider)
+
+        layout.addSpacing(16)
+
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.save_preferences_button = AppButton(
+            "Tercihleri Kaydet",
+            variant=AppButton.PRIMARY,
+            object_name="savePreferencesButton",
+        )
+
+        button_layout.addStretch()
+        button_layout.addWidget(self.save_preferences_button)
+        layout.addLayout(button_layout)
+
+        return card
+
+    def _create_setting_row(
+        self,
+        key,
+        label,
+        description,
+    ):
+        row = QWidget()
+        row.setObjectName("applicationSettingRow")
+        row.setMinimumHeight(58)
+
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 9, 0, 9)
+        layout.setSpacing(18)
+
+        text_layout = QVBoxLayout()
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(3)
+
+        title_label = QLabel(label)
+        title_label.setObjectName("settingTitle")
+
+        description_label = QLabel(description)
+        description_label.setObjectName("settingDescription")
+        description_label.setWordWrap(True)
+
+        checkbox = QCheckBox()
+        checkbox.setObjectName("settingToggle")
+        checkbox.setCursor(Qt.PointingHandCursor)
+        checkbox.setFocusPolicy(Qt.NoFocus)
+        checkbox.setMinimumWidth(46)
+
+        text_layout.addWidget(title_label)
+        text_layout.addWidget(description_label)
+
+        layout.addLayout(text_layout, 1)
+        layout.addWidget(
+            checkbox,
+            0,
+            Qt.AlignRight | Qt.AlignVCenter,
+        )
+
+        self.app_setting_controls[key] = checkbox
+
+        return row
+
     def _apply_settings_palette(self):
         credentials_card = self.findChild(QFrame, "credentialsCard")
         connection_card = self.findChild(QFrame, "connectionCard")
+        application_card = self.findChild(
+            QFrame,
+            "applicationSettingsCard",
+        )
 
         if credentials_card is not None:
             credentials_card.setStyleSheet(
@@ -341,10 +522,33 @@ class SettingsPage(QWidget):
                 """
             )
 
+        if application_card is not None:
+            application_card.setStyleSheet(
+                f"""
+                QFrame#applicationSettingsCard {{
+                background: qlineargradient(
+                    x1: 0,
+                    y1: 0,
+                    x2: 1,
+                    y2: 1,
+                    stop: 0 #182B38,
+                    stop: 0.50 #121F29,
+                    stop: 1 #0D1720
+                );
+                border: 1px solid #293B46;
+                border-radius: {Theme.RADIUS_LARGE}px;
+            }}
+                """
+            )
+
+
     def _connect_signals(self):
         self.save_button.clicked.connect(self.save)
         self.test_button.clicked.connect(
             self.test_connection
+        )
+        self.save_preferences_button.clicked.connect(
+            self.save_app_preferences
         )
 
     def _apply_styles(self):
@@ -356,6 +560,15 @@ class SettingsPage(QWidget):
             + f"""
             
             
+            QScrollArea#settingsScrollArea,
+            QScrollArea#settingsScrollArea
+            > QWidget
+            > QWidget,
+            QWidget#settingsContent {{
+                background: transparent;
+                border: none;
+            }}
+
             QWidget#settingsPage {{
                 background: qlineargradient(
                     x1: 0,
@@ -375,20 +588,20 @@ class SettingsPage(QWidget):
             }}
 
             QLabel#cardDescription {{
-                color: {Theme.TEXT_MUTED};
+                color: {Theme.TEXT_SECONDARY};
                 font-size: 12px;
                 font-weight: 400;
             }}
 
             QLabel#fieldLabel {{
                 color: {Theme.TEXT_PRIMARY};
-                font-size: 12px;
-                font-weight: 650;
+                font-size: 13px;
+                font-weight: 700;
             }}
 
             QLabel#fieldDescription {{
-                color: {Theme.TEXT_MUTED};
-                font-size: 11px;
+                color: {Theme.TEXT_SECONDARY};
+                font-size: 12px;
                 font-weight: 400;
             }}
 
@@ -451,6 +664,73 @@ class SettingsPage(QWidget):
                 font-size: 11px;
                 font-weight: 600;
             }}
+
+            QWidget#applicationSettingRow {{
+                background: transparent;
+                border: none;
+            }}
+
+            QLabel#settingTitle {{
+                color: {Theme.TEXT_PRIMARY};
+                font-size: 13px;
+                font-weight: 700;
+            }}
+
+            QLabel#settingDescription {{
+                color: {Theme.TEXT_SECONDARY};
+                font-size: 12px;
+                font-weight: 400;
+            }}
+
+            QFrame#settingsRowDivider {{
+                background-color: rgba(125, 158, 176, 24);
+                border: none;
+            }}
+
+            QCheckBox#settingToggle {{
+                spacing: 0px;
+                padding: 8px;
+                background: transparent;
+                border: none;
+            }}
+
+            QCheckBox#settingToggle:hover {{
+                background-color: rgba(255, 255, 255, 6);
+                border-radius: 14px;
+            }}
+
+            QCheckBox#settingToggle::indicator {{
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                background-color: #18242E;
+                border: 2px solid #5A6E7B;
+            }}
+
+            QCheckBox#settingToggle::indicator:hover {{
+                background-color: #1C2B36;
+                border-color: #8CA2AF;
+            }}
+
+            QCheckBox#settingToggle::indicator:pressed {{
+                background-color: #223541;
+                border-color: #A7BAC4;
+            }}
+
+            QCheckBox#settingToggle::indicator:checked {{
+                background-color: {Theme.ACCENT};
+                border: 2px solid #9CFFD9;
+            }}
+
+            QCheckBox#settingToggle::indicator:checked:hover {{
+                background-color: #20D99C;
+                border-color: #C8FFEA;
+            }}
+
+            QCheckBox#settingToggle::indicator:checked:pressed {{
+                background-color: #0FAE79;
+                border-color: #E0FFF3;
+            }}
             """
         )
 
@@ -465,6 +745,50 @@ class SettingsPage(QWidget):
             self.connection_result.setText(
                 "Kayıtlı API bilgileri bulundu. "
                 "Bağlantıyı doğrulamak için test edebilirsiniz."
+            )
+
+        self._load_saved_app_settings()
+
+    def _load_saved_app_settings(self):
+        settings = get_all_app_settings()
+
+        for key, checkbox in self.app_setting_controls.items():
+            checkbox.setChecked(bool(settings.get(key, False)))
+
+    def save_app_preferences(self):
+        settings = {
+            key: checkbox.isChecked()
+            for key, checkbox in self.app_setting_controls.items()
+        }
+
+        self.save_preferences_button.setEnabled(False)
+        self.save_preferences_button.setText("Kaydediliyor...")
+
+        try:
+            if not save_app_settings(settings):
+                raise RuntimeError(
+                    "Uygulama tercihleri veritabanına yazılamadı."
+                )
+
+            self.app_settings_changed.emit(settings)
+
+            QMessageBox.information(
+                self,
+                "Başarılı",
+                "Uygulama tercihleri kaydedildi.",
+            )
+
+        except Exception as error:
+            QMessageBox.warning(
+                self,
+                "Kayıt Hatası",
+                f"Tercihler kaydedilemedi:\n{error}",
+            )
+
+        finally:
+            self.save_preferences_button.setEnabled(True)
+            self.save_preferences_button.setText(
+                "Tercihleri Kaydet"
             )
 
     @staticmethod

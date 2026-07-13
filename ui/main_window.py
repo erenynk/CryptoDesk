@@ -18,6 +18,7 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
@@ -31,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from database.settings_db import get_app_setting
 from services.alarm_monitor import AlarmMonitor
 from services.data_manager import DataManager
 from ui.alarms import AlarmsPage
@@ -59,6 +61,24 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self._allow_close = False
+        self._minimize_to_tray_enabled = bool(
+            get_app_setting(
+                "minimize_to_tray_enabled",
+                True,
+            )
+        )
+        self._notifications_enabled = bool(
+            get_app_setting(
+                "notifications_enabled",
+                True,
+            )
+        )
+        self._alarm_sound_enabled = bool(
+            get_app_setting(
+                "alarm_sound_enabled",
+                False,
+            )
+        )
         self.notification_manager = NotificationManager()
         self._page_animation = None
 
@@ -382,6 +402,29 @@ class MainWindow(QMainWindow):
         self.menu.currentRowChanged.connect(
             self._change_page
         )
+        self.settings_page.app_settings_changed.connect(
+            self._apply_runtime_settings
+        )
+
+    def _apply_runtime_settings(self, settings):
+        self._minimize_to_tray_enabled = bool(
+            settings.get(
+                "minimize_to_tray_enabled",
+                True,
+            )
+        )
+        self._notifications_enabled = bool(
+            settings.get(
+                "notifications_enabled",
+                True,
+            )
+        )
+        self._alarm_sound_enabled = bool(
+            settings.get(
+                "alarm_sound_enabled",
+                False,
+            )
+        )
 
     def _change_page(self, index):
         if index < 0 or index >= self.pages.count():
@@ -595,12 +638,22 @@ class MainWindow(QMainWindow):
             event.accept()
             return
 
-        if self.system_tray_available():
+        if (
+            self._minimize_to_tray_enabled
+            and self.system_tray_available()
+        ):
             event.ignore()
             self.hide()
             return
 
+        self._allow_close = True
+        self.alarm_monitor.stop()
         event.accept()
+
+        app = QApplication.instance()
+
+        if app is not None:
+            app.quit()
 
     @staticmethod
     def system_tray_available():
@@ -609,6 +662,12 @@ class MainWindow(QMainWindow):
         return QSystemTrayIcon.isSystemTrayAvailable()
 
     def on_alarm_triggered(self, alarm):
+        if self._alarm_sound_enabled:
+            QApplication.beep()
+
+        if not self._notifications_enabled:
+            return
+
         symbol = alarm["symbol"]
         current_price = alarm["current_price"]
         target_price = alarm["target_price"]

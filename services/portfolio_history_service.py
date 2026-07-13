@@ -8,18 +8,35 @@ from typing import Any
 
 class PortfolioHistoryService:
     """
-    Caspian portföy geçmişi kayıtlarını yöneten SQLite servisi.
-
-    Görevleri:
-    - portfolio_history tablosunu oluşturmak
-    - Portföy snapshot kayıtlarını saklamak
-    - Belirli bir zamana en yakın kaydı bulmak
-    - Son kayıtları listelemek
-    - Eski kayıtları optimize etmek
+    CryptoDesk portföy geçmişi kayıtlarını ve performans hesaplarını yönetir.
     """
 
     DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 300
     APP_TIMEZONE = timezone(timedelta(hours=3))
+
+    PERFORMANCE_PERIODS = {
+        "1d": timedelta(days=1),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+        "90d": timedelta(days=90),
+        "1y": timedelta(days=365),
+    }
+
+    HISTORY_RANGES = {
+        "1d": timedelta(days=1),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+        "90d": timedelta(days=90),
+        "1y": timedelta(days=365),
+    }
+
+    MAX_REFERENCE_AGE = {
+        "1d": timedelta(hours=6),
+        "7d": timedelta(days=1),
+        "30d": timedelta(days=3),
+        "90d": timedelta(days=7),
+        "1y": timedelta(days=30),
+    }
 
     def __init__(
         self,
@@ -35,18 +52,12 @@ class PortfolioHistoryService:
 
     @staticmethod
     def _get_default_db_path() -> Path:
-        """
-        Windows:
-            C:\\Users\\<kullanıcı>\\AppData\\Local\\Caspian\\caspian.db
-
-        Diğer işletim sistemlerinde güvenli bir kullanıcı veri klasörü kullanılır.
-        """
         local_app_data = os.getenv("LOCALAPPDATA")
 
         if local_app_data:
-            return Path(local_app_data) / "Caspian" / "caspian.db"
+            return Path(local_app_data) / "CryptoDesk" / "cryptodesk.db"
 
-        return Path.home() / ".caspian" / "caspian.db"
+        return Path.home() / ".cryptodesk" / "cryptodesk.db"
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
@@ -166,16 +177,6 @@ class PortfolioHistoryService:
         timestamp: datetime | None = None,
         force: bool = False,
     ) -> bool:
-        """
-        Yeni portföy snapshot kaydı oluşturur.
-
-        force=False olduğunda, son kayıt belirtilen snapshot aralığından
-        daha yeniyse tekrar kayıt oluşturmaz.
-
-        Returns:
-            True: Yeni kayıt oluşturuldu.
-            False: Kayıt aralık kontrolü nedeniyle atlandı.
-        """
         snapshot_time = self._normalize_datetime(timestamp or self._now())
         snapshot_time_text = self._datetime_to_storage(snapshot_time)
 
@@ -245,6 +246,412 @@ class PortfolioHistoryService:
         ).total_seconds()
 
         return elapsed_seconds >= self.snapshot_interval_seconds
+
+    def calculate_performance(
+        self,
+        current_total_usdt: float,
+        reference_time: datetime | None = None,
+        value_field: str = "total_usdt",
+    ) -> dict[str, float | None]:
+        """
+        Seçilen portföy alanının dönemsel yüzde değişimini hesaplar.
+
+        Desteklenen value_field değerleri:
+        - total_usdt
+        - funding_usdt
+        - trading_usdt
+
+        İlgili dönemi kapsayan yeterli geçmiş yoksa None döndürülür.
+        """
+        allowed_fields = {
+            "total_usdt",
+            "funding_usdt",
+            "trading_usdt",
+        }
+
+        if value_field not in allowed_fields:
+            raise ValueError(
+                f"Geçersiz performans alanı: {value_field}"
+            )
+
+        current_total = self._safe_float(current_total_usdt)
+        current_time = self._normalize_datetime(
+            reference_time or self._now()
+        )
+        oldest_snapshot = self.get_oldest_snapshot()
+
+        performance: dict[str, float | None] = {}
+
+        if oldest_snapshot is None:
+            return {
+                period_key: None
+                for period_key in self.PERFORMANCE_PERIODS
+            }
+
+        try:
+            oldest_time = self._storage_to_datetime(
+                oldest_snapshot["timestamp"]
+            )
+        except (KeyError, TypeError, ValueError):
+            return {
+                period_key: None
+                for period_key in self.PERFORMANCE_PERIODS
+            }
+
+        for period_key, period_delta in self.PERFORMANCE_PERIODS.items():
+            target_time = current_time - period_delta
+
+            if oldest_time > target_time:
+                performance[period_key] = None
+                continue
+
+            snapshot = self.get_snapshot_at_or_before(target_time)
+
+            if snapshot is None:
+                performance[period_key] = None
+                continue
+
+            try:
+                snapshot_time = self._storage_to_datetime(
+                    snapshot["timestamp"]
+                )
+            except (KeyError, TypeError, ValueError):
+                performance[period_key] = None
+                continue
+
+            reference_age = target_time - snapshot_time
+
+            if (
+                reference_age < timedelta(0)
+                or reference_age
+                > self.MAX_REFERENCE_AGE[period_key]
+            ):
+                performance[period_key] = None
+                continue
+
+            previous_total = self._safe_float(
+                snapshot.get(value_field)
+            )
+
+            if previous_total <= 0:
+                performance[period_key] = None
+                continue
+
+            percentage_change = (
+                (current_total - previous_total) / previous_total
+            ) * 100
+
+            performance[period_key] = round(
+                percentage_change,
+                2,
+            )
+
+        return performance
+
+    def calculate_performance_breakdown(
+        self,
+        current_total_usdt: float,
+        current_funding_usdt: float,
+        current_trading_usdt: float,
+        reference_time: datetime | None = None,
+    ) -> dict[str, dict[str, float | None]]:
+        """
+        Toplam, Funding ve Trading performanslarını ayrı hesaplar.
+        """
+        return {
+            "total": self.calculate_performance(
+                current_total_usdt=current_total_usdt,
+                reference_time=reference_time,
+                value_field="total_usdt",
+            ),
+            "funding": self.calculate_performance(
+                current_total_usdt=current_funding_usdt,
+                reference_time=reference_time,
+                value_field="funding_usdt",
+            ),
+            "trading": self.calculate_performance(
+                current_total_usdt=current_trading_usdt,
+                reference_time=reference_time,
+                value_field="trading_usdt",
+            ),
+        }
+
+    def calculate_portfolio_analytics(
+        self,
+        current_total_usdt: float,
+        current_funding_usdt: float,
+        current_trading_usdt: float,
+        reference_time: datetime | None = None,
+    ) -> dict[str, Any]:
+        """
+        Portföy geçmişinden analiz metrikleri üretir.
+
+        Dönemsel değişimler yeterli geçmiş yoksa None döndürür.
+        Özet değerler mevcut tüm snapshot kayıtlarından hesaplanır.
+        """
+        current_time = self._normalize_datetime(
+            reference_time or self._now()
+        )
+
+        current_values = {
+            "total": self._safe_float(current_total_usdt),
+            "funding": self._safe_float(current_funding_usdt),
+            "trading": self._safe_float(current_trading_usdt),
+        }
+        field_map = {
+            "total": "total_usdt",
+            "funding": "funding_usdt",
+            "trading": "trading_usdt",
+        }
+
+        period_changes: dict[str, dict[str, Any]] = {}
+        oldest_snapshot = self.get_oldest_snapshot()
+
+        oldest_time = None
+
+        if oldest_snapshot is not None:
+            try:
+                oldest_time = self._storage_to_datetime(
+                    oldest_snapshot["timestamp"]
+                )
+            except (KeyError, TypeError, ValueError):
+                oldest_time = None
+
+        for period_key, period_delta in self.PERFORMANCE_PERIODS.items():
+            target_time = current_time - period_delta
+            period_result: dict[str, Any] = {}
+
+            if oldest_time is None or oldest_time > target_time:
+                for account_name in field_map:
+                    period_result[account_name] = {
+                        "amount_usdt": None,
+                        "percent": None,
+                        "baseline_usdt": None,
+                        "baseline_timestamp": None,
+                    }
+
+                period_changes[period_key] = period_result
+                continue
+
+            snapshot = self.get_snapshot_at_or_before(target_time)
+
+            snapshot_is_valid = False
+
+            if snapshot is not None:
+                try:
+                    snapshot_time = self._storage_to_datetime(
+                        snapshot["timestamp"]
+                    )
+                    reference_age = target_time - snapshot_time
+                    snapshot_is_valid = (
+                        reference_age >= timedelta(0)
+                        and reference_age
+                        <= self.MAX_REFERENCE_AGE[period_key]
+                    )
+                except (KeyError, TypeError, ValueError):
+                    snapshot_is_valid = False
+
+            for account_name, field_name in field_map.items():
+                if not snapshot_is_valid:
+                    period_result[account_name] = {
+                        "amount_usdt": None,
+                        "percent": None,
+                        "baseline_usdt": None,
+                        "baseline_timestamp": None,
+                    }
+                    continue
+
+                baseline = self._safe_float(snapshot.get(field_name))
+                current_value = current_values[account_name]
+
+                if baseline <= 0:
+                    amount_change = None
+                    percent_change = None
+                else:
+                    amount_change = round(current_value - baseline, 8)
+                    percent_change = round(
+                        ((current_value - baseline) / baseline) * 100,
+                        2,
+                    )
+
+                period_result[account_name] = {
+                    "amount_usdt": amount_change,
+                    "percent": percent_change,
+                    "baseline_usdt": baseline,
+                    "baseline_timestamp": snapshot.get("timestamp"),
+                }
+
+            period_changes[period_key] = period_result
+
+        summary = self._calculate_history_summary()
+
+        return {
+            "period_changes": period_changes,
+            "summary": summary,
+        }
+
+    def _calculate_history_summary(self) -> dict[str, Any]:
+        with self._lock:
+            with self._connect() as connection:
+                row = connection.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS snapshot_count,
+                        MIN(timestamp) AS first_timestamp,
+                        MAX(timestamp) AS last_timestamp,
+                        MAX(total_usdt) AS highest_total_usdt,
+                        MIN(total_usdt) AS lowest_total_usdt,
+                        AVG(total_usdt) AS average_total_usdt,
+                        MAX(funding_usdt) AS highest_funding_usdt,
+                        MIN(funding_usdt) AS lowest_funding_usdt,
+                        AVG(funding_usdt) AS average_funding_usdt,
+                        MAX(trading_usdt) AS highest_trading_usdt,
+                        MIN(trading_usdt) AS lowest_trading_usdt,
+                        AVG(trading_usdt) AS average_trading_usdt
+                    FROM portfolio_history
+                    """
+                ).fetchone()
+
+        if row is None or int(row["snapshot_count"] or 0) == 0:
+            return {
+                "snapshot_count": 0,
+                "first_timestamp": None,
+                "last_timestamp": None,
+                "total": self._empty_summary_group(),
+                "funding": self._empty_summary_group(),
+                "trading": self._empty_summary_group(),
+            }
+
+        return {
+            "snapshot_count": int(row["snapshot_count"]),
+            "first_timestamp": row["first_timestamp"],
+            "last_timestamp": row["last_timestamp"],
+            "total": {
+                "highest_usdt": self._nullable_float(
+                    row["highest_total_usdt"]
+                ),
+                "lowest_usdt": self._nullable_float(
+                    row["lowest_total_usdt"]
+                ),
+                "average_usdt": self._nullable_float(
+                    row["average_total_usdt"]
+                ),
+            },
+            "funding": {
+                "highest_usdt": self._nullable_float(
+                    row["highest_funding_usdt"]
+                ),
+                "lowest_usdt": self._nullable_float(
+                    row["lowest_funding_usdt"]
+                ),
+                "average_usdt": self._nullable_float(
+                    row["average_funding_usdt"]
+                ),
+            },
+            "trading": {
+                "highest_usdt": self._nullable_float(
+                    row["highest_trading_usdt"]
+                ),
+                "lowest_usdt": self._nullable_float(
+                    row["lowest_trading_usdt"]
+                ),
+                "average_usdt": self._nullable_float(
+                    row["average_trading_usdt"]
+                ),
+            },
+        }
+
+    @staticmethod
+    def _nullable_float(value: Any) -> float | None:
+        if value is None:
+            return None
+
+        try:
+            number = float(value)
+
+            if number != number:
+                return None
+
+            return number
+        except (TypeError, ValueError, OverflowError):
+            return None
+
+    @staticmethod
+    def _empty_summary_group() -> dict[str, None]:
+        return {
+            "highest_usdt": None,
+            "lowest_usdt": None,
+            "average_usdt": None,
+        }
+
+    def get_history_series(
+        self,
+        period: str,
+        reference_time: datetime | None = None,
+        max_points: int = 500,
+    ) -> list[dict[str, Any]]:
+        if period not in self.HISTORY_RANGES:
+            raise ValueError(f"Geçersiz geçmiş dönemi: {period}")
+
+        safe_max_points = max(2, int(max_points))
+        end_time = self._normalize_datetime(
+            reference_time or self._now()
+        )
+        start_time = end_time - self.HISTORY_RANGES[period]
+
+        snapshots = self.get_snapshots(
+            start_time=start_time,
+            end_time=end_time,
+            ascending=True,
+        )
+
+        if len(snapshots) <= safe_max_points:
+            return snapshots
+
+        last_index = len(snapshots) - 1
+        step = last_index / (safe_max_points - 1)
+
+        selected_indexes = {
+            round(index * step)
+            for index in range(safe_max_points)
+        }
+        selected_indexes.add(0)
+        selected_indexes.add(last_index)
+
+        return [
+            snapshots[index]
+            for index in sorted(selected_indexes)
+        ]
+
+    def get_available_history_periods(
+        self,
+        reference_time: datetime | None = None,
+    ) -> dict[str, bool]:
+        current_time = self._normalize_datetime(
+            reference_time or self._now()
+        )
+        oldest_snapshot = self.get_oldest_snapshot()
+
+        if oldest_snapshot is None:
+            return {
+                period: False
+                for period in self.HISTORY_RANGES
+            }
+
+        try:
+            oldest_time = self._storage_to_datetime(
+                oldest_snapshot["timestamp"]
+            )
+        except (KeyError, TypeError, ValueError):
+            return {
+                period: False
+                for period in self.HISTORY_RANGES
+            }
+
+        return {
+            period: oldest_time <= current_time - delta
+            for period, delta in self.HISTORY_RANGES.items()
+        }
 
     def get_latest_snapshot(self) -> dict[str, Any] | None:
         with self._lock:
@@ -317,9 +724,6 @@ class PortfolioHistoryService:
         self,
         target_time: datetime,
     ) -> dict[str, Any] | None:
-        """
-        Hedef zamana en yakın snapshot kaydını döndürür.
-        """
         target_time_local = self._normalize_datetime(target_time)
         target_time_text = self._datetime_to_storage(target_time_local)
 
@@ -457,18 +861,6 @@ class PortfolioHistoryService:
         hourly_days: int = 90,
         daily_days: int = 730,
     ) -> int:
-        """
-        Eski kayıtların sayısını azaltır.
-
-        Saklama stratejisi:
-        - Son detailed_days: tüm kayıtlar
-        - detailed_days ile hourly_days arası: saat başına bir kayıt
-        - hourly_days ile daily_days arası: gün başına bir kayıt
-        - daily_days değerinden eski kayıtlar: silinir
-
-        Returns:
-            Silinen toplam kayıt sayısı.
-        """
         detailed_days = max(1, int(detailed_days))
         hourly_days = max(detailed_days + 1, int(hourly_days))
         daily_days = max(hourly_days + 1, int(daily_days))
@@ -576,11 +968,6 @@ class PortfolioHistoryService:
         return max(0, cursor.rowcount)
 
     def clear_history(self) -> int:
-        """
-        Tüm portföy geçmişini siler.
-
-        Uygulama akışında otomatik kullanılmamalıdır.
-        """
         with self._lock:
             with self._connect() as connection:
                 cursor = connection.execute(
