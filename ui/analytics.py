@@ -112,11 +112,11 @@ class AnalyticsPage(QWidget):
 
         main_layout.addLayout(self.summary_grid)
 
-        history_card = self._create_history_card()
-        main_layout.addWidget(history_card)
-
         performance_card = self._create_performance_card()
         main_layout.addWidget(performance_card)
+
+        history_card = self._create_history_card()
+        main_layout.addWidget(history_card)
 
         main_layout.addStretch()
 
@@ -549,7 +549,12 @@ class AnalyticsPage(QWidget):
                 font-weight: 400;
             }}
 
-            QLabel#analyticsMetricValue,
+            QLabel#analyticsMetricValue {{
+                color: {Theme.ACCENT};
+                font-size: 13px;
+                font-weight: 700;
+            }}
+
             QLabel#analyticsInfoValue {{
                 color: {Theme.TEXT_PRIMARY};
                 font-size: 13px;
