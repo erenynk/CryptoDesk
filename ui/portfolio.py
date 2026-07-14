@@ -241,6 +241,19 @@ class PortfolioPage(QWidget):
             object_name="portfolioSectionHeader",
         )
 
+        header_labels = table_header.findChildren(QLabel)
+
+        for label in header_labels:
+            if label.text() == "Varlık Dağılımı":
+                label.setStyleSheet(
+                    f"""
+                    color: {Theme.TEXT_PRIMARY};
+                    font-size: 18px;
+                    font-weight: 800;
+                    """
+                )
+                break
+
         self.table = QTableWidget()
         self.table.setObjectName("portfolioTable")
         self.table.setFocusPolicy(Qt.NoFocus)
@@ -320,6 +333,15 @@ class PortfolioPage(QWidget):
                 border: none;
             }}
 
+            QWidget#portfolioSectionHeader,
+            QFrame#portfolioSectionHeader {{
+                border-bottom: none;
+            }}
+
+            QHeaderView#portfolioTableHeader {{
+                border-top: none;
+            }}
+
             QWidget#portfolioPage {{
                 background: qlineargradient(
                     x1: 0,
@@ -334,9 +356,15 @@ class PortfolioPage(QWidget):
 
             QLabel#summaryLabel {{
                 color: {Theme.TEXT_SECONDARY};
-                font-size: 11px;
+                font-size: 14px;
                 font-weight: 800;
                 letter-spacing: 1px;
+            }}
+
+            QLabel#portfolioSectionHeaderTitle {{
+                color: {Theme.TEXT_PRIMARY};
+                font-size: 18px;
+                font-weight: 800;
             }}
 
             QLabel#summaryValue {{
@@ -372,6 +400,14 @@ class PortfolioPage(QWidget):
                 color: {Theme.TEXT_MUTED};
                 font-size: 32px;
                 font-weight: 750;
+            }}
+
+            QLabel#sectionTitle,
+            QLabel#portfolioSectionHeaderTitle,
+            QLabel#portfolioSectionHeader QLabel {{
+                color: {Theme.TEXT_PRIMARY};
+                font-size: 18px;
+                font-weight: 800;
             }}
 
                        

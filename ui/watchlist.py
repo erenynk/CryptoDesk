@@ -107,8 +107,8 @@ class WatchlistPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
+        layout.setContentsMargins(28, 26, 28, 26)
+        layout.setSpacing(18)
 
         title = QLabel("Varlık Ekle")
         title.setObjectName("addCardTitle")
@@ -122,12 +122,13 @@ class WatchlistPage(QWidget):
 
         input_layout = QHBoxLayout()
         input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(10)
+        input_layout.setSpacing(14)
 
         self.symbol_input = AppLineEdit(
             placeholder="Örnek: BTC",
             object_name="symbolInput",
         )
+        self.symbol_input.setMinimumHeight(44)
         self.symbol_input.setClearButtonEnabled(True)
 
         self.add_button = AppButton(
@@ -137,6 +138,7 @@ class WatchlistPage(QWidget):
         )
 
         input_layout.addWidget(self.symbol_input, 1)
+        self.add_button.setMinimumHeight(44)
         input_layout.addWidget(self.add_button)
 
         self.status_label = QLabel("")
@@ -172,6 +174,17 @@ class WatchlistPage(QWidget):
             ),
             object_name="watchlistSectionHeader",
         )
+
+        for label in table_header.findChildren(QLabel):
+            if label.text() == "Takip Edilen Varlıklar":
+                label.setStyleSheet(
+                    f"""
+                    color: {Theme.TEXT_PRIMARY};
+                    font-size: 18px;
+                    font-weight: 800;
+                    """
+                )
+                break
 
         self.table = QTableWidget()
         self.table.setObjectName("watchlistTable")
@@ -265,7 +278,7 @@ class WatchlistPage(QWidget):
 
             QLabel#addCardTitle {{
                 color: {Theme.TEXT_PRIMARY};
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: 800;
             }}
 

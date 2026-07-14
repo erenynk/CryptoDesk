@@ -731,10 +731,10 @@ class DashboardPage(QWidget):
         self.value_glow = QGraphicsDropShadowEffect(
             self.value
         )
-        self.value_glow.setBlurRadius(18)
-        self.value_glow.setOffset(0, 0)
+        self.value_glow.setBlurRadius(10)
+        self.value_glow.setOffset(0, 1)
         self.value_glow.setColor(
-            QColor(16, 185, 129, 52)
+            QColor(46, 230, 166, 38)
         )
         self.value.setGraphicsEffect(
             self.value_glow
@@ -1252,9 +1252,10 @@ class DashboardPage(QWidget):
             }}
 
             QLabel#heroValue {{
-                color: #10B981;
-                font-size: 54px;
+                color: {Theme.ACCENT};
+                font-size: 50px;
                 font-weight: 700;
+                letter-spacing: 0.2px;
             }}
 
             QLabel#heroCaption {{

@@ -114,8 +114,8 @@ class AlarmsPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
+        layout.setContentsMargins(28, 26, 28, 26)
+        layout.setSpacing(18)
 
         title = QLabel("Yeni Alarm")
         title.setObjectName("formTitle")
@@ -129,13 +129,14 @@ class AlarmsPage(QWidget):
 
         form_layout = QHBoxLayout()
         form_layout.setContentsMargins(0, 0, 0, 0)
-        form_layout.setSpacing(10)
+        form_layout.setSpacing(14)
 
         self.symbol_input = AppLineEdit(
             placeholder="Coin: BTC",
             object_name="symbolInput",
         )
         self.symbol_input.setMinimumWidth(120)
+        self.symbol_input.setMinimumHeight(44)
         self.symbol_input.setMaximumWidth(180)
         self.symbol_input.setClearButtonEnabled(True)
 
@@ -144,6 +145,7 @@ class AlarmsPage(QWidget):
             object_name="priceInput",
         )
         self.price_input.setMinimumWidth(140)
+        self.price_input.setMinimumHeight(44)
         self.price_input.setMaximumWidth(210)
         self.price_input.setClearButtonEnabled(True)
 
@@ -166,7 +168,7 @@ class AlarmsPage(QWidget):
         self.condition_button.setObjectName(
             "conditionButton"
         )
-        self.condition_button.setMinimumHeight(42)
+        self.condition_button.setMinimumHeight(44)
         self.condition_button.setMinimumWidth(190)
         self.condition_button.setCursor(
             Qt.PointingHandCursor
@@ -177,6 +179,7 @@ class AlarmsPage(QWidget):
             object_name="noteInput",
         )
         self.note_input.setMinimumWidth(180)
+        self.note_input.setMinimumHeight(44)
         self.note_input.setMaxLength(
             alarm_service.MAX_NOTE_LENGTH
         )
@@ -188,6 +191,7 @@ class AlarmsPage(QWidget):
             object_name="addButton",
         )
         self.add_button.setMinimumWidth(130)
+        self.add_button.setMinimumHeight(44)
 
         form_layout.addWidget(self.symbol_input)
         form_layout.addWidget(self.price_input)
@@ -230,6 +234,17 @@ class AlarmsPage(QWidget):
             ),
             object_name="alarmsSectionHeader",
         )
+
+        for label in table_header.findChildren(QLabel):
+            if label.text() == "Fiyat Alarmları":
+                label.setStyleSheet(
+                    f"""
+                    color: {Theme.TEXT_PRIMARY};
+                    font-size: 18px;
+                    font-weight: 800;
+                    """
+                )
+                break
 
         self.table = QTableWidget()
         self.table.setObjectName("alarmsTable")
@@ -362,7 +377,7 @@ class AlarmsPage(QWidget):
 
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: 800;
             }}
 
