@@ -731,10 +731,10 @@ class DashboardPage(QWidget):
         self.value_glow = QGraphicsDropShadowEffect(
             self.value
         )
-        self.value_glow.setBlurRadius(10)
-        self.value_glow.setOffset(0, 1)
+        self.value_glow.setBlurRadius(18)
+        self.value_glow.setOffset(0, 0)
         self.value_glow.setColor(
-            QColor(46, 230, 166, 38)
+            QColor(16, 185, 129, 52)
         )
         self.value.setGraphicsEffect(
             self.value_glow
@@ -775,6 +775,7 @@ class DashboardPage(QWidget):
             accent_text="Cüzdan bakiyesi",
         )
         self.funding_value = funding["value"]
+        self.funding_change = funding["change"]
         self.account_cards.append(funding["widget"])
 
         trading = self._create_account_surface(
@@ -783,6 +784,7 @@ class DashboardPage(QWidget):
             accent_text="İşlem bakiyesi",
         )
         self.trading_value = trading["value"]
+        self.trading_change = trading["change"]
         self.account_cards.append(trading["widget"])
 
         self.hero_grid.addWidget(
@@ -831,64 +833,65 @@ class DashboardPage(QWidget):
             radius=17,
         )
         panel.setMinimumHeight(110)
-        panel.setSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Fixed,
-        )
+        panel.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Fixed)
 
-        layout = QHBoxLayout(panel)
-        layout.setContentsMargins(
-            34,
-            26,
-            34,
-            30,
-        )
+        layout=QHBoxLayout(panel)
+        layout.setContentsMargins(34,26,34,30)
         layout.setSpacing(16)
 
-        accent_bar = QFrame()
+        accent_bar=QFrame()
         accent_bar.setObjectName("accountAccentBar")
         accent_bar.setFixedWidth(3)
 
-        text_layout = QVBoxLayout()
-        text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(4)
+        text_layout=QVBoxLayout()
+        text_layout.setContentsMargins(0,0,0,0)
+        text_layout.setSpacing(1)
 
-        top_line = QHBoxLayout()
-        top_line.setContentsMargins(0, 0, 0, 0)
-        top_line.setSpacing(8)
+        top_line=QHBoxLayout()
+        top_line.setContentsMargins(0,0,0,0)
+        top_line.setSpacing(4)
 
-        title_label = QLabel(title)
+        title_label=QLabel(title)
         title_label.setObjectName("accountTitle")
 
-        meta_label = QLabel(accent_text)
-        meta_label.setObjectName("accountMeta")
+        change_layout=QVBoxLayout()
+        change_layout.setSpacing(0)
+
+        change_label=QLabel("—")
+        change_label.setObjectName("accountDailyChange")
+        change_label.setAlignment(Qt.AlignRight)
+
+        change_caption=QLabel("1 Günlük Değişim")
+        change_caption.setObjectName("accountDailyCaption")
+        change_caption.setAlignment(Qt.AlignRight)
+
+        change_layout.addWidget(change_label)
+        change_layout.addWidget(change_caption)
 
         top_line.addWidget(title_label)
         top_line.addStretch()
-        top_line.addWidget(meta_label)
+        top_line.addLayout(change_layout)
 
-        value_label = QLabel("$0.00")
+        value_label=QLabel("$0.00")
         value_label.setObjectName("accountValue")
         value_label.setMinimumWidth(180)
-        value_label.setTextInteractionFlags(
-            Qt.TextSelectableByMouse
-        )
 
-        description_label = QLabel(description)
-        description_label.setObjectName(
-            "accountDescription"
-        )
+        description_label=QLabel(description)
+        description_label.setObjectName("accountDescription")
 
+        text_layout.addStretch(1)
         text_layout.addLayout(top_line)
         text_layout.addWidget(value_label)
         text_layout.addWidget(description_label)
+        text_layout.addStretch(1)
 
         layout.addWidget(accent_bar)
-        layout.addLayout(text_layout, 1)
+        layout.addLayout(text_layout,1)
 
         return {
-            "widget": panel,
-            "value": value_label,
+            "widget":panel,
+            "value":value_label,
+            "change":change_label,
         }
 
     def _create_period_surface(self):
@@ -1255,7 +1258,6 @@ class DashboardPage(QWidget):
                 color: {Theme.ACCENT};
                 font-size: 50px;
                 font-weight: 700;
-                letter-spacing: 0.2px;
             }}
 
             QLabel#heroCaption {{
@@ -1309,6 +1311,18 @@ class DashboardPage(QWidget):
             QLabel#accountDescription {{
                 color: #6F8093;
                 font-size: 11px;
+            }}
+
+            QLabel#accountDailyChange {{
+                font-size:19px;
+                font-weight:800;
+                color:#6F8093;
+            }}
+
+            QLabel#accountDailyCaption {{
+                font-size:10px;
+                font-weight:600;
+                color:#6F8093;
             }}
 
             QLabel#periodTitle {{
@@ -1413,13 +1427,27 @@ class DashboardPage(QWidget):
         )
 
         performance = portfolio.get("performance", {})
+        breakdown=portfolio.get("performance_breakdown",{})
 
         if not isinstance(performance, dict):
             performance = {}
 
+        self._update_account_daily_changes(breakdown)
         self._update_period_cards(performance)
         self._update_dashboard_summaries(performance)
         self._set_connected_status()
+
+
+    def _update_account_daily_changes(self, breakdown):
+        for key,label in (("funding",self.funding_change),("trading",self.trading_change)):
+            val=(breakdown.get(key,{}) or {}).get("1d")
+            if isinstance(val,(int,float)):
+                color=Theme.ACCENT if val>=0 else Theme.ERROR
+                label.setText(f"{val:+.2f}%")
+                label.setStyleSheet(f"color:{color};")
+            else:
+                label.setText("—")
+                label.setStyleSheet("color:#6F8093;")
 
     def _update_period_cards(self, performance):
         for key, label in self.period_value_labels.items():
@@ -1529,6 +1557,7 @@ class DashboardPage(QWidget):
 
         portfolio = self.data_manager.get_portfolio() or {}
         performance = portfolio.get("performance", {})
+        breakdown=portfolio.get("performance_breakdown",{})
 
         if not isinstance(performance, dict):
             performance = {}
