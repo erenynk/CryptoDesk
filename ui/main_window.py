@@ -36,6 +36,7 @@ from database.settings_db import get_app_setting
 from services.alarm_monitor import AlarmMonitor
 from services.data_manager import DataManager
 from ui.alarms import AlarmsPage
+from ui.analytics import AnalyticsPage
 from ui.dashboard import DashboardPage
 from ui.notification_popup import NotificationManager
 from ui.portfolio import PortfolioPage
@@ -152,6 +153,7 @@ class MainWindow(QMainWindow):
             ("Portfolio", "portfolio", "#18C98B"),
             ("Watchlist", "watchlist", "#F1B84B"),
             ("Alarmlar", "alarms", "#F06475"),
+            ("Analytics", "analytics", "#45B7D1"),
             ("Ayarlar", "settings", "#9B7CF6"),
         )
 
@@ -360,6 +362,28 @@ class MainWindow(QMainWindow):
             painter.drawLine(QPointF(18.5, 16), QPointF(17, 13))
             painter.drawArc(QRectF(8.5, 16, 5, 4), 200 * 16, 140 * 16)
 
+        elif name == "analytics":
+            painter.drawLine(
+                QPointF(4, 17),
+                QPointF(4, 11),
+            )
+            painter.drawLine(
+                QPointF(9, 17),
+                QPointF(9, 7),
+            )
+            painter.drawLine(
+                QPointF(14, 17),
+                QPointF(14, 4),
+            )
+            painter.drawLine(
+                QPointF(19, 17),
+                QPointF(19, 9),
+            )
+            painter.drawLine(
+                QPointF(3, 18),
+                QPointF(20, 18),
+            )
+
         elif name == "settings":
             painter.drawEllipse(QRectF(8, 8, 6, 6))
             painter.drawEllipse(QRectF(4, 4, 14, 14))
@@ -388,12 +412,14 @@ class MainWindow(QMainWindow):
 
         self.watchlist_page = WatchlistPage(self.data_manager)
         self.alarms_page = AlarmsPage(self.data_manager)
+        self.analytics_page = AnalyticsPage(self.data_manager)
         self.settings_page = SettingsPage()
 
         self.pages.addWidget(self.dashboard_page)
         self.pages.addWidget(self.portfolio_page)
         self.pages.addWidget(self.watchlist_page)
         self.pages.addWidget(self.alarms_page)
+        self.pages.addWidget(self.analytics_page)
         self.pages.addWidget(self.settings_page)
 
         self.menu.setCurrentRow(0)
