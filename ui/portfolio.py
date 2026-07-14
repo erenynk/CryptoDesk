@@ -3,7 +3,7 @@ from PySide6.QtGui import (
     QColor,
     QFont,
 )
-from ui.widgets.card import Card
+from ui.dashboard import ElevatedInnerPanel
 from ui.widgets.page_header import PageHeader
 from ui.widgets.button import AppButton
 from ui.widgets.section_header import SectionHeader
@@ -69,7 +69,6 @@ class PortfolioPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
-        self._apply_portfolio_card_styles()
         self._connect_signals()
         self._configure_refresh_timer()
 
@@ -129,12 +128,9 @@ class PortfolioPage(QWidget):
         )
 
     def _create_summary_card(self):
-        card = Card(
+        card = ElevatedInnerPanel(
             "portfolioSummaryCard",
-            hover=False,
-            radius=Theme.RADIUS_XLARGE,
-            shadow=True,
-            palette="blue_dark",
+            radius=18,
         )
         card.setMinimumHeight(176)
         card.setSizePolicy(
@@ -223,12 +219,9 @@ class PortfolioPage(QWidget):
         return card
 
     def _create_table_card(self):
-        card = Card(
+        card = ElevatedInnerPanel(
             "portfolioTableCard",
-            hover=False,
-            radius=Theme.RADIUS_LARGE,
-            shadow=True,
-            palette="blue_dark",
+            radius=18,
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -236,7 +229,7 @@ class PortfolioPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 8, 10, 12)
         layout.setSpacing(0)
 
         table_header = SectionHeader(
@@ -290,46 +283,6 @@ class PortfolioPage(QWidget):
 
         return card
 
-    def _apply_portfolio_card_styles(self):
-        summary_radius = Theme.RADIUS_XLARGE
-        table_radius = Theme.RADIUS_LARGE
-
-        self.summary_card.setStyleSheet(
-            f"""
-            QFrame#portfolioSummaryCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #182B38,
-                    stop: 0.50 #121F29,
-                    stop: 1 #0D1720
-                );
-                border: 1px solid #293B46;
-                border-radius: {Theme.RADIUS_XLARGE}px;
-            }}
-            """
-        )
-
-        self.table_card.setStyleSheet(
-            f"""
-            QFrame#portfolioTableCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #182B38,
-                    stop: 0.50 #121F29,
-                    stop: 1 #0D1720
-                );
-                border: 1px solid #293B46;
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-            """
-        )
-
     def _connect_signals(self):
         self.hide_dust_checkbox.stateChanged.connect(
             self.update_table_view
@@ -361,6 +314,12 @@ class PortfolioPage(QWidget):
            
 
             
+            QFrame#portfolioSummaryCard,
+            QFrame#portfolioTableCard {{
+                background: transparent;
+                border: none;
+            }}
+
             QWidget#portfolioPage {{
                 background: qlineargradient(
                     x1: 0,

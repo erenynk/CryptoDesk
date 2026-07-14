@@ -5,6 +5,9 @@ from database.settings_db import load_settings
 
 
 class OKXService:
+    MIN_DISPLAY_AMOUNT = 0.00005
+    MIN_MEANINGFUL_USDT_VALUE = 0.01
+
     def __init__(self):
         self.client = None
         self.refresh_client()
@@ -50,190 +53,240 @@ class OKXService:
         except Exception as e:
             return False, str(e)
 
-    # ---------------------------------------------------------
-    # INTERNAL
-    # ---------------------------------------------------------
+    @staticmethod
+    def _safe_float(value):
+        try:
+            number = float(value)
+
+            if number != number:
+                return 0.0
+
+            return number
+
+        except (TypeError, ValueError, OverflowError):
+            return 0.0
+
+    @classmethod
+    def _is_meaningful_asset(
+        cls,
+        total_amount,
+        usdt_value,
+    ):
+        """
+        Gerçek bakiyeleri korur, anlamsız hesaplama artıklarını eler.
+
+        Miktar 0.00005 veya üzerindeyse doğrudan anlamlı kabul edilir.
+        Miktar daha küçük olsa bile USDT değeri en az 0.01 ise korunur.
+        Böylece çok küçük miktarda fakat değerli coinler gizlenmez.
+        """
+        amount = cls._safe_float(total_amount)
+        value = cls._safe_float(usdt_value)
+
+        if amount <= 0:
+            return False
+
+        return (
+            amount >= cls.MIN_DISPLAY_AMOUNT
+            or value >= cls.MIN_MEANINGFUL_USDT_VALUE
+        )
 
     def _load_prices(self, cache):
         if self.client is None:
             return {}
-        
-        
-        """
-        Tüm spot fiyatlarını tek sefer çeker.
-        """
 
         if cache.has() and cache.age < 15:
             return cache.get_all()
 
         ticker_path = "/api/v5/market/tickers?instType=SPOT"
 
-        r = self.session.get(
+        response = self.session.get(
             self.client.BASE_URL + ticker_path,
             timeout=10,
         )
-        r.raise_for_status()
+        response.raise_for_status()
 
         prices = {}
-
-        data = r.json()
+        data = response.json()
 
         if data.get("code") == "0":
-
             for item in data["data"]:
-            
+                instrument = item["instId"]
 
-                inst = item["instId"]
-
-                if inst.endswith("-USDT"):
-                    symbol = inst.split("-")[0]
+                if instrument.endswith("-USDT"):
+                    symbol = instrument.split("-")[0]
                     prices[symbol] = float(item["last"])
 
         cache.update(prices)
-
         return prices
-
-    # ---------------------------------------------------------
-    # PORTFOLIO
-    # ---------------------------------------------------------
 
     def get_spot_balances(self, cache):
         if not self.client:
             return False, "API bilgileri bulunamadi."
 
         try:
-
             balances = {}
             funding_amounts = {}
             trading_amounts = {}
 
-            #
-            # FUNDING
-            #
-
             funding_path = "/api/v5/asset/balances"
 
-            r = self.session.get(
+            response = self.session.get(
                 self.client.BASE_URL + funding_path,
-                headers=self.client._headers("GET", funding_path),
+                headers=self.client._headers(
+                    "GET",
+                    funding_path,
+                ),
                 timeout=10,
             )
-            r.raise_for_status()
+            response.raise_for_status()
 
-            data = r.json()
+            data = response.json()
 
             if data.get("code") == "0":
+                for asset in data.get("data", []):
+                    balance = self._safe_float(
+                        asset.get("bal")
+                    )
 
-                
-
-                for asset in r.json()["data"]:
-
-                    bal = float(asset["bal"])
-
-                    if bal <= 0:
+                    if balance <= 0:
                         continue
 
-                    coin = asset["ccy"]
-                    available = float(asset["availBal"])
+                    coin = str(
+                        asset.get("ccy", "")
+                    ).strip().upper()
 
-                    funding_amounts[coin] = bal
+                    if not coin:
+                        continue
 
+                    available = self._safe_float(
+                        asset.get("availBal")
+                    )
+
+                    funding_amounts[coin] = balance
                     balances[coin] = {
-                        "total": bal,
+                        "total": balance,
                         "available": available,
                     }
 
-            #
-            # TRADING
-            #
-
             account_path = "/api/v5/account/balance"
 
-            r = self.session.get(
+            response = self.session.get(
                 self.client.BASE_URL + account_path,
-                headers=self.client._headers("GET", account_path),
+                headers=self.client._headers(
+                    "GET",
+                    account_path,
+                ),
                 timeout=10,
             )
-            r.raise_for_status()
+            response.raise_for_status()
 
-            data = r.json()
+            data = response.json()
 
             if data.get("code") == "0":
-
-                
-
-                details = data["data"][0]["details"]
+                account_data = data.get("data", [])
+                details = (
+                    account_data[0].get("details", [])
+                    if account_data
+                    else []
+                )
 
                 for asset in details:
+                    quantity = self._safe_float(
+                        asset.get("eq")
+                    )
 
-                    qty = float(asset["eq"])
-
-                    if qty <= 0:
+                    if quantity <= 0:
                         continue
 
-                    coin = asset["ccy"]
-                    trading_amounts[coin] = qty
+                    coin = str(
+                        asset.get("ccy", "")
+                    ).strip().upper()
+
+                    if not coin:
+                        continue
+
+                    available = self._safe_float(
+                        asset.get("availBal")
+                    )
+                    trading_amounts[coin] = quantity
 
                     if coin in balances:
-
-                        balances[coin]["total"] += qty
-                        balances[coin]["available"] += float(asset["availBal"])
-
+                        balances[coin]["total"] += quantity
+                        balances[coin]["available"] += available
                     else:
-
                         balances[coin] = {
-                            "total": qty,
-                            "available": float(asset["availBal"]),
+                            "total": quantity,
+                            "available": available,
                         }
-
-            #
-            # PRICE CACHE
-            #
 
             prices = self._load_prices(cache)
 
             assets = []
-
-            total = 0.0
+            total_usdt = 0.0
             funding_total = 0.0
             trading_total = 0.0
 
-            for coin, data in balances.items():
+            for coin, balance_data in balances.items():
+                price = (
+                    1.0
+                    if coin == "USDT"
+                    else self._safe_float(
+                        prices.get(coin, 0.0)
+                    )
+                )
+                total_amount = self._safe_float(
+                    balance_data.get("total")
+                )
+                available_amount = self._safe_float(
+                    balance_data.get("available")
+                )
+                usdt_value = total_amount * price
 
-                if coin == "USDT":
-                    price = 1.0
-                else:
-                    price = prices.get(coin, 0)
+                if not self._is_meaningful_asset(
+                    total_amount=total_amount,
+                    usdt_value=usdt_value,
+                ):
+                    continue
 
-                usdt = data["total"] * price
-
-                total += usdt
+                total_usdt += usdt_value
 
                 assets.append(
                     {
                         "coin": coin,
-                        "total": data["total"],
-                        "available": data["available"],
+                        "total": total_amount,
+                        "available": available_amount,
                         "price": price,
-                        "usdt_value": usdt,
+                        "usdt_value": usdt_value,
                     }
                 )
 
             for coin, amount in funding_amounts.items():
-                price = 1.0 if coin == "USDT" else prices.get(coin, 0.0)
+                price = (
+                    1.0
+                    if coin == "USDT"
+                    else self._safe_float(
+                        prices.get(coin, 0.0)
+                    )
+                )
                 funding_total += amount * price
 
             for coin, amount in trading_amounts.items():
-                price = 1.0 if coin == "USDT" else prices.get(coin, 0.0)
+                price = (
+                    1.0
+                    if coin == "USDT"
+                    else self._safe_float(
+                        prices.get(coin, 0.0)
+                    )
+                )
                 trading_total += amount * price
 
             assets.sort(
-                key=lambda x: x["usdt_value"],
+                key=lambda item: item["usdt_value"],
                 reverse=True,
             )
 
             return True, {
-                "total_usdt": total,
+                "total_usdt": total_usdt,
                 "funding_usdt": funding_total,
                 "trading_usdt": trading_total,
                 "assets": assets,
@@ -241,7 +294,7 @@ class OKXService:
 
         except Exception as e:
             return False, str(e)
-        
+
     def get_spot_symbols(
         self,
         force_refresh: bool = False,
@@ -277,7 +330,11 @@ class OKXService:
                 if instrument.get("state") != "live":
                     continue
 
-                base_currency = instrument.get("baseCcy", "").strip().upper()
+                base_currency = (
+                    instrument.get("baseCcy", "")
+                    .strip()
+                    .upper()
+                )
 
                 if base_currency:
                     symbols.add(base_currency)
@@ -293,7 +350,6 @@ class OKXService:
         except (TypeError, ValueError):
             return False, "OKX varlık listesi okunamadı."
 
-
     def is_spot_symbol_available(
         self,
         symbol: str,
@@ -308,4 +364,4 @@ class OKXService:
         if not success:
             return False, str(result)
 
-        return True, normalized_symbol in result    
+        return True, normalized_symbol in result
