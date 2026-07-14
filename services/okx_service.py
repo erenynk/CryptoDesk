@@ -295,6 +295,97 @@ class OKXService:
         except Exception as e:
             return False, str(e)
 
+    def get_spot_fills_history(
+        self,
+        max_pages: int = 20,
+        page_limit: int = 100,
+    ):
+        """
+        OKX'in erişilebilir Spot işlem geçmişini sayfalı olarak döndürür.
+
+        OKX fills-history uç noktası son 3 aylık işlemleri sağlar.
+        Bu aralık açık pozisyon maliyetini doğrulamaya yetmiyorsa
+        CostBasisService PNL üretmez.
+        """
+        if not self.client:
+            return False, "API bilgileri bulunamadi."
+
+        path = "/api/v5/trade/fills-history"
+        all_fills = []
+        after = None
+        seen_ids = set()
+
+        try:
+            for _ in range(max(1, max_pages)):
+                query_parts = [
+                    "instType=SPOT",
+                    f"limit={max(1, min(page_limit, 100))}",
+                ]
+
+                if after:
+                    query_parts.append(f"after={after}")
+
+                request_path = path + "?" + "&".join(query_parts)
+
+                response = self.session.get(
+                    self.client.BASE_URL + request_path,
+                    headers=self.client._headers(
+                        "GET",
+                        request_path,
+                    ),
+                    timeout=15,
+                )
+                response.raise_for_status()
+
+                payload = response.json()
+
+                if payload.get("code") != "0":
+                    return False, payload.get(
+                        "msg",
+                        "OKX işlem geçmişi alınamadı.",
+                    )
+
+                page = payload.get("data", [])
+
+                if not isinstance(page, list) or not page:
+                    break
+
+                new_count = 0
+
+                for fill in page:
+                    unique_id = (
+                        str(fill.get("billId", "")),
+                        str(fill.get("tradeId", "")),
+                        str(fill.get("instId", "")),
+                    )
+
+                    if unique_id in seen_ids:
+                        continue
+
+                    seen_ids.add(unique_id)
+                    all_fills.append(fill)
+                    new_count += 1
+
+                if new_count == 0 or len(page) < page_limit:
+                    break
+
+                last_item = page[-1]
+                after = (
+                    str(last_item.get("billId", "")).strip()
+                    or str(last_item.get("tradeId", "")).strip()
+                )
+
+                if not after:
+                    break
+
+            return True, all_fills
+
+        except requests.RequestException as error:
+            return False, f"OKX işlem geçmişi bağlantı hatası: {error}"
+
+        except (TypeError, ValueError) as error:
+            return False, f"OKX işlem geçmişi okunamadı: {error}"
+
     def get_spot_symbols(
         self,
         force_refresh: bool = False,

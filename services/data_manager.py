@@ -4,6 +4,7 @@ from typing import Any
 from PySide6.QtCore import QObject, Signal
 
 from database.settings_db import get_app_setting
+from services.cost_basis_service import CostBasisService
 from services.okx_service import OKXService
 from services.portfolio_history_service import PortfolioHistoryService
 from services.price_cache import PriceCache
@@ -32,6 +33,7 @@ class DataManager(QObject):
 
         self.cache = PriceCache()
         self.okx = OKXService()
+        self.cost_basis = CostBasisService()
         self.portfolio_history = PortfolioHistoryService()
 
         self.portfolio = None
@@ -60,6 +62,7 @@ class DataManager(QObject):
             ok, result = self.okx.get_spot_balances(self.cache)
 
             if ok:
+                self._attach_cost_basis_data(result)
                 self._attach_history_data(result)
                 self._run_history_maintenance_if_needed()
 
@@ -79,6 +82,46 @@ class DataManager(QObject):
 
         finally:
             self.loading = False
+
+    def _attach_cost_basis_data(
+        self,
+        portfolio: dict[str, Any],
+    ) -> None:
+        """
+        Açık Spot pozisyonlarına doğrulanmış ortalama maliyet ve PNL ekler.
+
+        İşlem geçmişi yetersiz veya bakiye geçmişle uyuşmuyorsa tahmini
+        değer üretmez; ilgili asset alanları None olarak bırakılır.
+        """
+        assets = portfolio.get("assets", [])
+
+        if not isinstance(assets, list):
+            return
+
+        try:
+            success, fills = self.okx.get_spot_fills_history()
+
+            if not success or not isinstance(fills, list):
+                CostBasisService.attach_to_assets(
+                    assets,
+                    {},
+                )
+                return
+
+            calculated = self.cost_basis.calculate(
+                fills=fills,
+                current_assets=assets,
+            )
+            self.cost_basis.attach_to_assets(
+                assets,
+                calculated,
+            )
+
+        except Exception:
+            CostBasisService.attach_to_assets(
+                assets,
+                {},
+            )
 
     def _attach_history_data(self, portfolio: dict[str, Any]) -> None:
         """

@@ -288,8 +288,8 @@ class PortfolioPage(QWidget):
             )
 
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(60)
-        self.table.verticalHeader().setMinimumSectionSize(60)
+        self.table.verticalHeader().setDefaultSectionSize(74)
+        self.table.verticalHeader().setMinimumSectionSize(74)
 
         layout.addWidget(table_header)
         layout.addWidget(self.table, 1)
@@ -427,6 +427,11 @@ class PortfolioPage(QWidget):
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER_SOFT};
                 padding: 14px 12px;
+            }}
+
+            QWidget#portfolioPnlCell {{
+                background: transparent;
+                border: none;
             }}
 
 
@@ -765,6 +770,7 @@ class PortfolioPage(QWidget):
             )
 
             pnl_percent = self._get_asset_pnl_percent(asset)
+            pnl_usdt = asset.get("pnl_usdt")
 
             pnl_item = NumericTableWidgetItem(
                 (
@@ -772,12 +778,81 @@ class PortfolioPage(QWidget):
                     if pnl_percent is not None
                     else 0.0
                 ),
-                (
-                    f"{pnl_percent:+.2f}%"
-                    if pnl_percent is not None
-                    else "—"
-                ),
+                "",
             )
+
+            pnl_widget = QWidget()
+            pnl_widget.setObjectName("portfolioPnlCell")
+
+            pnl_layout = QVBoxLayout(pnl_widget)
+            pnl_layout.setContentsMargins(4, 4, 4, 4)
+            pnl_layout.setSpacing(8)
+
+            coin_symbol = str(
+                asset.get("coin", "")
+            ).strip().upper()
+
+            if coin_symbol == "USDT":
+                pnl_percent_text = ""
+                pnl_usdt_text = ""
+            else:
+                pnl_percent_text = (
+                    f"{pnl_percent:+.2f}%"
+                    if isinstance(pnl_percent, (int, float))
+                    else "—"
+                )
+                pnl_usdt_text = (
+                    f"{float(pnl_usdt):+,.2f} USDT"
+                    if isinstance(pnl_usdt, (int, float))
+                    else "—"
+                )
+
+            pnl_percent_label = QLabel(
+                pnl_percent_text
+            )
+            pnl_percent_label.setObjectName(
+                "portfolioPnlPercent"
+            )
+            pnl_percent_label.setAlignment(Qt.AlignCenter)
+
+            pnl_usdt_label = QLabel(
+                pnl_usdt_text
+            )
+            pnl_usdt_label.setObjectName(
+                "portfolioPnlUsdt"
+            )
+            pnl_usdt_label.setAlignment(Qt.AlignCenter)
+
+            pnl_color = (
+                Theme.ACCENT
+                if isinstance(pnl_percent, (int, float))
+                and pnl_percent >= 0
+                else (
+                    Theme.ERROR
+                    if isinstance(pnl_percent, (int, float))
+                    else Theme.TEXT_MUTED
+                )
+            )
+
+            pnl_percent_label.setStyleSheet(
+                f"""
+                color: {pnl_color};
+                font-size: 12px;
+                font-weight: 700;
+                font-family: "{Theme.FONT_FAMILY}";
+                """
+            )
+            pnl_usdt_label.setStyleSheet(
+                f"""
+                color: {pnl_color};
+                font-size: 12px;
+                font-weight: 700;
+                font-family: "{Theme.FONT_FAMILY}";
+                """
+            )
+
+            pnl_layout.addWidget(pnl_percent_label)
+            pnl_layout.addWidget(pnl_usdt_label)
 
             price_item = NumericTableWidgetItem(
                 asset.get("price", 0.0),
@@ -833,6 +908,7 @@ class PortfolioPage(QWidget):
             self.table.setItem(row, 3, price_item)
             self.table.setItem(row, 4, total_item)
             self.table.setItem(row, 5, pnl_item)
+            self.table.setCellWidget(row, 5, pnl_widget)
 
         self.asset_count_label.setText(
             f"{len(visible_assets)} farklı kripto varlık listeleniyor"

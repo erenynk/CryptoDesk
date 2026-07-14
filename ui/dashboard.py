@@ -728,17 +728,7 @@ class DashboardPage(QWidget):
             Qt.TextSelectableByMouse
         )
 
-        self.value_glow = QGraphicsDropShadowEffect(
-            self.value
-        )
-        self.value_glow.setBlurRadius(18)
-        self.value_glow.setOffset(0, 0)
-        self.value_glow.setColor(
-            QColor(16, 185, 129, 52)
-        )
-        self.value.setGraphicsEffect(
-            self.value_glow
-        )
+        self.value.setGraphicsEffect(None)
 
         self.hero_caption = QLabel(
             "Funding ve Trading Toplamı"
