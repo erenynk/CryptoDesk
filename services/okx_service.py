@@ -1,3 +1,5 @@
+import time
+
 import requests
 
 from api.okx_client import OKXClient
@@ -7,6 +9,7 @@ from database.settings_db import load_settings
 class OKXService:
     MIN_DISPLAY_AMOUNT = 0.00005
     MIN_MEANINGFUL_USDT_VALUE = 0.01
+    FILLS_CACHE_TTL_SECONDS = 60
 
     def __init__(self):
         self.client = None
@@ -16,6 +19,9 @@ class OKXService:
         self._spot_symbols = set()
         self._spot_symbols_loaded = False
 
+        self._spot_fills_cache = []
+        self._spot_fills_cache_timestamp = 0.0
+
     def refresh_client(self):
         api, secret, passphrase = load_settings()
 
@@ -23,6 +29,9 @@ class OKXService:
             self.client = OKXClient(api, secret, passphrase)
         else:
             self.client = None
+
+        if hasattr(self, "_spot_fills_cache"):
+            self.clear_spot_fills_cache()
 
     def check_connection(self):
         if not self.client:
@@ -295,10 +304,37 @@ class OKXService:
         except Exception as e:
             return False, str(e)
 
+    def clear_spot_fills_cache(self):
+        self._spot_fills_cache = []
+        self._spot_fills_cache_timestamp = 0.0
+
+    def get_spot_fills_cache_status(self):
+        if not self._spot_fills_cache:
+            return {
+                "cached": False,
+                "item_count": 0,
+                "age_seconds": None,
+                "ttl_seconds": self.FILLS_CACHE_TTL_SECONDS,
+            }
+
+        age = max(
+            0.0,
+            time.monotonic()
+            - self._spot_fills_cache_timestamp,
+        )
+
+        return {
+            "cached": True,
+            "item_count": len(self._spot_fills_cache),
+            "age_seconds": age,
+            "ttl_seconds": self.FILLS_CACHE_TTL_SECONDS,
+        }
+
     def get_spot_fills_history(
         self,
         max_pages: int = 20,
         page_limit: int = 100,
+        force_refresh: bool = False,
     ):
         """
         OKX'in erişilebilir Spot işlem geçmişini sayfalı olarak döndürür.
@@ -309,6 +345,19 @@ class OKXService:
         """
         if not self.client:
             return False, "API bilgileri bulunamadi."
+
+        now = time.monotonic()
+        cache_age = now - self._spot_fills_cache_timestamp
+
+        if (
+            not force_refresh
+            and self._spot_fills_cache
+            and cache_age < self.FILLS_CACHE_TTL_SECONDS
+        ):
+            return True, [
+                fill.copy()
+                for fill in self._spot_fills_cache
+            ]
 
         path = "/api/v5/trade/fills-history"
         all_fills = []
@@ -378,7 +427,18 @@ class OKXService:
                 if not after:
                     break
 
-            return True, all_fills
+            self._spot_fills_cache = [
+                fill.copy()
+                for fill in all_fills
+            ]
+            self._spot_fills_cache_timestamp = (
+                time.monotonic()
+            )
+
+            return True, [
+                fill.copy()
+                for fill in self._spot_fills_cache
+            ]
 
         except requests.RequestException as error:
             return False, f"OKX işlem geçmişi bağlantı hatası: {error}"
