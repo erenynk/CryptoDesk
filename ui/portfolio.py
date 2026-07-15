@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QLabel,    
+    QLabel,
+    QScrollArea,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -75,7 +76,25 @@ class PortfolioPage(QWidget):
         QTimer.singleShot(100, self.start_page)
 
     def _build_ui(self):
-        self.main_layout = QVBoxLayout(self)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("portfolioScrollArea")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded
+        )
+
+        self.content_widget = QWidget()
+        self.content_widget.setObjectName("portfolioContent")
+
+        self.main_layout = QVBoxLayout(self.content_widget)
         self.main_layout.setContentsMargins(
             Theme.PAGE_MARGIN_HORIZONTAL,
             Theme.PAGE_MARGIN_VERTICAL,
@@ -91,7 +110,15 @@ class PortfolioPage(QWidget):
         self.main_layout.addWidget(self.summary_card)
 
         self.table_card = self._create_table_card()
-        self.main_layout.addWidget(self.table_card, 1)
+        self.main_layout.addWidget(self.table_card)
+
+        self.trading_table_card = self._create_trading_table_card()
+        self.main_layout.addWidget(self.trading_table_card)
+
+        self.main_layout.addStretch()
+
+        self.scroll_area.setWidget(self.content_widget)
+        root_layout.addWidget(self.scroll_area)
 
     def _create_header(self):
         controls = QWidget()
@@ -218,14 +245,93 @@ class PortfolioPage(QWidget):
 
         return card
 
+    def _create_trading_table_card(self):
+        card = ElevatedInnerPanel(
+            "portfolioTradingTableCard",
+            radius=18,
+        )
+        card.setMinimumHeight(900)
+        card.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(10, 8, 10, 12)
+        layout.setSpacing(0)
+
+        table_header = SectionHeader(
+            title="Trading Hesabı",
+            description=(
+                "Trading hesabındaki spot varlıkların "
+                "güncel görünümü"
+            ),
+            object_name="portfolioTradingSectionHeader",
+        )
+
+        for label in table_header.findChildren(QLabel):
+            if label.text() == "Trading Hesabı":
+                label.setStyleSheet(
+                    f"""
+                    color: {Theme.TEXT_PRIMARY};
+                    font-size: 18px;
+                    font-weight: 800;
+                    """
+                )
+                break
+
+        self.trading_table = QTableWidget()
+        self.trading_table.setObjectName("portfolioTradingTable")
+        self.trading_table.setFocusPolicy(Qt.NoFocus)
+        self.trading_table.setColumnCount(len(self.headers))
+        self.trading_table.setHorizontalHeaderLabels(self.headers)
+
+        self.trading_table.setEditTriggers(
+            QTableWidget.NoEditTriggers
+        )
+        self.trading_table.setSelectionBehavior(
+            QTableWidget.SelectRows
+        )
+        self.trading_table.setSelectionMode(
+            QTableWidget.NoSelection
+        )
+        self.trading_table.setAlternatingRowColors(False)
+        self.trading_table.setSortingEnabled(False)
+        self.trading_table.setShowGrid(False)
+        self.trading_table.setWordWrap(False)
+
+        header = self.trading_table.horizontalHeader()
+        header.setObjectName("portfolioTradingTableHeader")
+        header.setFocusPolicy(Qt.NoFocus)
+        header.setHighlightSections(False)
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
+        self.trading_table.setColumnWidth(0, 58)
+
+        for column in range(1, len(self.headers)):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.Stretch,
+            )
+
+        self.trading_table.verticalHeader().setVisible(False)
+        self.trading_table.verticalHeader().setDefaultSectionSize(74)
+        self.trading_table.verticalHeader().setMinimumSectionSize(74)
+
+        layout.addWidget(table_header)
+        layout.addWidget(self.trading_table, 1)
+
+        return card
+
     def _create_table_card(self):
         card = ElevatedInnerPanel(
             "portfolioTableCard",
             radius=18,
         )
+        card.setMinimumHeight(900)
         card.setSizePolicy(
             QSizePolicy.Expanding,
-            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
         )
 
         layout = QVBoxLayout(card)
@@ -300,6 +406,9 @@ class PortfolioPage(QWidget):
         self.hide_dust_checkbox.stateChanged.connect(
             self.update_table_view
         )
+        self.hide_dust_checkbox.stateChanged.connect(
+            self.update_trading_table_view
+        )
 
         self.refresh_button.clicked.connect(
             self.load_balances
@@ -307,6 +416,9 @@ class PortfolioPage(QWidget):
 
         self.table.horizontalHeader().sortIndicatorChanged.connect(
             self.on_sort_indicator_changed
+        )
+        self.trading_table.horizontalHeader().sortIndicatorChanged.connect(
+            self.on_trading_sort_indicator_changed
         )
 
     def _configure_refresh_timer(self):
@@ -328,6 +440,7 @@ class PortfolioPage(QWidget):
 
             
             QFrame#portfolioSummaryCard,
+            QFrame#portfolioTradingTableCard,
             QFrame#portfolioTableCard {{
                 background: transparent;
                 border: none;
@@ -338,8 +451,18 @@ class PortfolioPage(QWidget):
                 border-bottom: none;
             }}
 
-            QHeaderView#portfolioTableHeader {{
+            QHeaderView#portfolioTableHeader,
+            QHeaderView#portfolioTradingTableHeader {{
                 border-top: none;
+            }}
+
+            QScrollArea#portfolioScrollArea,
+            QScrollArea#portfolioScrollArea
+            > QWidget
+            > QWidget,
+            QWidget#portfolioContent {{
+                background: transparent;
+                border: none;
             }}
 
             QWidget#portfolioPage {{
@@ -412,7 +535,8 @@ class PortfolioPage(QWidget):
 
                        
             
-            QTableWidget#portfolioTable {{
+            QTableWidget#portfolioTable,
+            QTableWidget#portfolioTradingTable {{
                 background-color: transparent;
                 color: {Theme.TEXT_PRIMARY};
                 border: none;
@@ -422,7 +546,8 @@ class PortfolioPage(QWidget):
                 outline: none;
             }}
 
-            QTableWidget#portfolioTable::item {{
+            QTableWidget#portfolioTable::item,
+            QTableWidget#portfolioTradingTable::item {{
                 background-color: transparent;
                 border: none;
                 border-bottom: 1px solid {Theme.BORDER_SOFT};
@@ -435,7 +560,8 @@ class PortfolioPage(QWidget):
             }}
 
 
-            QHeaderView#portfolioTableHeader {{
+            QHeaderView#portfolioTableHeader,
+            QHeaderView#portfolioTradingTableHeader {{
                 background: qlineargradient(
                     x1: 0,
                     y1: 0,
@@ -449,7 +575,8 @@ class PortfolioPage(QWidget):
                 border-bottom: 1px solid #293B46;
             }}
 
-            QHeaderView#portfolioTableHeader::section {{
+            QHeaderView#portfolioTableHeader::section,
+            QHeaderView#portfolioTradingTableHeader::section {{
                 background: transparent;
                 color: {Theme.TEXT_SECONDARY};
                 border: none;
@@ -460,7 +587,8 @@ class PortfolioPage(QWidget):
                 letter-spacing: 1px;
             }}
 
-            QHeaderView#portfolioTableHeader::section {{
+            QHeaderView#portfolioTableHeader::section,
+            QHeaderView#portfolioTradingTableHeader::section {{
                 background: transparent;
                 color: {Theme.TEXT_SECONDARY};
                 border: none;
@@ -525,6 +653,39 @@ class PortfolioPage(QWidget):
             else:
                 header_item.setText(self.headers[index])
 
+    def on_trading_sort_indicator_changed(
+        self,
+        logical_index,
+        order,
+    ):
+        if logical_index < 0:
+            return
+
+        for index in range(
+            self.trading_table.columnCount()
+        ):
+            header_item = (
+                self.trading_table
+                .horizontalHeaderItem(index)
+            )
+
+            if header_item is None:
+                continue
+
+            if index == logical_index:
+                arrow = (
+                    " ▲"
+                    if order == Qt.AscendingOrder
+                    else " ▼"
+                )
+                header_item.setText(
+                    self.headers[index] + arrow
+                )
+            else:
+                header_item.setText(
+                    self.headers[index]
+                )
+
     def start_page(self):
         self.load_balances()
         self.refresh_timer.start()
@@ -571,6 +732,7 @@ class PortfolioPage(QWidget):
 
             self._update_daily_pnl(portfolio)
             self.update_table_view()
+            self.update_trading_table_view()
             self._set_connected_state()
 
         else:
@@ -718,6 +880,194 @@ class PortfolioPage(QWidget):
         self.daily_pnl_label.setText(f"{daily_pnl:+.2f}%")
         self.daily_pnl_label.setStyleSheet(
             f"color: {color};"
+        )
+
+    def _populate_asset_table(
+        self,
+        table,
+        assets,
+        amount_key="total",
+        value_key="usdt_value",
+    ):
+        table.setSortingEnabled(False)
+        table.setUpdatesEnabled(False)
+        table.setRowCount(len(assets))
+
+        for row, asset in enumerate(assets):
+            index_item = QTableWidgetItem(str(row + 1))
+            index_item.setForeground(
+                QColor(Theme.TEXT_MUTED)
+            )
+            index_item.setTextAlignment(Qt.AlignCenter)
+
+            index_font = QFont(Theme.FONT_FAMILY, 10)
+            index_font.setBold(True)
+            index_item.setFont(index_font)
+
+            coin_item = QTableWidgetItem(
+                asset.get("coin", "")
+            )
+            coin_item.setForeground(
+                QColor(Theme.TEXT_PRIMARY)
+            )
+            coin_item.setTextAlignment(Qt.AlignCenter)
+
+            coin_font = coin_item.font()
+            coin_font.setBold(True)
+            coin_item.setFont(coin_font)
+
+            total_amount = asset.get(amount_key, 0.0)
+            usdt_value = asset.get(value_key, 0.0)
+
+            total_item = NumericTableWidgetItem(
+                total_amount,
+                self.format_amount(total_amount),
+            )
+
+            pnl_percent = self._get_asset_pnl_percent(asset)
+            pnl_usdt = asset.get("pnl_usdt")
+
+            pnl_item = NumericTableWidgetItem(
+                (
+                    pnl_percent
+                    if pnl_percent is not None
+                    else 0.0
+                ),
+                "",
+            )
+
+            pnl_widget = QWidget()
+            pnl_widget.setObjectName("portfolioPnlCell")
+
+            pnl_layout = QVBoxLayout(pnl_widget)
+            pnl_layout.setContentsMargins(4, 4, 4, 4)
+            pnl_layout.setSpacing(8)
+
+            coin_symbol = str(
+                asset.get("coin", "")
+            ).strip().upper()
+
+            if coin_symbol == "USDT":
+                pnl_percent_text = ""
+                pnl_usdt_text = ""
+            else:
+                pnl_percent_text = (
+                    f"{pnl_percent:+.2f}%"
+                    if isinstance(pnl_percent, (int, float))
+                    else "—"
+                )
+                pnl_usdt_text = (
+                    f"{float(pnl_usdt):+,.2f} USDT"
+                    if isinstance(pnl_usdt, (int, float))
+                    else "—"
+                )
+
+            pnl_percent_label = QLabel(pnl_percent_text)
+            pnl_percent_label.setAlignment(Qt.AlignCenter)
+
+            pnl_usdt_label = QLabel(pnl_usdt_text)
+            pnl_usdt_label.setAlignment(Qt.AlignCenter)
+
+            pnl_color = (
+                Theme.ACCENT
+                if isinstance(pnl_percent, (int, float))
+                and pnl_percent >= 0
+                else (
+                    Theme.ERROR
+                    if isinstance(pnl_percent, (int, float))
+                    else Theme.TEXT_MUTED
+                )
+            )
+
+            shared_style = f"""
+                color: {pnl_color};
+                font-size: 12px;
+                font-weight: 700;
+                font-family: "{Theme.FONT_FAMILY}";
+            """
+            pnl_percent_label.setStyleSheet(shared_style)
+            pnl_usdt_label.setStyleSheet(shared_style)
+
+            pnl_layout.addWidget(pnl_percent_label)
+            pnl_layout.addWidget(pnl_usdt_label)
+
+            price_item = NumericTableWidgetItem(
+                asset.get("price", 0.0),
+                self.format_price(
+                    asset.get("price", 0.0)
+                ),
+            )
+
+            value_item = NumericTableWidgetItem(
+                usdt_value,
+                f"${float(usdt_value):,.2f}",
+            )
+
+            total_item.setForeground(
+                QColor(Theme.TEXT_SECONDARY)
+            )
+            price_item.setForeground(
+                QColor(Theme.TEXT_PRIMARY)
+            )
+            value_item.setForeground(
+                QColor(Theme.ACCENT)
+            )
+
+            for item in (
+                total_item,
+                price_item,
+                value_item,
+            ):
+                item.setTextAlignment(Qt.AlignCenter)
+                item_font = item.font()
+                item_font.setBold(True)
+                item.setFont(item_font)
+
+            table.setItem(row, 0, index_item)
+            table.setItem(row, 1, coin_item)
+            table.setItem(row, 2, value_item)
+            table.setItem(row, 3, price_item)
+            table.setItem(row, 4, total_item)
+            table.setItem(row, 5, pnl_item)
+            table.setCellWidget(row, 5, pnl_widget)
+
+        table.setUpdatesEnabled(True)
+        table.setSortingEnabled(True)
+
+    def update_trading_table_view(self):
+        hide_dust = self.hide_dust_checkbox.isChecked()
+
+        trading_assets = [
+            asset
+            for asset in self.raw_assets_data
+            if float(asset.get("trading_total", 0.0) or 0.0) > 0
+            and not (
+                hide_dust
+                and float(
+                    asset.get("trading_usdt_value", 0.0)
+                    or 0.0
+                ) < 1
+            )
+        ]
+
+        self._populate_asset_table(
+            self.trading_table,
+            trading_assets,
+            amount_key="trading_total",
+            value_key="trading_usdt_value",
+        )
+
+        sort_column = (
+            self.trading_table.horizontalHeader()
+            .sortIndicatorSection()
+        )
+        sort_order = (
+            self.trading_table.horizontalHeader()
+            .sortIndicatorOrder()
+        )
+        self.on_trading_sort_indicator_changed(
+            sort_column,
+            sort_order,
         )
 
     def update_table_view(self):

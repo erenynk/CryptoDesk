@@ -247,11 +247,84 @@ class PortfolioHistoryService:
 
         return elapsed_seconds >= self.snapshot_interval_seconds
 
+    def get_performance_reference_snapshots(
+        self,
+        reference_time: datetime | None = None,
+    ) -> dict[str, dict[str, Any] | None]:
+        """
+        Her performans dönemi için hedef zamana en yakın geçerli
+        snapshot kaydını döndürür.
+
+        Aynı referanslar hem performans yüzdelerinde hem transfer
+        düzeltmelerinde kullanılır.
+        """
+        current_time = self._normalize_datetime(
+            reference_time or self._now()
+        )
+        oldest_snapshot = self.get_oldest_snapshot()
+
+        references: dict[
+            str,
+            dict[str, Any] | None,
+        ] = {
+            period: None
+            for period in self.PERFORMANCE_PERIODS
+        }
+
+        if oldest_snapshot is None:
+            return references
+
+        try:
+            oldest_time = self._storage_to_datetime(
+                oldest_snapshot["timestamp"]
+            )
+        except (KeyError, TypeError, ValueError):
+            return references
+
+        for period_key, period_delta in (
+            self.PERFORMANCE_PERIODS.items()
+        ):
+            target_time = current_time - period_delta
+
+            if oldest_time > target_time:
+                continue
+
+            snapshot = self.get_snapshot_nearest(
+                target_time
+            )
+
+            if snapshot is None:
+                continue
+
+            try:
+                snapshot_time = self._storage_to_datetime(
+                    snapshot["timestamp"]
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            reference_age = abs(
+                target_time - snapshot_time
+            )
+
+            if reference_age > self.MAX_REFERENCE_AGE[
+                period_key
+            ]:
+                continue
+
+            references[period_key] = snapshot
+
+        return references
+
     def calculate_performance(
         self,
         current_total_usdt: float,
         reference_time: datetime | None = None,
         value_field: str = "total_usdt",
+        period_adjustments: dict[str, float] | None = None,
+        reference_snapshots: (
+            dict[str, dict[str, Any] | None] | None
+        ) = None,
     ) -> dict[str, float | None]:
         """
         Seçilen portföy alanının dönemsel yüzde değişimini hesaplar.
@@ -278,54 +351,25 @@ class PortfolioHistoryService:
         current_time = self._normalize_datetime(
             reference_time or self._now()
         )
-        oldest_snapshot = self.get_oldest_snapshot()
+        safe_adjustments = (
+            period_adjustments
+            if isinstance(period_adjustments, dict)
+            else {}
+        )
+        references = (
+            reference_snapshots
+            if isinstance(reference_snapshots, dict)
+            else self.get_performance_reference_snapshots(
+                reference_time=current_time
+            )
+        )
 
         performance: dict[str, float | None] = {}
 
-        if oldest_snapshot is None:
-            return {
-                period_key: None
-                for period_key in self.PERFORMANCE_PERIODS
-            }
-
-        try:
-            oldest_time = self._storage_to_datetime(
-                oldest_snapshot["timestamp"]
-            )
-        except (KeyError, TypeError, ValueError):
-            return {
-                period_key: None
-                for period_key in self.PERFORMANCE_PERIODS
-            }
-
-        for period_key, period_delta in self.PERFORMANCE_PERIODS.items():
-            target_time = current_time - period_delta
-
-            if oldest_time > target_time:
-                performance[period_key] = None
-                continue
-
-            snapshot = self.get_snapshot_at_or_before(target_time)
+        for period_key in self.PERFORMANCE_PERIODS:
+            snapshot = references.get(period_key)
 
             if snapshot is None:
-                performance[period_key] = None
-                continue
-
-            try:
-                snapshot_time = self._storage_to_datetime(
-                    snapshot["timestamp"]
-                )
-            except (KeyError, TypeError, ValueError):
-                performance[period_key] = None
-                continue
-
-            reference_age = target_time - snapshot_time
-
-            if (
-                reference_age < timedelta(0)
-                or reference_age
-                > self.MAX_REFERENCE_AGE[period_key]
-            ):
                 performance[period_key] = None
                 continue
 
@@ -337,8 +381,14 @@ class PortfolioHistoryService:
                 performance[period_key] = None
                 continue
 
+            adjustment = self._safe_float(
+                safe_adjustments.get(period_key, 0.0)
+            )
+            adjusted_current = current_total - adjustment
+
             percentage_change = (
-                (current_total - previous_total) / previous_total
+                (adjusted_current - previous_total)
+                / previous_total
             ) * 100
 
             performance[period_key] = round(
@@ -354,25 +404,49 @@ class PortfolioHistoryService:
         current_funding_usdt: float,
         current_trading_usdt: float,
         reference_time: datetime | None = None,
+        funding_transfer_adjustments: (
+            dict[str, float] | None
+        ) = None,
+        reference_snapshots: (
+            dict[str, dict[str, Any] | None] | None
+        ) = None,
     ) -> dict[str, dict[str, float | None]]:
         """
         Toplam, Funding ve Trading performanslarını ayrı hesaplar.
         """
+        funding_adjustments = (
+            funding_transfer_adjustments
+            if isinstance(
+                funding_transfer_adjustments,
+                dict,
+            )
+            else {}
+        )
+        trading_adjustments = {
+            period: -self._safe_float(value)
+            for period, value in funding_adjustments.items()
+        }
+
         return {
             "total": self.calculate_performance(
                 current_total_usdt=current_total_usdt,
                 reference_time=reference_time,
                 value_field="total_usdt",
+                reference_snapshots=reference_snapshots,
             ),
             "funding": self.calculate_performance(
                 current_total_usdt=current_funding_usdt,
                 reference_time=reference_time,
                 value_field="funding_usdt",
+                period_adjustments=funding_adjustments,
+                reference_snapshots=reference_snapshots,
             ),
             "trading": self.calculate_performance(
                 current_total_usdt=current_trading_usdt,
                 reference_time=reference_time,
                 value_field="trading_usdt",
+                period_adjustments=trading_adjustments,
+                reference_snapshots=reference_snapshots,
             ),
         }
 
@@ -382,6 +456,12 @@ class PortfolioHistoryService:
         current_funding_usdt: float,
         current_trading_usdt: float,
         reference_time: datetime | None = None,
+        funding_transfer_adjustments: (
+            dict[str, float] | None
+        ) = None,
+        reference_snapshots: (
+            dict[str, dict[str, Any] | None] | None
+        ) = None,
     ) -> dict[str, Any]:
         """
         Portföy geçmişinden analiz metrikleri üretir.
@@ -398,6 +478,14 @@ class PortfolioHistoryService:
             "funding": self._safe_float(current_funding_usdt),
             "trading": self._safe_float(current_trading_usdt),
         }
+        funding_adjustments = (
+            funding_transfer_adjustments
+            if isinstance(
+                funding_transfer_adjustments,
+                dict,
+            )
+            else {}
+        )
         field_map = {
             "total": "total_usdt",
             "funding": "funding_usdt",
@@ -405,23 +493,19 @@ class PortfolioHistoryService:
         }
 
         period_changes: dict[str, dict[str, Any]] = {}
-        oldest_snapshot = self.get_oldest_snapshot()
+        references = (
+            reference_snapshots
+            if isinstance(reference_snapshots, dict)
+            else self.get_performance_reference_snapshots(
+                reference_time=current_time
+            )
+        )
 
-        oldest_time = None
-
-        if oldest_snapshot is not None:
-            try:
-                oldest_time = self._storage_to_datetime(
-                    oldest_snapshot["timestamp"]
-                )
-            except (KeyError, TypeError, ValueError):
-                oldest_time = None
-
-        for period_key, period_delta in self.PERFORMANCE_PERIODS.items():
-            target_time = current_time - period_delta
+        for period_key in self.PERFORMANCE_PERIODS:
             period_result: dict[str, Any] = {}
+            snapshot = references.get(period_key)
 
-            if oldest_time is None or oldest_time > target_time:
+            if snapshot is None:
                 for account_name in field_map:
                     period_result[account_name] = {
                         "amount_usdt": None,
@@ -433,36 +517,21 @@ class PortfolioHistoryService:
                 period_changes[period_key] = period_result
                 continue
 
-            snapshot = self.get_snapshot_at_or_before(target_time)
-
-            snapshot_is_valid = False
-
-            if snapshot is not None:
-                try:
-                    snapshot_time = self._storage_to_datetime(
-                        snapshot["timestamp"]
-                    )
-                    reference_age = target_time - snapshot_time
-                    snapshot_is_valid = (
-                        reference_age >= timedelta(0)
-                        and reference_age
-                        <= self.MAX_REFERENCE_AGE[period_key]
-                    )
-                except (KeyError, TypeError, ValueError):
-                    snapshot_is_valid = False
-
             for account_name, field_name in field_map.items():
-                if not snapshot_is_valid:
-                    period_result[account_name] = {
-                        "amount_usdt": None,
-                        "percent": None,
-                        "baseline_usdt": None,
-                        "baseline_timestamp": None,
-                    }
-                    continue
-
                 baseline = self._safe_float(snapshot.get(field_name))
                 current_value = current_values[account_name]
+
+                transfer_adjustment = self._safe_float(
+                    funding_adjustments.get(
+                        period_key,
+                        0.0,
+                    )
+                )
+
+                if account_name == "funding":
+                    current_value -= transfer_adjustment
+                elif account_name == "trading":
+                    current_value += transfer_adjustment
 
                 if baseline <= 0:
                     amount_change = None

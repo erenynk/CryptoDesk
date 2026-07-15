@@ -175,6 +175,8 @@ class OKXService:
                     balances[coin] = {
                         "total": balance,
                         "available": available,
+                        "funding_total": balance,
+                        "trading_total": 0.0,
                     }
 
             account_path = "/api/v5/account/balance"
@@ -222,10 +224,13 @@ class OKXService:
                     if coin in balances:
                         balances[coin]["total"] += quantity
                         balances[coin]["available"] += available
+                        balances[coin]["trading_total"] += quantity
                     else:
                         balances[coin] = {
                             "total": quantity,
                             "available": available,
+                            "funding_total": 0.0,
+                            "trading_total": quantity,
                         }
 
             prices = self._load_prices(cache)
@@ -259,11 +264,22 @@ class OKXService:
 
                 total_usdt += usdt_value
 
+                funding_amount = self._safe_float(
+                    balance_data.get("funding_total")
+                )
+                trading_amount = self._safe_float(
+                    balance_data.get("trading_total")
+                )
+
                 assets.append(
                     {
                         "coin": coin,
                         "total": total_amount,
                         "available": available_amount,
+                        "funding_total": funding_amount,
+                        "trading_total": trading_amount,
+                        "funding_usdt_value": funding_amount * price,
+                        "trading_usdt_value": trading_amount * price,
                         "price": price,
                         "usdt_value": usdt_value,
                     }
@@ -445,6 +461,368 @@ class OKXService:
 
         except (TypeError, ValueError) as error:
             return False, f"OKX işlem geçmişi okunamadı: {error}"
+
+    def _get_asset_history(
+        self,
+        endpoint: str,
+        max_pages: int = 20,
+        page_limit: int = 100,
+    ):
+        """
+        OKX Funding varlık hareketlerini sayfalı olarak okur.
+
+        Bu yardımcı metot yatırma ve çekme geçmişi için kullanılır.
+        """
+        if not self.client:
+            return False, "API bilgileri bulunamadi."
+
+        all_items = []
+        seen_ids = set()
+        after = None
+
+        try:
+            for _ in range(max(1, max_pages)):
+                query_parts = [
+                    f"limit={max(1, min(page_limit, 100))}",
+                ]
+
+                if after:
+                    query_parts.append(f"after={after}")
+
+                request_path = (
+                    endpoint
+                    + "?"
+                    + "&".join(query_parts)
+                )
+
+                response = self.session.get(
+                    self.client.BASE_URL + request_path,
+                    headers=self.client._headers(
+                        "GET",
+                        request_path,
+                    ),
+                    timeout=15,
+                )
+                response.raise_for_status()
+
+                payload = response.json()
+
+                if payload.get("code") != "0":
+                    return False, payload.get(
+                        "msg",
+                        "OKX varlık geçmişi alınamadı.",
+                    )
+
+                page = payload.get("data", [])
+
+                if not isinstance(page, list) or not page:
+                    break
+
+                new_count = 0
+
+                for item in page:
+                    unique_id = (
+                        str(item.get("depId", "")),
+                        str(item.get("wdId", "")),
+                        str(item.get("txId", "")),
+                        str(item.get("ts", "")),
+                        str(item.get("ccy", "")),
+                        str(item.get("amt", "")),
+                    )
+
+                    if unique_id in seen_ids:
+                        continue
+
+                    seen_ids.add(unique_id)
+                    all_items.append(item)
+                    new_count += 1
+
+                if new_count == 0 or len(page) < page_limit:
+                    break
+
+                last_item = page[-1]
+                after = (
+                    str(last_item.get("depId", "")).strip()
+                    or str(last_item.get("wdId", "")).strip()
+                    or str(last_item.get("ts", "")).strip()
+                )
+
+                if not after:
+                    break
+
+            all_items.sort(
+                key=lambda item: (
+                    int(self._safe_float(item.get("ts"))),
+                    str(item.get("depId", "")),
+                    str(item.get("wdId", "")),
+                )
+            )
+
+            return True, all_items
+
+        except requests.RequestException as error:
+            return (
+                False,
+                f"OKX varlık geçmişi bağlantı hatası: {error}",
+            )
+        except (TypeError, ValueError) as error:
+            return (
+                False,
+                f"OKX varlık geçmişi okunamadı: {error}",
+            )
+
+    def get_deposit_history(
+        self,
+        max_pages: int = 20,
+        page_limit: int = 100,
+    ):
+        return self._get_asset_history(
+            endpoint="/api/v5/asset/deposit-history",
+            max_pages=max_pages,
+            page_limit=page_limit,
+        )
+
+    def get_withdrawal_history(
+        self,
+        max_pages: int = 20,
+        page_limit: int = 100,
+    ):
+        return self._get_asset_history(
+            endpoint="/api/v5/asset/withdrawal-history",
+            max_pages=max_pages,
+            page_limit=page_limit,
+        )
+
+    def get_historical_spot_price(
+        self,
+        coin: str,
+        timestamp_ms: int,
+    ):
+        """
+        Belirtilen zamana en yakın 1 dakikalık USDT spot kapanış
+        fiyatını döndürür.
+        """
+        normalized_coin = str(coin or "").strip().upper()
+
+        if normalized_coin in {"USDT", "USD"}:
+            return True, 1.0
+
+        if not normalized_coin:
+            return False, "Geçersiz varlık."
+
+        base_url = (
+            self.client.BASE_URL
+            if self.client is not None
+            else "https://www.okx.com"
+        )
+        instrument = f"{normalized_coin}-USDT"
+        target = int(timestamp_ms)
+
+        attempts = (
+            (
+                target + 5 * 60 * 1000,
+                target - 5 * 60 * 1000,
+            ),
+            (
+                target + 60 * 60 * 1000,
+                target - 60 * 60 * 1000,
+            ),
+        )
+
+        try:
+            for after_value, before_value in attempts:
+                path = (
+                    "/api/v5/market/history-candles"
+                    f"?instId={instrument}"
+                    "&bar=1m"
+                    f"&after={after_value}"
+                    f"&before={before_value}"
+                    "&limit=100"
+                )
+
+                response = self.session.get(
+                    base_url + path,
+                    timeout=10,
+                )
+                response.raise_for_status()
+
+                payload = response.json()
+
+                if payload.get("code") != "0":
+                    continue
+
+                candles = payload.get("data", [])
+
+                if not isinstance(candles, list) or not candles:
+                    continue
+
+                nearest = None
+                nearest_distance = None
+
+                for candle in candles:
+                    if not isinstance(candle, list) or len(candle) < 5:
+                        continue
+
+                    candle_time = int(
+                        self._safe_float(candle[0])
+                    )
+                    close_price = self._safe_float(
+                        candle[4]
+                    )
+
+                    if candle_time <= 0 or close_price <= 0:
+                        continue
+
+                    distance = abs(candle_time - target)
+
+                    if (
+                        nearest_distance is None
+                        or distance < nearest_distance
+                    ):
+                        nearest = close_price
+                        nearest_distance = distance
+
+                if nearest is not None:
+                    return True, nearest
+
+            return (
+                False,
+                f"{instrument} için tarihsel fiyat bulunamadı.",
+            )
+
+        except requests.RequestException as error:
+            return (
+                False,
+                f"OKX tarihsel fiyat bağlantı hatası: {error}",
+            )
+        except (TypeError, ValueError) as error:
+            return (
+                False,
+                f"OKX tarihsel fiyat okunamadı: {error}",
+            )
+
+    def get_funding_transfer_bills(
+        self,
+        max_pages: int = 20,
+        page_limit: int = 100,
+    ):
+        """
+        Funding ve Trading hesapları arasındaki transfer kayıtlarını
+        Trading account bills uç noktalarından döndürür.
+
+        Account bills kayıtları transfer yönünü açıkça `from` ve `to`
+        alanlarında taşır:
+        - 6: Funding
+        - 18: Trading
+        """
+        if not self.client:
+            return False, "API bilgileri bulunamadi."
+
+        endpoints = (
+            "/api/v5/account/bills",
+            "/api/v5/account/bills-archive",
+        )
+        all_bills = []
+        seen_bill_ids = set()
+
+        try:
+            for endpoint in endpoints:
+                after = None
+
+                for _ in range(max(1, max_pages)):
+                    query_parts = [
+                        "type=1",
+                        f"limit={max(1, min(page_limit, 100))}",
+                    ]
+
+                    if after:
+                        query_parts.append(f"after={after}")
+
+                    request_path = (
+                        endpoint
+                        + "?"
+                        + "&".join(query_parts)
+                    )
+
+                    response = self.session.get(
+                        self.client.BASE_URL + request_path,
+                        headers=self.client._headers(
+                            "GET",
+                            request_path,
+                        ),
+                        timeout=15,
+                    )
+                    response.raise_for_status()
+
+                    payload = response.json()
+
+                    if payload.get("code") != "0":
+                        return False, payload.get(
+                            "msg",
+                            "OKX transfer geçmişi alınamadı.",
+                        )
+
+                    page = payload.get("data", [])
+
+                    if not isinstance(page, list) or not page:
+                        break
+
+                    new_count = 0
+
+                    for bill in page:
+                        from_account = str(
+                            bill.get("from", "")
+                        ).strip()
+                        to_account = str(
+                            bill.get("to", "")
+                        ).strip()
+
+                        if (
+                            {from_account, to_account}
+                            != {"6", "18"}
+                        ):
+                            continue
+
+                        bill_id = str(
+                            bill.get("billId", "")
+                        ).strip()
+
+                        if not bill_id or bill_id in seen_bill_ids:
+                            continue
+
+                        seen_bill_ids.add(bill_id)
+                        all_bills.append(bill)
+                        new_count += 1
+
+                    if len(page) < page_limit:
+                        break
+
+                    after = str(
+                        page[-1].get("billId", "")
+                    ).strip()
+
+                    if not after:
+                        break
+
+            all_bills.sort(
+                key=lambda item: (
+                    int(self._safe_float(item.get("ts"))),
+                    str(item.get("billId", "")),
+                )
+            )
+
+            return True, all_bills
+
+        except requests.RequestException as error:
+            return (
+                False,
+                f"OKX transfer geçmişi bağlantı hatası: {error}",
+            )
+        except (TypeError, ValueError) as error:
+            return (
+                False,
+                f"OKX transfer geçmişi okunamadı: {error}",
+            )
 
     def get_spot_symbols(
         self,

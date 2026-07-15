@@ -4,6 +4,7 @@ from typing import Any
 from PySide6.QtCore import QObject, Signal
 
 from database.settings_db import get_app_setting
+from services.account_performance_service import AccountPerformanceService
 from services.cost_basis_service import CostBasisService
 from services.okx_service import OKXService
 from services.portfolio_history_service import PortfolioHistoryService
@@ -35,6 +36,10 @@ class DataManager(QObject):
         self.okx = OKXService()
         self.cost_basis = CostBasisService()
         self.portfolio_history = PortfolioHistoryService()
+        self.account_performance = AccountPerformanceService(
+            okx_service=self.okx,
+            history_service=self.portfolio_history,
+        )
 
         self.portfolio = None
         self.last_error = None
@@ -64,6 +69,7 @@ class DataManager(QObject):
             if ok:
                 self._attach_cost_basis_data(result)
                 self._attach_history_data(result)
+                self._attach_modified_dietz_performance(result)
                 self._run_history_maintenance_if_needed()
 
                 self.portfolio = result
@@ -123,13 +129,16 @@ class DataManager(QObject):
                 {},
             )
 
-    def _attach_history_data(self, portfolio: dict[str, Any]) -> None:
+    def _attach_history_data(
+        self,
+        portfolio: dict[str, Any],
+    ) -> None:
         """
-        Snapshot kaydeder ve ayrı performans gruplarını portföye ekler.
+        Güncel portföy snapshot'ını kaydeder ve tüketici ekranlar için
+        performans veri yapısını hazırlar.
 
-        Dashboard uyumluluğu için portfolio["performance"] toplam portföy
-        performansını taşımaya devam eder. Ayrıntılı sonuçlar
-        portfolio["performance_breakdown"] alanında tutulur.
+        Dönemsel performansların tek hesaplama kaynağı
+        AccountPerformanceService / Modified Dietz motorudur.
         """
         total_usdt = self._safe_float(
             portfolio.get("total_usdt", 0.0)
@@ -142,32 +151,33 @@ class DataManager(QObject):
         )
 
         assets = portfolio.get("assets", [])
-        asset_count = len(assets) if isinstance(assets, list) else 0
+        asset_count = (
+            len(assets)
+            if isinstance(assets, list)
+            else 0
+        )
 
-        try:
-            if self._portfolio_history_enabled:
+        if self._portfolio_history_enabled:
+            try:
                 self.portfolio_history.save_snapshot(
                     total_usdt=total_usdt,
                     funding_usdt=funding_usdt,
                     trading_usdt=trading_usdt,
                     asset_count=asset_count,
                 )
+            except Exception:
+                pass
 
-            performance_breakdown = (
-                self.portfolio_history
-                .calculate_performance_breakdown(
-                    current_total_usdt=total_usdt,
-                    current_funding_usdt=funding_usdt,
-                    current_trading_usdt=trading_usdt,
-                )
-            )
+        empty = self._empty_performance()
 
-            portfolio["performance"] = (
-                performance_breakdown["total"]
-            )
-            portfolio["performance_breakdown"] = (
-                performance_breakdown
-            )
+        portfolio["performance"] = empty.copy()
+        portfolio["performance_breakdown"] = {
+            "total": empty.copy(),
+            "funding": empty.copy(),
+            "trading": empty.copy(),
+        }
+
+        try:
             portfolio["analytics"] = (
                 self.portfolio_history
                 .calculate_portfolio_analytics(
@@ -177,15 +187,152 @@ class DataManager(QObject):
                 )
             )
         except Exception:
-            empty_performance = self._empty_performance()
+            portfolio["analytics"] = (
+                self._empty_analytics()
+            )
 
-            portfolio["performance"] = empty_performance.copy()
+    def _attach_modified_dietz_performance(
+        self,
+        portfolio: dict[str, Any],
+    ) -> None:
+        """
+        Toplam, Funding ve Trading performanslarını tüm desteklenen
+        dönemlerde aynı Modified Dietz motoruyla hesaplar.
+        """
+        calculation_time = datetime.now(
+            self.portfolio_history.APP_TIMEZONE
+        )
+        references = (
+            self.portfolio_history
+            .get_performance_reference_snapshots(
+                reference_time=calculation_time
+            )
+        )
+
+        try:
+            period_results = (
+                self.account_performance.calculate_periods(
+                    portfolio=portfolio,
+                    reference_snapshots=references,
+                    period_end=calculation_time,
+                )
+            )
+
+            performance = portfolio.get("performance")
+            breakdown = portfolio.get(
+                "performance_breakdown"
+            )
+            analytics = portfolio.get("analytics")
+
+            if not isinstance(performance, dict):
+                performance = self._empty_performance()
+                portfolio["performance"] = performance
+
+            if not isinstance(breakdown, dict):
+                breakdown = {
+                    "total": self._empty_performance(),
+                    "funding": self._empty_performance(),
+                    "trading": self._empty_performance(),
+                }
+                portfolio["performance_breakdown"] = breakdown
+
+            for period_key in (
+                "1d",
+                "7d",
+                "30d",
+                "90d",
+                "1y",
+            ):
+                result = period_results.get(period_key)
+
+                if not isinstance(result, dict):
+                    performance[period_key] = None
+
+                    for account_name in (
+                        "total",
+                        "funding",
+                        "trading",
+                    ):
+                        group = breakdown.get(account_name)
+
+                        if isinstance(group, dict):
+                            group[period_key] = None
+
+                    continue
+
+                for account_name in (
+                    "total",
+                    "funding",
+                    "trading",
+                ):
+                    account_result = result[account_name]
+                    return_percent = (
+                        account_result.return_percent
+                    )
+
+                    group = breakdown.get(account_name)
+
+                    if isinstance(group, dict):
+                        group[period_key] = return_percent
+
+                    if account_name == "total":
+                        performance[period_key] = return_percent
+
+                if isinstance(analytics, dict):
+                    period_changes = analytics.get(
+                        "period_changes"
+                    )
+
+                    if isinstance(period_changes, dict):
+                        period_data = period_changes.get(
+                            period_key
+                        )
+
+                        if isinstance(period_data, dict):
+                            for account_name in (
+                                "total",
+                                "funding",
+                                "trading",
+                            ):
+                                account_data = period_data.get(
+                                    account_name
+                                )
+
+                                if not isinstance(
+                                    account_data,
+                                    dict,
+                                ):
+                                    continue
+
+                                account_result = result[
+                                    account_name
+                                ]
+                                account_data["amount_usdt"] = (
+                                    account_result.pnl_usdt
+                                )
+                                account_data["percent"] = (
+                                    account_result.return_percent
+                                )
+                                account_data["baseline_usdt"] = (
+                                    account_result
+                                    .start_value_usdt
+                                )
+                                account_data[
+                                    "baseline_timestamp"
+                                ] = result[
+                                    "reference_snapshot"
+                                ].get("timestamp")
+
+        except Exception:
+            # Eski snapshot hesabını göstermek yerine yanlış veri
+            # üretmemek için tüm dönemleri kullanılamaz bırak.
+            empty = self._empty_performance()
+            portfolio["performance"] = empty.copy()
             portfolio["performance_breakdown"] = {
-                "total": empty_performance.copy(),
-                "funding": empty_performance.copy(),
-                "trading": empty_performance.copy(),
+                "total": empty.copy(),
+                "funding": empty.copy(),
+                "trading": empty.copy(),
             }
-            portfolio["analytics"] = self._empty_analytics()
 
     def _run_history_maintenance_if_needed(self) -> None:
         if not self._portfolio_history_enabled:
