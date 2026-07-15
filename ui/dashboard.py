@@ -680,15 +680,15 @@ class DashboardPage(QWidget):
             "dashboardHeroSurface",
             radius=24,
         )
-        surface.setMinimumHeight(358)
+        surface.setMinimumHeight(342)
         surface.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Fixed,
         )
 
         layout = QVBoxLayout(surface)
-        layout.setContentsMargins(30, 28, 30, 26)
-        layout.setSpacing(18)
+        layout.setContentsMargins(26, 20, 26, 18)
+        layout.setSpacing(10)
 
         self.hero_body = QWidget()
         self.hero_body.setObjectName("heroBody")
@@ -700,7 +700,7 @@ class DashboardPage(QWidget):
 
         self.metric_widget = QWidget()
         self.metric_widget.setObjectName("metricWidget")
-        self.metric_widget.setMinimumHeight(236)
+        self.metric_widget.setMinimumHeight(226)
         self.metric_widget.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Expanding,
@@ -708,10 +708,10 @@ class DashboardPage(QWidget):
 
         metric_layout = QVBoxLayout(self.metric_widget)
         metric_layout.setContentsMargins(
-            38,
-            32,
-            38,
-            36,
+            34,
+            22,
+            34,
+            24,
         )
         metric_layout.setSpacing(8)
 
@@ -766,6 +766,7 @@ class DashboardPage(QWidget):
         )
         self.funding_value = funding["value"]
         self.funding_change = funding["change"]
+        self.funding_change_amount = funding["change_amount"]
         self.account_cards.append(funding["widget"])
 
         trading = self._create_account_surface(
@@ -775,6 +776,7 @@ class DashboardPage(QWidget):
         )
         self.trading_value = trading["value"]
         self.trading_change = trading["change"]
+        self.trading_change_amount = trading["change_amount"]
         self.account_cards.append(trading["widget"])
 
         self.hero_grid.addWidget(
@@ -802,7 +804,7 @@ class DashboardPage(QWidget):
         divider.setFixedHeight(1)
 
         footer = QLabel(
-            "Portföy dağılımı ve dönemsel performans özeti"
+            "    Portföy dağılımı ve dönemsel performans özeti"
         )
         footer.setObjectName("heroFooter")
 
@@ -822,66 +824,94 @@ class DashboardPage(QWidget):
             "dashboardAccountPanel",
             radius=17,
         )
-        panel.setMinimumHeight(110)
-        panel.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Fixed)
+        panel.setMinimumHeight(124)
+        panel.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
 
-        layout=QHBoxLayout(panel)
-        layout.setContentsMargins(34,26,34,30)
+        layout = QHBoxLayout(panel)
+        layout.setContentsMargins(30, 18, 30, 18)
         layout.setSpacing(16)
 
-        accent_bar=QFrame()
+        accent_bar = QFrame()
         accent_bar.setObjectName("accountAccentBar")
         accent_bar.setFixedWidth(3)
+        accent_bar.setFixedHeight(76)
+        accent_bar.setSizePolicy(
+            QSizePolicy.Fixed,
+            QSizePolicy.Fixed,
+        )
 
-        text_layout=QVBoxLayout()
-        text_layout.setContentsMargins(0,0,0,0)
-        text_layout.setSpacing(1)
+        left_layout = QVBoxLayout()
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(3)
 
-        top_line=QHBoxLayout()
-        top_line.setContentsMargins(0,0,0,0)
-        top_line.setSpacing(4)
-
-        title_label=QLabel(title)
+        title_label = QLabel(title)
         title_label.setObjectName("accountTitle")
 
-        change_layout=QVBoxLayout()
-        change_layout.setSpacing(0)
-
-        change_label=QLabel("—")
-        change_label.setObjectName("accountDailyChange")
-        change_label.setAlignment(Qt.AlignRight)
-
-        change_caption=QLabel("1 Günlük Değişim")
-        change_caption.setObjectName("accountDailyCaption")
-        change_caption.setAlignment(Qt.AlignRight)
-
-        change_layout.addWidget(change_label)
-        change_layout.addWidget(change_caption)
-
-        top_line.addWidget(title_label)
-        top_line.addStretch()
-        top_line.addLayout(change_layout)
-
-        value_label=QLabel("$0.00")
+        value_label = QLabel("$0.00")
         value_label.setObjectName("accountValue")
         value_label.setMinimumWidth(180)
 
-        description_label=QLabel(description)
-        description_label.setObjectName("accountDescription")
+        description_label = QLabel(description)
+        description_label.setObjectName(
+            "accountDescription"
+        )
 
-        text_layout.addStretch(1)
-        text_layout.addLayout(top_line)
-        text_layout.addWidget(value_label)
-        text_layout.addWidget(description_label)
-        text_layout.addStretch(1)
+        left_layout.addWidget(title_label)
+        left_layout.addSpacing(8)
+        left_layout.addWidget(value_label)
+        left_layout.addWidget(description_label)
+        left_layout.addStretch()
 
-        layout.addWidget(accent_bar)
-        layout.addLayout(text_layout,1)
+        right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(3)
+
+        change_label = QLabel("—")
+        change_label.setObjectName(
+            "accountDailyChange"
+        )
+        change_label.setAlignment(
+            Qt.AlignRight | Qt.AlignVCenter
+        )
+
+        change_amount_label = QLabel("—")
+        change_amount_label.setObjectName(
+            "accountDailyChangeAmount"
+        )
+        change_amount_label.setAlignment(
+            Qt.AlignRight | Qt.AlignVCenter
+        )
+
+        change_caption = QLabel("1 Günlük Değişim")
+        change_caption.setObjectName(
+            "accountDailyCaption"
+        )
+        change_caption.setAlignment(
+            Qt.AlignRight | Qt.AlignVCenter
+        )
+
+        right_layout.addStretch()
+        right_layout.addWidget(change_label)
+        right_layout.addWidget(change_amount_label)
+        right_layout.addWidget(change_caption)
+        right_layout.addStretch()
+
+        layout.addWidget(
+            accent_bar,
+            alignment=Qt.AlignVCenter,
+        )
+        layout.addLayout(left_layout, 1)
+        layout.addStretch(1)
+        layout.addLayout(right_layout)
 
         return {
-            "widget":panel,
-            "value":value_label,
-            "change":change_label,
+            "widget": panel,
+            "value": value_label,
+            "change": change_label,
+            "change_amount": change_amount_label,
         }
 
     def _create_period_surface(self):
@@ -1283,7 +1313,7 @@ class DashboardPage(QWidget):
 
             QLabel#accountTitle {{
                 color: #94A3B8;
-                font-size: 11px;
+                font-size: 14px;
                 font-weight: 700;
             }}
 
@@ -1304,9 +1334,15 @@ class DashboardPage(QWidget):
             }}
 
             QLabel#accountDailyChange {{
-                font-size:19px;
-                font-weight:800;
-                color:#6F8093;
+                font-size: 19px;
+                font-weight: 800;
+                color: #6F8093;
+            }}
+
+            QLabel#accountDailyChangeAmount {{
+                font-size: 17px;
+                font-weight: 800;
+                color: #6F8093;
             }}
 
             QLabel#accountDailyCaption {{
@@ -1418,26 +1454,100 @@ class DashboardPage(QWidget):
 
         performance = portfolio.get("performance", {})
         breakdown=portfolio.get("performance_breakdown",{})
+        analytics=portfolio.get("analytics",{})
 
         if not isinstance(performance, dict):
             performance = {}
 
-        self._update_account_daily_changes(breakdown)
+        self._update_account_daily_changes(
+            breakdown,
+            analytics,
+        )
         self._update_period_cards(performance)
         self._update_dashboard_summaries(performance)
         self._set_connected_status()
 
 
-    def _update_account_daily_changes(self, breakdown):
-        for key,label in (("funding",self.funding_change),("trading",self.trading_change)):
-            val=(breakdown.get(key,{}) or {}).get("1d")
-            if isinstance(val,(int,float)):
-                color=Theme.ACCENT if val>=0 else Theme.ERROR
-                label.setText(f"{val:+.2f}%")
-                label.setStyleSheet(f"color:{color};")
+    def _update_account_daily_changes(
+        self,
+        breakdown,
+        analytics,
+    ):
+        period_changes = (
+            analytics.get("period_changes", {})
+            if isinstance(analytics, dict)
+            else {}
+        )
+        one_day = (
+            period_changes.get("1d", {})
+            if isinstance(period_changes, dict)
+            else {}
+        )
+
+        account_rows = (
+            (
+                "funding",
+                self.funding_change,
+                self.funding_change_amount,
+            ),
+            (
+                "trading",
+                self.trading_change,
+                self.trading_change_amount,
+            ),
+        )
+
+        for key, percent_label, amount_label in account_rows:
+            value = (
+                (breakdown.get(key, {}) or {}).get("1d")
+                if isinstance(breakdown, dict)
+                else None
+            )
+            account_analytics = (
+                one_day.get(key, {})
+                if isinstance(one_day, dict)
+                else {}
+            )
+            amount = (
+                account_analytics.get("amount_usdt")
+                if isinstance(account_analytics, dict)
+                else None
+            )
+
+            if isinstance(value, (int, float)):
+                color = (
+                    Theme.ACCENT
+                    if value >= 0
+                    else Theme.ERROR
+                )
+                percent_label.setText(f"{value:+.2f}%")
+                percent_label.setStyleSheet(
+                    f"color:{color};"
+                )
             else:
-                label.setText("—")
-                label.setStyleSheet("color:#6F8093;")
+                color = "#6F8093"
+                percent_label.setText("—")
+                percent_label.setStyleSheet(
+                    f"color:{color};"
+                )
+
+            if isinstance(amount, (int, float)):
+                amount_color = (
+                    Theme.ACCENT
+                    if amount >= 0
+                    else Theme.ERROR
+                )
+                amount_label.setText(
+                    f"{amount:+,.2f} USDT"
+                )
+                amount_label.setStyleSheet(
+                    f"color:{amount_color};"
+                )
+            else:
+                amount_label.setText("—")
+                amount_label.setStyleSheet(
+                    "color:#6F8093;"
+                )
 
     def _update_period_cards(self, performance):
         for key, label in self.period_value_labels.items():
