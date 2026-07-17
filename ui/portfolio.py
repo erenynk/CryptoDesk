@@ -11,6 +11,7 @@ from ui.widgets.status_badge import StatusBadge
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -215,8 +216,18 @@ class PortfolioPage(QWidget):
             Qt.TextSelectableByMouse
         )
 
+        self.daily_pnl_usdt_label = QLabel("—")
+        self.daily_pnl_usdt_label.setObjectName(
+            "dailyPnlUsdtValue"
+        )
+        self.daily_pnl_usdt_label.setAlignment(Qt.AlignCenter)
+        self.daily_pnl_usdt_label.setTextInteractionFlags(
+            Qt.TextSelectableByMouse
+        )
+
         pnl_layout.addWidget(pnl_title)
         pnl_layout.addWidget(self.daily_pnl_label)
+        pnl_layout.addWidget(self.daily_pnl_usdt_label)
 
         right_container = QWidget()
         right_container.setObjectName("summaryRightContainer")
@@ -280,6 +291,74 @@ class PortfolioPage(QWidget):
                 )
                 break
 
+        self.trading_header_row = QWidget()
+        self.trading_header_row.setObjectName(
+            "portfolioTradingHeaderRow"
+        )
+
+        trading_header_layout = QHBoxLayout(
+            self.trading_header_row
+        )
+        trading_header_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+        trading_header_layout.setSpacing(0)
+
+        self.trading_total_pnl_widget = QWidget(
+            self.trading_header_row
+        )
+        self.trading_total_pnl_widget.setObjectName(
+            "tradingTotalPnlContainer"
+        )
+        self.trading_total_pnl_widget.setFixedWidth(150)
+
+        trading_total_pnl_layout = QGridLayout(
+            self.trading_total_pnl_widget
+        )
+        trading_total_pnl_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+        trading_total_pnl_layout.setHorizontalSpacing(0)
+        trading_total_pnl_layout.setVerticalSpacing(1)
+        trading_total_pnl_layout.setColumnStretch(0, 1)
+
+        self.trading_total_pnl_percent_value = QLabel("—")
+        self.trading_total_pnl_usdt_value = QLabel("—")
+
+        trading_pnl_labels = (
+            self.trading_total_pnl_percent_value,
+            self.trading_total_pnl_usdt_value,
+        )
+
+        for label in trading_pnl_labels:
+            label.setObjectName("tradingTotalPnlValue")
+            label.setTextInteractionFlags(
+                Qt.TextSelectableByMouse
+            )
+            label.setAlignment(
+                Qt.AlignLeft | Qt.AlignVCenter
+            )
+            label.setFixedWidth(112)
+
+        trading_total_pnl_layout.addWidget(
+            self.trading_total_pnl_percent_value,
+            0,
+            1,
+        )
+        trading_total_pnl_layout.addWidget(
+            self.trading_total_pnl_usdt_value,
+            1,
+            1,
+        )
+
+        trading_header_layout.addWidget(table_header, 1)
+
         self.trading_table = QTableWidget()
         self.trading_table.setObjectName("portfolioTradingTable")
         self.trading_table.setFocusPolicy(Qt.NoFocus)
@@ -318,7 +397,7 @@ class PortfolioPage(QWidget):
         self.trading_table.verticalHeader().setDefaultSectionSize(74)
         self.trading_table.verticalHeader().setMinimumSectionSize(74)
 
-        layout.addWidget(table_header)
+        layout.addWidget(self.trading_header_row)
         layout.addWidget(self.trading_table, 1)
 
         return card
@@ -360,6 +439,74 @@ class PortfolioPage(QWidget):
                 )
                 break
 
+        self.portfolio_header_row = QWidget()
+        self.portfolio_header_row.setObjectName(
+            "portfolioAssetHeaderRow"
+        )
+
+        portfolio_header_layout = QHBoxLayout(
+            self.portfolio_header_row
+        )
+        portfolio_header_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+        portfolio_header_layout.setSpacing(0)
+
+        self.portfolio_total_pnl_widget = QWidget(
+            self.portfolio_header_row
+        )
+        self.portfolio_total_pnl_widget.setObjectName(
+            "portfolioTotalPnlContainer"
+        )
+        self.portfolio_total_pnl_widget.setFixedWidth(150)
+
+        portfolio_total_pnl_layout = QGridLayout(
+            self.portfolio_total_pnl_widget
+        )
+        portfolio_total_pnl_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+        portfolio_total_pnl_layout.setHorizontalSpacing(0)
+        portfolio_total_pnl_layout.setVerticalSpacing(1)
+        portfolio_total_pnl_layout.setColumnStretch(0, 1)
+
+        self.portfolio_total_pnl_percent_value = QLabel("—")
+        self.portfolio_total_pnl_usdt_value = QLabel("—")
+
+        portfolio_pnl_labels = (
+            self.portfolio_total_pnl_percent_value,
+            self.portfolio_total_pnl_usdt_value,
+        )
+
+        for label in portfolio_pnl_labels:
+            label.setObjectName("portfolioTotalPnlValue")
+            label.setTextInteractionFlags(
+                Qt.TextSelectableByMouse
+            )
+            label.setAlignment(
+                Qt.AlignLeft | Qt.AlignVCenter
+            )
+            label.setFixedWidth(112)
+
+        portfolio_total_pnl_layout.addWidget(
+            self.portfolio_total_pnl_percent_value,
+            0,
+            1,
+        )
+        portfolio_total_pnl_layout.addWidget(
+            self.portfolio_total_pnl_usdt_value,
+            1,
+            1,
+        )
+
+        portfolio_header_layout.addWidget(table_header, 1)
+
         self.table = QTableWidget()
         self.table.setObjectName("portfolioTable")
         self.table.setFocusPolicy(Qt.NoFocus)
@@ -397,7 +544,7 @@ class PortfolioPage(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(74)
         self.table.verticalHeader().setMinimumSectionSize(74)
 
-        layout.addWidget(table_header)
+        layout.addWidget(self.portfolio_header_row)
         layout.addWidget(self.table, 1)
 
         return card
@@ -420,6 +567,82 @@ class PortfolioPage(QWidget):
         self.trading_table.horizontalHeader().sortIndicatorChanged.connect(
             self.on_trading_sort_indicator_changed
         )
+
+        self.table.horizontalHeader().sectionResized.connect(
+            self._schedule_total_pnl_header_sync
+        )
+        self.table.horizontalHeader().geometriesChanged.connect(
+            self._schedule_total_pnl_header_sync
+        )
+        self.trading_table.horizontalHeader().sectionResized.connect(
+            self._schedule_total_pnl_header_sync
+        )
+        self.trading_table.horizontalHeader().geometriesChanged.connect(
+            self._schedule_total_pnl_header_sync
+        )
+
+        self._schedule_total_pnl_header_sync()
+
+    def _schedule_total_pnl_header_sync(self, *args):
+        QTimer.singleShot(
+            0,
+            self._sync_total_pnl_headers,
+        )
+
+    def _sync_total_pnl_headers(self):
+        self._position_total_pnl_widget(
+            self.trading_header_row,
+            self.trading_table,
+            self.trading_total_pnl_widget,
+        )
+        self._position_total_pnl_widget(
+            self.portfolio_header_row,
+            self.table,
+            self.portfolio_total_pnl_widget,
+        )
+
+    def _position_total_pnl_widget(
+        self,
+        header_row,
+        table,
+        pnl_widget,
+    ):
+        header = table.horizontalHeader()
+        pnl_column = len(self.headers) - 1
+
+        column_x = (
+            header.x()
+            + header.sectionViewportPosition(
+                pnl_column
+            )
+        )
+        column_width = header.sectionSize(pnl_column)
+
+        widget_width = pnl_widget.width()
+        widget_height = pnl_widget.sizeHint().height()
+
+        pnl_widget.resize(
+            widget_width,
+            widget_height,
+        )
+
+        widget_x = (
+            column_x
+            + max(
+                0,
+                (column_width - widget_width) // 2,
+            )
+        )
+        widget_y = max(
+            0,
+            (header_row.height() - widget_height) // 2,
+        )
+
+        pnl_widget.move(
+            widget_x,
+            widget_y,
+        )
+        pnl_widget.raise_()
 
     def _configure_refresh_timer(self):
         self.refresh_timer = QTimer(self)
@@ -503,9 +726,20 @@ class PortfolioPage(QWidget):
             }}
 
             QWidget#summaryRightContainer,
-            QWidget#dailyPnlContainer {{
+            QWidget#dailyPnlContainer,
+            QWidget#portfolioTradingHeaderRow,
+            QWidget#tradingTotalPnlContainer,
+            QWidget#portfolioAssetHeaderRow,
+            QWidget#portfolioTotalPnlContainer {{
                 background: transparent;
                 border: none;
+            }}
+
+            QLabel#tradingTotalPnlValue,
+            QLabel#portfolioTotalPnlValue {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 15px;
+                font-weight: 800;
             }}
 
             QWidget#dailyPnlContainer {{
@@ -523,6 +757,12 @@ class PortfolioPage(QWidget):
                 color: {Theme.TEXT_MUTED};
                 font-size: 32px;
                 font-weight: 750;
+            }}
+
+            QLabel#dailyPnlUsdtValue {{
+                color: {Theme.TEXT_MUTED};
+                font-size: 14px;
+                font-weight: 700;
             }}
 
             QLabel#sectionTitle,
@@ -731,6 +971,8 @@ class PortfolioPage(QWidget):
             )
 
             self._update_daily_pnl(portfolio)
+            self._update_portfolio_total_pnl()
+            self._update_trading_total_pnl()
             self.update_table_view()
             self.update_trading_table_view()
             self._set_connected_state()
@@ -809,30 +1051,47 @@ class PortfolioPage(QWidget):
 
         return None
 
-    def _get_asset_pnl_percent(self, asset):
-        direct = self._extract_percentage(
-            asset,
-            (
+    def _get_asset_pnl_percent(
+        self,
+        asset,
+        account_prefix="",
+    ):
+        if account_prefix:
+            direct_keys = (
+                f"{account_prefix}pnl_percent",
+            )
+            average_price_keys = (
+                f"{account_prefix}average_price",
+            )
+        else:
+            direct_keys = (
                 "pnl_percent",
                 "pnl_pct",
                 "profit_percent",
                 "change_24h",
                 "change24h",
                 "daily_change_percent",
-            ),
+            )
+            average_price_keys = (
+                "average_price",
+                "avg_price",
+                "cost_price",
+                "entry_price",
+            )
+
+        direct = self._extract_percentage(
+            asset,
+            direct_keys,
         )
 
         if direct is not None:
             return direct
 
-        current_price = float(asset.get("price", 0.0) or 0.0)
+        current_price = float(
+            asset.get("price", 0.0) or 0.0
+        )
 
-        for key in (
-            "average_price",
-            "avg_price",
-            "cost_price",
-            "entry_price",
-        ):
+        for key in average_price_keys:
             cost_price = asset.get(key)
 
             if not isinstance(cost_price, (int, float)):
@@ -846,6 +1105,45 @@ class PortfolioPage(QWidget):
                     / cost_price
                     * 100
                 )
+
+        return None
+
+    @staticmethod
+    def _get_daily_pnl_usdt(portfolio):
+        analytics = portfolio.get("analytics", {})
+
+        if isinstance(analytics, dict):
+            period_changes = analytics.get(
+                "period_changes",
+                {},
+            )
+
+            if isinstance(period_changes, dict):
+                one_day = period_changes.get("1d", {})
+
+                if isinstance(one_day, dict):
+                    total_data = one_day.get("total", {})
+
+                    if isinstance(total_data, dict):
+                        amount_usdt = total_data.get(
+                            "amount_usdt"
+                        )
+
+                        if isinstance(
+                            amount_usdt,
+                            (int, float),
+                        ):
+                            return float(amount_usdt)
+
+        for key in (
+            "daily_pnl_usdt",
+            "pnl_1d_usdt",
+            "daily_profit_usdt",
+        ):
+            value = portfolio.get(key)
+
+            if isinstance(value, (int, float)):
+                return float(value)
 
         return None
 
@@ -869,18 +1167,258 @@ class PortfolioPage(QWidget):
                 ),
             )
 
-        if daily_pnl is None:
+        daily_pnl_usdt = self._get_daily_pnl_usdt(
+            portfolio
+        )
+
+        color_source = (
+            daily_pnl
+            if isinstance(daily_pnl, (int, float))
+            else daily_pnl_usdt
+        )
+
+        color = (
+            Theme.ACCENT
+            if isinstance(color_source, (int, float))
+            and color_source >= 0
+            else (
+                Theme.ERROR
+                if isinstance(color_source, (int, float))
+                else Theme.TEXT_MUTED
+            )
+        )
+
+        if isinstance(daily_pnl, (int, float)):
+            self.daily_pnl_label.setText(
+                f"{daily_pnl:+.2f}%"
+            )
+            self.daily_pnl_label.setStyleSheet(
+                f"color: {color};"
+            )
+        else:
             self.daily_pnl_label.setText("—")
             self.daily_pnl_label.setStyleSheet(
                 f"color: {Theme.TEXT_MUTED};"
             )
+
+        if isinstance(daily_pnl_usdt, (int, float)):
+            self.daily_pnl_usdt_label.setText(
+                f"{daily_pnl_usdt:+,.2f} USDT"
+            )
+            self.daily_pnl_usdt_label.setStyleSheet(
+                f"color: {color};"
+            )
+        else:
+            self.daily_pnl_usdt_label.setText("—")
+            self.daily_pnl_usdt_label.setStyleSheet(
+                f"color: {Theme.TEXT_MUTED};"
+            )
+
+    def _set_portfolio_total_pnl_placeholder(self):
+        labels = (
+            self.portfolio_total_pnl_percent_value,
+            self.portfolio_total_pnl_usdt_value,
+        )
+
+        self.portfolio_total_pnl_percent_value.setText("—")
+        self.portfolio_total_pnl_usdt_value.setText("—")
+
+        for label in labels:
+            label.setStyleSheet(
+                f"""
+                color: {Theme.TEXT_MUTED};
+                font-size: 15px;
+                font-weight: 800;
+                """
+            )
+
+    def _update_portfolio_total_pnl(self):
+        portfolio_assets = [
+            asset
+            for asset in self.raw_assets_data
+            if (
+                str(
+                    asset.get("coin", "")
+                ).strip().upper() != "USDT"
+                and float(
+                    asset.get("total", 0.0)
+                    or 0.0
+                ) > 0
+            )
+        ]
+
+        if not portfolio_assets:
+            self._set_portfolio_total_pnl_placeholder()
             return
 
-        color = Theme.ACCENT if daily_pnl >= 0 else Theme.ERROR
-        self.daily_pnl_label.setText(f"{daily_pnl:+.2f}%")
-        self.daily_pnl_label.setStyleSheet(
-            f"color: {color};"
+        total_cost_basis = 0.0
+        total_pnl_usdt = 0.0
+
+        for asset in portfolio_assets:
+            cost_basis_available = asset.get(
+                "cost_basis_available",
+                False,
+            )
+            cost_basis_usdt = asset.get(
+                "cost_basis_usdt"
+            )
+            pnl_usdt = asset.get("pnl_usdt")
+
+            if (
+                not cost_basis_available
+                or not isinstance(
+                    cost_basis_usdt,
+                    (int, float),
+                )
+                or not isinstance(
+                    pnl_usdt,
+                    (int, float),
+                )
+                or float(cost_basis_usdt) <= 0
+            ):
+                self._set_portfolio_total_pnl_placeholder()
+                return
+
+            total_cost_basis += float(cost_basis_usdt)
+            total_pnl_usdt += float(pnl_usdt)
+
+        if total_cost_basis <= 0:
+            self._set_portfolio_total_pnl_placeholder()
+            return
+
+        total_pnl_percent = (
+            total_pnl_usdt
+            / total_cost_basis
+            * 100
         )
+
+        color = (
+            Theme.ACCENT
+            if total_pnl_usdt >= 0
+            else Theme.ERROR
+        )
+
+        self.portfolio_total_pnl_percent_value.setText(
+            f"{total_pnl_percent:+.2f}%"
+        )
+        self.portfolio_total_pnl_usdt_value.setText(
+            f"{total_pnl_usdt:+,.2f} USDT"
+        )
+
+        for label in (
+            self.portfolio_total_pnl_percent_value,
+            self.portfolio_total_pnl_usdt_value,
+        ):
+            label.setStyleSheet(
+                f"""
+                color: {color};
+                font-size: 15px;
+                font-weight: 800;
+                """
+            )
+
+    def _set_trading_total_pnl_placeholder(self):
+        labels = (
+            self.trading_total_pnl_percent_value,
+            self.trading_total_pnl_usdt_value,
+        )
+
+        self.trading_total_pnl_percent_value.setText("—")
+        self.trading_total_pnl_usdt_value.setText("—")
+
+        for label in labels:
+            label.setStyleSheet(
+                f"""
+                color: {Theme.TEXT_MUTED};
+                font-size: 15px;
+                font-weight: 800;
+                """
+            )
+
+    def _update_trading_total_pnl(self):
+        trading_assets = [
+            asset
+            for asset in self.raw_assets_data
+            if (
+                str(
+                    asset.get("coin", "")
+                ).strip().upper() != "USDT"
+                and float(
+                    asset.get("trading_total", 0.0)
+                    or 0.0
+                ) > 0
+            )
+        ]
+
+        if not trading_assets:
+            self._set_trading_total_pnl_placeholder()
+            return
+
+        total_cost_basis = 0.0
+        total_pnl_usdt = 0.0
+
+        for asset in trading_assets:
+            cost_basis_available = asset.get(
+                "trading_cost_basis_available",
+                False,
+            )
+            cost_basis_usdt = asset.get(
+                "trading_cost_basis_usdt"
+            )
+            pnl_usdt = asset.get("trading_pnl_usdt")
+
+            if (
+                not cost_basis_available
+                or not isinstance(
+                    cost_basis_usdt,
+                    (int, float),
+                )
+                or not isinstance(
+                    pnl_usdt,
+                    (int, float),
+                )
+                or float(cost_basis_usdt) <= 0
+            ):
+                self._set_trading_total_pnl_placeholder()
+                return
+
+            total_cost_basis += float(cost_basis_usdt)
+            total_pnl_usdt += float(pnl_usdt)
+
+        if total_cost_basis <= 0:
+            self._set_trading_total_pnl_placeholder()
+            return
+
+        total_pnl_percent = (
+            total_pnl_usdt
+            / total_cost_basis
+            * 100
+        )
+
+        color = (
+            Theme.ACCENT
+            if total_pnl_usdt >= 0
+            else Theme.ERROR
+        )
+
+        self.trading_total_pnl_percent_value.setText(
+            f"{total_pnl_percent:+.2f}%"
+        )
+        self.trading_total_pnl_usdt_value.setText(
+            f"{total_pnl_usdt:+,.2f} USDT"
+        )
+
+        for label in (
+            self.trading_total_pnl_percent_value,
+            self.trading_total_pnl_usdt_value,
+        ):
+            label.setStyleSheet(
+                f"""
+                color: {color};
+                font-size: 15px;
+                font-weight: 800;
+                """
+            )
 
     def _populate_asset_table(
         self,
@@ -888,6 +1426,7 @@ class PortfolioPage(QWidget):
         assets,
         amount_key="total",
         value_key="usdt_value",
+        pnl_prefix="",
     ):
         table.setSortingEnabled(False)
         table.setUpdatesEnabled(False)
@@ -924,8 +1463,13 @@ class PortfolioPage(QWidget):
                 self.format_amount(total_amount),
             )
 
-            pnl_percent = self._get_asset_pnl_percent(asset)
-            pnl_usdt = asset.get("pnl_usdt")
+            pnl_percent = self._get_asset_pnl_percent(
+                asset,
+                account_prefix=pnl_prefix,
+            )
+            pnl_usdt = asset.get(
+                f"{pnl_prefix}pnl_usdt"
+            )
 
             pnl_item = NumericTableWidgetItem(
                 (
@@ -1055,6 +1599,7 @@ class PortfolioPage(QWidget):
             trading_assets,
             amount_key="trading_total",
             value_key="trading_usdt_value",
+            pnl_prefix="trading_",
         )
 
         sort_column = (
@@ -1282,8 +1827,13 @@ class PortfolioPage(QWidget):
         self.table.setUpdatesEnabled(True)
         self.table.setSortingEnabled(True)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._schedule_total_pnl_header_sync()
+
     def showEvent(self, event):
         super().showEvent(event)
+        self._schedule_total_pnl_header_sync()
 
         if not self.refresh_timer.isActive():
             self.refresh_timer.start()
