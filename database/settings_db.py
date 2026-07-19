@@ -1,8 +1,9 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from security.dpapi import decrypt, encrypt
 
@@ -24,10 +25,19 @@ DEFAULT_APP_SETTINGS = {
 }
 
 
-def _get_connection():
+@contextmanager
+def _get_connection() -> Iterator[sqlite3.Connection]:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
-    return connection
+
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def _init_watchlist_table():
