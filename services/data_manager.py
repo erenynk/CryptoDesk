@@ -105,17 +105,29 @@ class DataManager(QObject):
             return
 
         try:
-            success, fills = self.okx.get_spot_fills_history()
+            fills_success, fills = (
+                self.okx.get_spot_fills_history()
+            )
+            transfers_success, transfers = (
+                self.okx.get_funding_transfer_bills()
+            )
 
-            if not success or not isinstance(fills, list):
+            if not fills_success or not isinstance(fills, list):
                 CostBasisService.attach_to_assets(
                     assets,
                     {},
                 )
                 return
 
+            if (
+                not transfers_success
+                or not isinstance(transfers, list)
+            ):
+                transfers = []
+
             calculated = self.cost_basis.calculate(
                 fills=fills,
+                transfers=transfers,
                 current_assets=assets,
             )
             self.cost_basis.attach_to_assets(
