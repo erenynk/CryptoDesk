@@ -745,5 +745,221 @@ class DataManagerHistoryTestCase(unittest.TestCase):
         manager.cache.clear.assert_called_once_with()
 
 
+    def test_singleton_initializes_dependencies_once(
+        self,
+    ):
+        DataManager._instance = None
+
+        cache = Mock()
+        okx = Mock()
+        cost_basis = Mock()
+        portfolio_history = Mock()
+        account_performance = Mock()
+
+        try:
+            with (
+                patch(
+                    "services.data_manager.PriceCache",
+                    return_value=cache,
+                ) as price_cache_class,
+                patch(
+                    "services.data_manager.OKXService",
+                    return_value=okx,
+                ) as okx_service_class,
+                patch(
+                    "services.data_manager.CostBasisService",
+                    return_value=cost_basis,
+                ) as cost_basis_class,
+                patch(
+                    "services.data_manager.PortfolioHistoryService",
+                    return_value=portfolio_history,
+                ) as history_service_class,
+                patch(
+                    "services.data_manager.AccountPerformanceService",
+                    return_value=account_performance,
+                ) as performance_service_class,
+                patch(
+                    "services.data_manager.get_app_setting",
+                    return_value=False,
+                ) as get_app_setting,
+                patch.object(
+                    DataManager,
+                    "_run_history_maintenance_if_needed",
+                ) as run_maintenance,
+            ):
+                first = DataManager()
+                second = DataManager()
+
+            self.assertIs(first, second)
+            self.assertIs(first.cache, cache)
+            self.assertIs(first.okx, okx)
+            self.assertIs(first.cost_basis, cost_basis)
+            self.assertIs(
+                first.portfolio_history,
+                portfolio_history,
+            )
+            self.assertIs(
+                first.account_performance,
+                account_performance,
+            )
+            self.assertIsNone(first.portfolio)
+            self.assertIsNone(first.last_error)
+            self.assertFalse(first.loading)
+            self.assertIsNone(
+                first._last_history_maintenance
+            )
+            self.assertFalse(
+                first._portfolio_history_enabled
+            )
+
+            price_cache_class.assert_called_once_with()
+            okx_service_class.assert_called_once_with()
+            cost_basis_class.assert_called_once_with()
+            history_service_class.assert_called_once_with()
+            performance_service_class.assert_called_once_with(
+                okx_service=okx,
+                history_service=portfolio_history,
+            )
+            get_app_setting.assert_called_once_with(
+                "portfolio_history_enabled",
+                True,
+            )
+            run_maintenance.assert_called_once_with()
+        finally:
+            DataManager._instance = None
+
+    def test_cost_basis_non_list_fills_marks_assets_unknown(
+        self,
+    ):
+        manager = DataManagerHarness()
+        assets = [
+            {
+                "coin": "BTC",
+                "average_price": 50000.0,
+                "cost_basis_available": True,
+            }
+        ]
+        manager.okx.get_spot_fills_history.return_value = (
+            True,
+            "invalid",
+        )
+        manager.okx.get_funding_transfer_bills.return_value = (
+            True,
+            [],
+        )
+
+        manager._attach_cost_basis_data(
+            {
+                "assets": assets,
+            }
+        )
+
+        manager.cost_basis.calculate.assert_not_called()
+        self.assertIsNone(
+            assets[0]["average_price"]
+        )
+        self.assertIsNone(
+            assets[0]["cost_basis_usdt"]
+        )
+        self.assertIsNone(
+            assets[0]["pnl_usdt"]
+        )
+        self.assertIsNone(
+            assets[0]["pnl_percent"]
+        )
+        self.assertFalse(
+            assets[0]["cost_basis_available"]
+        )
+
+    def test_modified_dietz_skips_invalid_analytics_account(
+        self,
+    ):
+        manager = DataManagerHarness()
+        reference_timestamp = (
+            "2026-07-21T12:00:00+00:00"
+        )
+        manager.portfolio_history.get_performance_reference_snapshots.return_value = {
+            "1d": {
+                "timestamp": reference_timestamp,
+            }
+        }
+        manager.account_performance.calculate_periods.return_value = {
+            "1d": {
+                "total": self.make_performance_result(
+                    percent=5.0,
+                    pnl=50.0,
+                    start=1000.0,
+                ),
+                "funding": self.make_performance_result(
+                    percent=2.0,
+                    pnl=8.0,
+                    start=400.0,
+                ),
+                "trading": self.make_performance_result(
+                    percent=7.0,
+                    pnl=42.0,
+                    start=600.0,
+                ),
+                "reference_snapshot": {
+                    "timestamp": reference_timestamp,
+                },
+            }
+        }
+        empty = DataManager._empty_performance()
+        portfolio = {
+            "performance": empty.copy(),
+            "performance_breakdown": {
+                "total": empty.copy(),
+                "funding": empty.copy(),
+                "trading": empty.copy(),
+            },
+            "analytics": {
+                "period_changes": {
+                    "1d": {
+                        "total": "invalid",
+                        "funding": {},
+                        "trading": {},
+                    }
+                }
+            },
+        }
+
+        manager._attach_modified_dietz_performance(
+            portfolio
+        )
+
+        self.assertEqual(
+            portfolio["analytics"][
+                "period_changes"
+            ]["1d"]["total"],
+            "invalid",
+        )
+        self.assertEqual(
+            portfolio["analytics"][
+                "period_changes"
+            ]["1d"]["funding"]["amount_usdt"],
+            8.0,
+        )
+        self.assertEqual(
+            portfolio["analytics"][
+                "period_changes"
+            ]["1d"]["trading"]["percent"],
+            7.0,
+        )
+
+    def test_get_portfolio_returns_cached_object(self):
+        manager = DataManagerHarness()
+        portfolio = {
+            "total_usdt": 125.0,
+        }
+        manager.portfolio = portfolio
+
+        self.assertIs(
+            manager.get_portfolio(),
+            portfolio,
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
