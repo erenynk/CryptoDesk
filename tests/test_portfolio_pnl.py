@@ -136,7 +136,7 @@ class PortfolioPnlTestCase(unittest.TestCase):
             "+10.00 USDT",
         )
 
-    def test_portfolio_total_pnl_uses_placeholder_when_cost_is_unknown(self):
+    def test_portfolio_total_pnl_ignores_unknown_cost_assets(self):
         self.page.raw_assets_data = [
             {
                 "coin": "BTC",
@@ -152,6 +152,28 @@ class PortfolioPnlTestCase(unittest.TestCase):
                 "cost_basis_usdt": None,
                 "pnl_usdt": None,
             },
+        ]
+
+        self.page._update_portfolio_total_pnl()
+
+        self.assertEqual(
+            self.page.portfolio_total_pnl_percent_value.text(),
+            "+10.00%",
+        )
+        self.assertEqual(
+            self.page.portfolio_total_pnl_usdt_value.text(),
+            "+10.00 USDT",
+        )
+
+    def test_portfolio_total_pnl_is_placeholder_when_all_costs_are_unknown(self):
+        self.page.raw_assets_data = [
+            {
+                "coin": "ETH",
+                "total": 1.0,
+                "cost_basis_available": False,
+                "cost_basis_usdt": None,
+                "pnl_usdt": None,
+            }
         ]
 
         self.page._update_portfolio_total_pnl()
@@ -227,7 +249,7 @@ class PortfolioPnlTestCase(unittest.TestCase):
             "-1.00 USDT",
         )
 
-    def test_trading_total_pnl_uses_placeholder_when_cost_is_unknown(self):
+    def test_trading_total_pnl_ignores_unknown_cost_assets(self):
         self.page.raw_assets_data = [
             {
                 "coin": "BTC",
@@ -243,6 +265,28 @@ class PortfolioPnlTestCase(unittest.TestCase):
                 "trading_cost_basis_usdt": None,
                 "trading_pnl_usdt": None,
             },
+        ]
+
+        self.page._update_trading_total_pnl()
+
+        self.assertEqual(
+            self.page.trading_total_pnl_percent_value.text(),
+            "+10.00%",
+        )
+        self.assertEqual(
+            self.page.trading_total_pnl_usdt_value.text(),
+            "+4.00 USDT",
+        )
+
+    def test_trading_total_pnl_is_placeholder_when_all_costs_are_unknown(self):
+        self.page.raw_assets_data = [
+            {
+                "coin": "ETH",
+                "trading_total": 1.0,
+                "trading_cost_basis_available": False,
+                "trading_cost_basis_usdt": None,
+                "trading_pnl_usdt": None,
+            }
         ]
 
         self.page._update_trading_total_pnl()

@@ -1253,6 +1253,7 @@ class PortfolioPage(QWidget):
 
         total_cost_basis = 0.0
         total_pnl_usdt = 0.0
+        valid_position_count = 0
 
         for asset in portfolio_assets:
             cost_basis_available = asset.get(
@@ -1276,13 +1277,16 @@ class PortfolioPage(QWidget):
                 )
                 or float(cost_basis_usdt) <= 0
             ):
-                self._set_portfolio_total_pnl_placeholder()
-                return
+                continue
 
             total_cost_basis += float(cost_basis_usdt)
             total_pnl_usdt += float(pnl_usdt)
+            valid_position_count += 1
 
-        if total_cost_basis <= 0:
+        if (
+            valid_position_count == 0
+            or total_cost_basis <= 0
+        ):
             self._set_portfolio_total_pnl_placeholder()
             return
 
@@ -1356,6 +1360,7 @@ class PortfolioPage(QWidget):
 
         total_cost_basis = 0.0
         total_pnl_usdt = 0.0
+        valid_position_count = 0
 
         for asset in trading_assets:
             cost_basis_available = asset.get(
@@ -1379,13 +1384,16 @@ class PortfolioPage(QWidget):
                 )
                 or float(cost_basis_usdt) <= 0
             ):
-                self._set_trading_total_pnl_placeholder()
-                return
+                continue
 
             total_cost_basis += float(cost_basis_usdt)
             total_pnl_usdt += float(pnl_usdt)
+            valid_position_count += 1
 
-        if total_cost_basis <= 0:
+        if (
+            valid_position_count == 0
+            or total_cost_basis <= 0
+        ):
             self._set_trading_total_pnl_placeholder()
             return
 
