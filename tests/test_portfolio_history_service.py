@@ -1,8 +1,11 @@
+import os
 import sqlite3
+import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
+from unittest.mock import MagicMock, Mock, patch
 
 from services.portfolio_history_service import (
     PortfolioHistoryService,
@@ -752,6 +755,652 @@ class PortfolioHistoryServiceTestCase(
             self.service._safe_int(-2),
             0,
         )
+
+
+    def test_constructor_uses_explicit_path_and_real_connection(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = (
+                Path(temp_dir)
+                / "nested"
+                / "history.db"
+            )
+
+            with patch.object(
+                PortfolioHistoryService,
+                "_initialize_database",
+            ) as initialize_database:
+                service = PortfolioHistoryService(
+                    db_path=db_path,
+                    snapshot_interval_seconds=-10,
+                )
+
+            self.assertEqual(
+                service.db_path,
+                db_path,
+            )
+            self.assertEqual(
+                service.snapshot_interval_seconds,
+                0,
+            )
+            self.assertTrue(
+                db_path.parent.exists()
+            )
+            initialize_database.assert_called_once_with()
+
+            connection = service._connect()
+
+            try:
+                self.assertIs(
+                    connection.row_factory,
+                    sqlite3.Row,
+                )
+                self.assertEqual(
+                    connection.execute(
+                        "PRAGMA foreign_keys"
+                    ).fetchone()[0],
+                    1,
+                )
+                self.assertEqual(
+                    connection.execute(
+                        "PRAGMA busy_timeout"
+                    ).fetchone()[0],
+                    10000,
+                )
+            finally:
+                connection.close()
+
+    def test_default_database_path_uses_local_app_data(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "LOCALAPPDATA": temp_dir,
+                },
+                clear=True,
+            ):
+                result = (
+                    PortfolioHistoryService
+                    ._get_default_db_path()
+                )
+
+        self.assertEqual(
+            result,
+            (
+                Path(temp_dir)
+                / "CryptoDesk"
+                / "cryptodesk.db"
+            ),
+        )
+
+    def test_default_database_path_falls_back_to_home(
+        self,
+    ):
+        home = Path("C:/Users/TestUser")
+
+        with (
+            patch.dict(
+                os.environ,
+                {},
+                clear=True,
+            ),
+            patch.object(
+                Path,
+                "home",
+                return_value=home,
+            ),
+        ):
+            result = (
+                PortfolioHistoryService
+                ._get_default_db_path()
+            )
+
+        self.assertEqual(
+            result,
+            home / ".cryptodesk" / "cryptodesk.db",
+        )
+
+    def test_ensure_column_adds_missing_column(
+        self,
+    ):
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+
+        try:
+            connection.execute(
+                """
+                CREATE TABLE portfolio_history (
+                    id INTEGER PRIMARY KEY
+                )
+                """
+            )
+
+            PortfolioHistoryService._ensure_column(
+                connection=connection,
+                column_name="asset_count",
+                column_definition=(
+                    "INTEGER NOT NULL DEFAULT 0"
+                ),
+            )
+
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    """
+                    PRAGMA table_info(
+                        portfolio_history
+                    )
+                    """
+                ).fetchall()
+            }
+        finally:
+            connection.close()
+
+        self.assertIn(
+            "asset_count",
+            columns,
+        )
+
+    def test_now_and_safe_int_error_paths(
+        self,
+    ):
+        now = self.service._now()
+
+        self.assertEqual(
+            now.tzinfo,
+            self.timezone,
+        )
+        self.assertEqual(
+            self.service._safe_int("invalid"),
+            0,
+        )
+        self.assertEqual(
+            self.service._safe_int(None),
+            0,
+        )
+        self.assertEqual(
+            self.service._safe_int(float("inf")),
+            0,
+        )
+
+    def test_zero_snapshot_interval_always_saves(
+        self,
+    ):
+        self.service.snapshot_interval_seconds = 0
+
+        first = self.save(
+            minutes=0,
+            force=False,
+        )
+        second = self.save(
+            minutes=0,
+            total=110.0,
+            force=False,
+        )
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(
+            self.service.get_snapshot_count(),
+            2,
+        )
+
+    def test_invalid_latest_timestamp_allows_snapshot(
+        self,
+    ):
+        with self.service._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO portfolio_history (
+                    timestamp,
+                    total_usdt,
+                    funding_usdt,
+                    trading_usdt,
+                    asset_count
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "invalid",
+                    100.0,
+                    40.0,
+                    60.0,
+                    2,
+                ),
+            )
+            connection.commit()
+
+        result = self.save(
+            minutes=1,
+            total=110.0,
+            force=False,
+        )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            self.service.get_snapshot_count(),
+            2,
+        )
+
+    def test_reference_snapshots_return_empty_without_history(
+        self,
+    ):
+        result = (
+            self.service
+            .get_performance_reference_snapshots(
+                reference_time=self.reference_time
+            )
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "1d": None,
+                "7d": None,
+                "30d": None,
+                "90d": None,
+                "1y": None,
+            },
+        )
+
+    def test_reference_snapshots_reject_invalid_oldest_timestamp(
+        self,
+    ):
+        with patch.object(
+            self.service,
+            "get_oldest_snapshot",
+            return_value={
+                "timestamp": "invalid",
+            },
+        ):
+            result = (
+                self.service
+                .get_performance_reference_snapshots(
+                    reference_time=self.reference_time
+                )
+            )
+
+        self.assertTrue(
+            all(
+                value is None
+                for value in result.values()
+            )
+        )
+
+    def test_reference_snapshots_skip_missing_nearest_snapshot(
+        self,
+    ):
+        oldest = self.snapshot(
+            timestamp=(
+                self.reference_time
+                - timedelta(days=500)
+            )
+        )
+
+        with (
+            patch.object(
+                self.service,
+                "get_oldest_snapshot",
+                return_value=oldest,
+            ),
+            patch.object(
+                self.service,
+                "get_snapshot_nearest",
+                return_value=None,
+            ) as get_nearest,
+        ):
+            result = (
+                self.service
+                .get_performance_reference_snapshots(
+                    reference_time=self.reference_time
+                )
+            )
+
+        self.assertTrue(
+            all(
+                value is None
+                for value in result.values()
+            )
+        )
+        self.assertEqual(
+            get_nearest.call_count,
+            5,
+        )
+
+    def test_reference_snapshots_skip_invalid_nearest_timestamp(
+        self,
+    ):
+        oldest = self.snapshot(
+            timestamp=(
+                self.reference_time
+                - timedelta(days=500)
+            )
+        )
+
+        with (
+            patch.object(
+                self.service,
+                "get_oldest_snapshot",
+                return_value=oldest,
+            ),
+            patch.object(
+                self.service,
+                "get_snapshot_nearest",
+                return_value={
+                    "timestamp": "invalid",
+                },
+            ),
+        ):
+            result = (
+                self.service
+                .get_performance_reference_snapshots(
+                    reference_time=self.reference_time
+                )
+            )
+
+        self.assertTrue(
+            all(
+                value is None
+                for value in result.values()
+            )
+        )
+
+    def test_reference_snapshots_skip_too_distant_records(
+        self,
+    ):
+        oldest = self.snapshot(
+            timestamp=(
+                self.reference_time
+                - timedelta(days=500)
+            )
+        )
+        distant = self.snapshot(
+            timestamp=(
+                self.reference_time
+                - timedelta(days=200)
+            )
+        )
+
+        with (
+            patch.object(
+                self.service,
+                "get_oldest_snapshot",
+                return_value=oldest,
+            ),
+            patch.object(
+                self.service,
+                "get_snapshot_nearest",
+                return_value=distant,
+            ),
+        ):
+            result = (
+                self.service
+                .get_performance_reference_snapshots(
+                    reference_time=self.reference_time
+                )
+            )
+
+        self.assertTrue(
+            all(
+                value is None
+                for value in result.values()
+            )
+        )
+
+    def test_performance_rejects_nonpositive_baseline(
+        self,
+    ):
+        reference = self.snapshot(
+            timestamp=(
+                self.reference_time
+                - timedelta(days=1)
+            ),
+            total=0.0,
+        )
+
+        result = self.service.calculate_performance(
+            current_total_usdt=100.0,
+            reference_time=self.reference_time,
+            reference_snapshots={
+                "1d": reference,
+            },
+        )
+
+        self.assertIsNone(result["1d"])
+
+    def test_analytics_returns_none_for_nonpositive_baselines(
+        self,
+    ):
+        reference = self.snapshot(
+            timestamp=(
+                self.reference_time
+                - timedelta(days=1)
+            ),
+            total=0.0,
+            funding=-1.0,
+            trading=0.0,
+        )
+
+        result = (
+            self.service
+            .calculate_portfolio_analytics(
+                current_total_usdt=100.0,
+                current_funding_usdt=40.0,
+                current_trading_usdt=60.0,
+                reference_time=self.reference_time,
+                reference_snapshots={
+                    "1d": reference,
+                },
+            )
+        )
+
+        for account in (
+            "total",
+            "funding",
+            "trading",
+        ):
+            self.assertIsNone(
+                result["period_changes"]["1d"][
+                    account
+                ]["amount_usdt"]
+            )
+            self.assertIsNone(
+                result["period_changes"]["1d"][
+                    account
+                ]["percent"]
+            )
+
+    def test_empty_history_summary_and_nullable_helpers(
+        self,
+    ):
+        summary = (
+            self.service
+            ._calculate_history_summary()
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "snapshot_count": 0,
+                "first_timestamp": None,
+                "last_timestamp": None,
+                "total": {
+                    "highest_usdt": None,
+                    "lowest_usdt": None,
+                    "average_usdt": None,
+                },
+                "funding": {
+                    "highest_usdt": None,
+                    "lowest_usdt": None,
+                    "average_usdt": None,
+                },
+                "trading": {
+                    "highest_usdt": None,
+                    "lowest_usdt": None,
+                    "average_usdt": None,
+                },
+            },
+        )
+        self.assertIsNone(
+            self.service._nullable_float(None)
+        )
+        self.assertIsNone(
+            self.service._nullable_float(
+                float("nan")
+            )
+        )
+        self.assertIsNone(
+            self.service._nullable_float(
+                "invalid"
+            )
+        )
+
+    def test_history_series_returns_all_when_under_limit(
+        self,
+    ):
+        self.save(
+            minutes=0,
+            total=100.0,
+        )
+        self.save(
+            minutes=10,
+            total=110.0,
+        )
+
+        result = self.service.get_history_series(
+            period="1d",
+            reference_time=(
+                self.reference_time
+                + timedelta(minutes=20)
+            ),
+            max_points=10,
+        )
+
+        self.assertEqual(
+            [
+                item["total_usdt"]
+                for item in result
+            ],
+            [100.0, 110.0],
+        )
+
+    def test_available_periods_return_false_without_history(
+        self,
+    ):
+        result = (
+            self.service
+            .get_available_history_periods(
+                reference_time=self.reference_time
+            )
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "1d": False,
+                "7d": False,
+                "30d": False,
+                "90d": False,
+                "1y": False,
+            },
+        )
+
+    def test_available_periods_reject_invalid_oldest_timestamp(
+        self,
+    ):
+        with patch.object(
+            self.service,
+            "get_oldest_snapshot",
+            return_value={
+                "timestamp": "invalid",
+            },
+        ):
+            result = (
+                self.service
+                .get_available_history_periods(
+                    reference_time=self.reference_time
+                )
+            )
+
+        self.assertTrue(
+            all(
+                value is False
+                for value in result.values()
+            )
+        )
+
+    def test_nearest_snapshot_returns_after_when_no_before(
+        self,
+    ):
+        self.save(
+            minutes=10,
+            total=110.0,
+        )
+
+        result = self.service.get_snapshot_nearest(
+            self.reference_time
+        )
+
+        self.assertEqual(
+            result["total_usdt"],
+            110.0,
+        )
+
+    def test_snapshot_count_returns_zero_without_row(
+        self,
+    ):
+        connection = MagicMock()
+        connection.__enter__.return_value = (
+            connection
+        )
+        connection.__exit__.return_value = False
+        connection.execute.return_value.fetchone.return_value = (
+            None
+        )
+
+        with patch.object(
+            self.service,
+            "_connect",
+            return_value=connection,
+        ):
+            result = (
+                self.service
+                .get_snapshot_count()
+            )
+
+        self.assertEqual(result, 0)
+
+    def test_deduplicate_period_skips_invalid_timestamp(
+        self,
+    ):
+        connection = Mock()
+        cursor = Mock()
+        cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "timestamp": "invalid",
+            }
+        ]
+        connection.execute.return_value = cursor
+
+        result = (
+            self.service
+            ._deduplicate_period(
+                connection=connection,
+                start_time=(
+                    self.reference_time
+                    - timedelta(days=10)
+                ),
+                end_time=self.reference_time,
+                grouping_format="%Y-%m-%d",
+            )
+        )
+
+        self.assertEqual(result, 0)
+        connection.execute.assert_called_once()
 
 
 if __name__ == "__main__":
