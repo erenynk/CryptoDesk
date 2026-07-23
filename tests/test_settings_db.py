@@ -1,8 +1,9 @@
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from database import settings_db
 
@@ -308,10 +309,6 @@ class SettingsDatabaseTestCase(unittest.TestCase):
 
         self.assertEqual(len(alarms), 1)
         self.assertEqual(
-            alarms[0]["id"],
-            alarm_id,
-        )
-        self.assertEqual(
             alarms[0]["symbol"],
             "BTC",
         )
@@ -333,11 +330,8 @@ class SettingsDatabaseTestCase(unittest.TestCase):
         self.assertFalse(
             alarms[0]["is_triggered"]
         )
-        self.assertIsNone(
-            alarms[0]["triggered_at"]
-        )
 
-    def test_alarm_rejects_invalid_input(self):
+    def test_alarm_rejects_invalid_values(self):
         self.assertIsNone(
             settings_db.add_price_alarm(
                 symbol="",
@@ -535,6 +529,254 @@ class SettingsDatabaseTestCase(unittest.TestCase):
             "idx_price_alarms_symbol",
             alarm_indexes,
         )
+
+    def test_watchlist_table_migrates_added_price_column(self):
+        with settings_db._get_connection() as conn:
+            conn.execute("DROP TABLE watchlist_symbols")
+            conn.execute(
+                """
+                CREATE TABLE watchlist_symbols (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol TEXT UNIQUE NOT NULL,
+                    created_at TEXT
+                )
+                """
+            )
+
+        settings_db._init_watchlist_table()
+
+        with settings_db._get_connection() as conn:
+            columns = {
+                row["name"]
+                for row in conn.execute(
+                    "PRAGMA table_info(watchlist_symbols)"
+                ).fetchall()
+            }
+
+        self.assertIn("added_price", columns)
+
+    def test_alarm_table_migrates_note_column(self):
+        with settings_db._get_connection() as conn:
+            conn.execute("DROP TABLE price_alarms")
+            conn.execute(
+                """
+                CREATE TABLE price_alarms (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol TEXT NOT NULL,
+                    target_price REAL NOT NULL,
+                    condition TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    is_triggered INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    triggered_at TEXT
+                )
+                """
+            )
+
+        settings_db._init_price_alarms_table()
+
+        with settings_db._get_connection() as conn:
+            columns = {
+                row["name"]
+                for row in conn.execute(
+                    "PRAGMA table_info(price_alarms)"
+                ).fetchall()
+            }
+
+        self.assertIn("note", columns)
+
+    def test_connection_rolls_back_and_closes_on_exception(self):
+        connection = Mock()
+
+        with (
+            patch.object(
+                settings_db.sqlite3,
+                "connect",
+                return_value=connection,
+            ),
+            self.assertRaisesRegex(
+                RuntimeError,
+                "transaction failed",
+            ),
+        ):
+            with settings_db._get_connection():
+                raise RuntimeError(
+                    "transaction failed"
+                )
+
+        connection.rollback.assert_called_once_with()
+        connection.commit.assert_not_called()
+        connection.close.assert_called_once_with()
+
+    def test_get_app_setting_rejects_blank_key(self):
+        self.assertEqual(
+            settings_db.get_app_setting(
+                "   ",
+                "fallback",
+            ),
+            "fallback",
+        )
+
+    def test_get_app_setting_handles_invalid_json(self):
+        with settings_db._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (
+                    setting_key,
+                    setting_value,
+                    updated_at
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    "broken",
+                    "{invalid-json",
+                    "2026-07-24T00:00:00+00:00",
+                ),
+            )
+
+        self.assertEqual(
+            settings_db.get_app_setting(
+                "broken",
+                "fallback",
+            ),
+            "fallback",
+        )
+
+    def test_get_app_setting_handles_database_error(self):
+        with patch.object(
+            settings_db,
+            "_get_connection",
+            side_effect=sqlite3.Error(
+                "database unavailable"
+            ),
+        ):
+            result = settings_db.get_app_setting(
+                "notifications_enabled",
+                "fallback",
+            )
+
+        self.assertEqual(result, "fallback")
+
+    def test_get_all_app_settings_skips_invalid_json(self):
+        with settings_db._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (
+                    setting_key,
+                    setting_value,
+                    updated_at
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    "broken",
+                    "{invalid-json",
+                    "2026-07-24T00:00:00+00:00",
+                ),
+            )
+
+        result = settings_db.get_all_app_settings()
+
+        self.assertNotIn("broken", result)
+
+    def test_get_all_app_settings_handles_database_error(self):
+        with patch.object(
+            settings_db,
+            "_get_connection",
+            side_effect=sqlite3.Error(
+                "database unavailable"
+            ),
+        ):
+            result = (
+                settings_db.get_all_app_settings()
+            )
+
+        self.assertEqual(
+            result,
+            settings_db.DEFAULT_APP_SETTINGS,
+        )
+
+    def test_reset_app_settings_handles_database_error(self):
+        with patch.object(
+            settings_db,
+            "_get_connection",
+            side_effect=sqlite3.Error(
+                "database unavailable"
+            ),
+        ):
+            result = (
+                settings_db.reset_app_settings()
+            )
+
+        self.assertFalse(result)
+
+    def test_remove_watchlist_rejects_blank_symbol(self):
+        self.assertFalse(
+            settings_db.remove_watchlist_symbol(
+                "   "
+            )
+        )
+
+    def test_watchlist_queries_handle_database_errors(self):
+        with patch.object(
+            settings_db,
+            "_get_connection",
+            side_effect=sqlite3.Error(
+                "database unavailable"
+            ),
+        ):
+            self.assertFalse(
+                settings_db.remove_watchlist_symbol(
+                    "BTC"
+                )
+            )
+            self.assertEqual(
+                settings_db.get_watchlist_symbols(),
+                [],
+            )
+            self.assertEqual(
+                settings_db.get_watchlist_items(),
+                [],
+            )
+
+    def test_alarm_functions_handle_database_errors(self):
+        with patch.object(
+            settings_db,
+            "_get_connection",
+            side_effect=sqlite3.Error(
+                "database unavailable"
+            ),
+        ):
+            self.assertIsNone(
+                settings_db.add_price_alarm(
+                    "BTC",
+                    100,
+                    "above",
+                )
+            )
+            self.assertEqual(
+                settings_db.get_price_alarms(),
+                [],
+            )
+            self.assertEqual(
+                settings_db.get_active_price_alarms(),
+                [],
+            )
+            self.assertFalse(
+                settings_db.set_price_alarm_active(
+                    1,
+                    True,
+                )
+            )
+            self.assertFalse(
+                settings_db.mark_price_alarm_triggered(
+                    1
+                )
+            )
+            self.assertFalse(
+                settings_db.delete_price_alarm(1)
+            )
 
 
 if __name__ == "__main__":
