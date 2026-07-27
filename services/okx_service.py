@@ -75,6 +75,19 @@ class OKXService:
         except (TypeError, ValueError, OverflowError):
             return 0.0
 
+    @staticmethod
+    def _optional_float(value):
+        try:
+            number = float(value)
+
+            if number != number or number in (float("inf"), float("-inf")):
+                return None
+
+            return number
+
+        except (TypeError, ValueError, OverflowError):
+            return None
+
     @classmethod
     def _is_meaningful_asset(
         cls,
@@ -219,18 +232,57 @@ class OKXService:
                     available = self._safe_float(
                         asset.get("availBal")
                     )
+                    spot_balance = self._optional_float(
+                        asset.get("spotBal")
+                    )
+                    open_average = self._optional_float(
+                        asset.get("openAvgPx")
+                    )
+                    spot_pnl_usdt = self._optional_float(
+                        asset.get("spotUpl")
+                    )
+                    spot_pnl_ratio = self._optional_float(
+                        asset.get("spotUplRatio")
+                    )
+
+                    native_pnl_available = (
+                        coin != "USDT"
+                        and spot_balance is not None
+                        and spot_balance > 0
+                        and open_average is not None
+                        and open_average > 0
+                        and spot_pnl_usdt is not None
+                        and spot_pnl_ratio is not None
+                    )
+
                     trading_amounts[coin] = quantity
+
+                    native_fields = {
+                        "okx_trading_spot_balance": spot_balance,
+                        "okx_trading_average_price": open_average,
+                        "okx_trading_pnl_usdt": spot_pnl_usdt,
+                        "okx_trading_pnl_percent": (
+                            spot_pnl_ratio * 100.0
+                            if spot_pnl_ratio is not None
+                            else None
+                        ),
+                        "okx_trading_pnl_available": (
+                            native_pnl_available
+                        ),
+                    }
 
                     if coin in balances:
                         balances[coin]["total"] += quantity
                         balances[coin]["available"] += available
                         balances[coin]["trading_total"] += quantity
+                        balances[coin].update(native_fields)
                     else:
                         balances[coin] = {
                             "total": quantity,
                             "available": available,
                             "funding_total": 0.0,
                             "trading_total": quantity,
+                            **native_fields,
                         }
 
             prices = self._load_prices(cache)
@@ -282,6 +334,32 @@ class OKXService:
                         "trading_usdt_value": trading_amount * price,
                         "price": price,
                         "usdt_value": usdt_value,
+                        "okx_trading_spot_balance": (
+                            balance_data.get(
+                                "okx_trading_spot_balance"
+                            )
+                        ),
+                        "okx_trading_average_price": (
+                            balance_data.get(
+                                "okx_trading_average_price"
+                            )
+                        ),
+                        "okx_trading_pnl_usdt": (
+                            balance_data.get(
+                                "okx_trading_pnl_usdt"
+                            )
+                        ),
+                        "okx_trading_pnl_percent": (
+                            balance_data.get(
+                                "okx_trading_pnl_percent"
+                            )
+                        ),
+                        "okx_trading_pnl_available": bool(
+                            balance_data.get(
+                                "okx_trading_pnl_available",
+                                False,
+                            )
+                        ),
                     }
                 )
 

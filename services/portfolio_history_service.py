@@ -247,13 +247,63 @@ class PortfolioHistoryService:
 
         return elapsed_seconds >= self.snapshot_interval_seconds
 
+    def _get_daily_reference_snapshot(
+        self,
+        current_time: datetime,
+    ) -> dict[str, Any] | None:
+        """
+        Günlük PNL için yerel gün başlangıcına en yakın snapshot'ı
+        kullanır. Gece yarısı çevresinde kayıt yoksa gün içindeki ilk
+        snapshot'a düşer; böylece değer saatler sonra kendiliğinden
+        görünmek yerine ilk yenilemede hesaplanabilir.
+        """
+        normalized_time = self._normalize_datetime(
+            current_time
+        )
+        day_start = normalized_time.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        nearest = self.get_snapshot_nearest(day_start)
+
+        if isinstance(nearest, dict):
+            try:
+                nearest_time = self._storage_to_datetime(
+                    nearest["timestamp"]
+                )
+            except (KeyError, TypeError, ValueError):
+                nearest_time = None
+
+            if (
+                nearest_time is not None
+                and nearest_time <= normalized_time
+                and abs(day_start - nearest_time)
+                <= self.MAX_REFERENCE_AGE["1d"]
+            ):
+                return nearest
+
+        day_snapshots = self.get_snapshots(
+            start_time=day_start,
+            end_time=normalized_time,
+            limit=1,
+            ascending=True,
+        )
+
+        if day_snapshots:
+            return day_snapshots[0]
+
+        return None
+
     def get_performance_reference_snapshots(
         self,
         reference_time: datetime | None = None,
     ) -> dict[str, dict[str, Any] | None]:
         """
-        Her performans dönemi için hedef zamana en yakın geçerli
-        snapshot kaydını döndürür.
+        Günlük PNL için yerel gün başlangıcını, diğer dönemler için
+        hedef zamana en yakın geçerli snapshot kaydını döndürür.
 
         Aynı referanslar hem performans yüzdelerinde hem transfer
         düzeltmelerinde kullanılır.
@@ -281,9 +331,18 @@ class PortfolioHistoryService:
         except (KeyError, TypeError, ValueError):
             return references
 
+        references["1d"] = (
+            self._get_daily_reference_snapshot(
+                current_time
+            )
+        )
+
         for period_key, period_delta in (
             self.PERFORMANCE_PERIODS.items()
         ):
+            if period_key == "1d":
+                continue
+
             target_time = current_time - period_delta
 
             if oldest_time > target_time:

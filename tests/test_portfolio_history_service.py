@@ -613,6 +613,9 @@ class PortfolioHistoryServiceTestCase(
             days=-1,
             total=100.0,
         )
+        self.save(
+            total=110.0,
+        )
 
         result = (
             self.service
@@ -626,6 +629,91 @@ class PortfolioHistoryServiceTestCase(
         self.assertIsNone(result["30d"])
         self.assertIsNone(result["90d"])
         self.assertIsNone(result["1y"])
+
+    def test_daily_reference_uses_first_snapshot_of_local_day(
+        self,
+    ):
+        self.save(
+            days=-8,
+            total=80.0,
+        )
+        self.save(
+            minutes=-120,
+            total=100.0,
+        )
+        self.save(
+            minutes=-30,
+            total=105.0,
+        )
+
+        result = (
+            self.service
+            .get_performance_reference_snapshots(
+                reference_time=self.reference_time
+            )
+        )
+
+        daily = result["1d"]
+
+        self.assertIsNotNone(daily)
+        self.assertEqual(
+            daily["total_usdt"],
+            100.0,
+        )
+        self.assertEqual(
+            daily["timestamp"],
+            self.service._datetime_to_storage(
+                self.reference_time
+                - timedelta(minutes=120)
+            ),
+        )
+
+    def test_daily_reference_prefers_snapshot_near_midnight(
+        self,
+    ):
+        midnight = self.reference_time.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        before_midnight = (
+            midnight - timedelta(minutes=20)
+        )
+
+        self.service.save_snapshot(
+            total_usdt=95.0,
+            funding_usdt=35.0,
+            trading_usdt=60.0,
+            asset_count=2,
+            timestamp=before_midnight,
+            force=True,
+        )
+        self.save(
+            minutes=-60,
+            total=110.0,
+        )
+
+        result = (
+            self.service
+            .get_performance_reference_snapshots(
+                reference_time=self.reference_time
+            )
+        )
+
+        daily = result["1d"]
+
+        self.assertIsNotNone(daily)
+        self.assertEqual(
+            daily["total_usdt"],
+            95.0,
+        )
+        self.assertEqual(
+            daily["timestamp"],
+            self.service._datetime_to_storage(
+                before_midnight
+            ),
+        )
 
     def test_optimize_history_deletes_and_deduplicates(
         self,
@@ -1347,6 +1435,23 @@ class PortfolioHistoryServiceTestCase(
         self.assertEqual(
             result["total_usdt"],
             110.0,
+        )
+
+    def test_nearest_snapshot_returns_before_when_no_after(
+        self,
+    ):
+        self.save(
+            minutes=-10,
+            total=90.0,
+        )
+
+        result = self.service.get_snapshot_nearest(
+            self.reference_time
+        )
+
+        self.assertEqual(
+            result["total_usdt"],
+            90.0,
         )
 
     def test_snapshot_count_returns_zero_without_row(

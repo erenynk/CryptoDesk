@@ -959,51 +959,7 @@ class CostBasisService:
                 )
             )
 
-            latest_buy_average = cls._latest_buy_average(
-                fills=fills,
-                coin=coin,
-            )
-
             resolved_average = reconstructed_average
-
-            if resolved_average is None:
-                resolved_average = latest_buy_average
-
-            only_trading_has_balance = (
-                current["trading"] > cls.QUANTITY_TOLERANCE
-                and current["funding"] <= cls.QUANTITY_TOLERANCE
-            )
-            only_funding_has_balance = (
-                current["funding"] > cls.QUANTITY_TOLERANCE
-                and current["trading"] <= cls.QUANTITY_TOLERANCE
-            )
-
-            if (
-                reconstructed_average is not None
-                and not dust_position_reset
-            ):
-                if only_trading_has_balance:
-                    total_result = cls._build_fallback_result(
-                        current["total"],
-                        current["price"],
-                        reconstructed_average,
-                    )
-                    trading_result = cls._build_fallback_result(
-                        current["trading"],
-                        current["price"],
-                        reconstructed_average,
-                    )
-                elif only_funding_has_balance:
-                    total_result = cls._build_fallback_result(
-                        current["total"],
-                        current["price"],
-                        reconstructed_average,
-                    )
-                    funding_result = cls._build_fallback_result(
-                        current["funding"],
-                        current["price"],
-                        reconstructed_average,
-                    )
 
             if total_result is None:
                 total_result = cls._build_fallback_result(

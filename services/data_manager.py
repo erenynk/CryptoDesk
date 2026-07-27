@@ -117,29 +117,231 @@ class DataManager(QObject):
                     assets,
                     {},
                 )
-                return
+            else:
+                if (
+                    not transfers_success
+                    or not isinstance(transfers, list)
+                ):
+                    transfers = []
 
-            if (
-                not transfers_success
-                or not isinstance(transfers, list)
-            ):
-                transfers = []
-
-            calculated = self.cost_basis.calculate(
-                fills=fills,
-                transfers=transfers,
-                current_assets=assets,
-            )
-            self.cost_basis.attach_to_assets(
-                assets,
-                calculated,
-            )
+                calculated = self.cost_basis.calculate(
+                    fills=fills,
+                    transfers=transfers,
+                    current_assets=assets,
+                )
+                self.cost_basis.attach_to_assets(
+                    assets,
+                    calculated,
+                )
 
         except Exception:
             CostBasisService.attach_to_assets(
                 assets,
                 {},
             )
+
+        finally:
+            self._prefer_okx_trading_pnl(assets)
+
+    @classmethod
+    def _prefer_okx_trading_pnl(
+        cls,
+        assets: list[dict[str, Any]],
+    ) -> None:
+        """
+        OKX'in Trading hesabı için yayımladığı açık maliyet ve PNL
+        alanlarını, mevcut olduklarında fill tabanlı Trading sonucunun
+        yerine kullanır. Funding maliyeti Caspian ledger'ında kalır.
+
+        OKX alanları eksikse, bakiye spotBal ile uyuşmuyorsa veya pozisyon
+        0.01 USDT altındaki dust seviyesindeyse mevcut Caspian sonucu
+        korunur.
+        """
+        for asset in assets:
+            if not isinstance(asset, dict):
+                continue
+
+            coin = str(
+                asset.get("coin", "")
+            ).strip().upper()
+
+            if coin == "USDT":
+                continue
+
+            if not bool(
+                asset.get(
+                    "okx_trading_pnl_available",
+                    False,
+                )
+            ):
+                continue
+
+            trading_quantity = cls._safe_float(
+                asset.get("trading_total", 0.0)
+            )
+            spot_balance = cls._optional_float(
+                asset.get("okx_trading_spot_balance")
+            )
+            average_price = cls._optional_float(
+                asset.get("okx_trading_average_price")
+            )
+            pnl_usdt = cls._optional_float(
+                asset.get("okx_trading_pnl_usdt")
+            )
+            pnl_percent = cls._optional_float(
+                asset.get("okx_trading_pnl_percent")
+            )
+
+            if (
+                trading_quantity <= 0
+                or spot_balance is None
+                or spot_balance <= 0
+                or average_price is None
+                or average_price <= 0
+                or pnl_usdt is None
+                or pnl_percent is None
+            ):
+                continue
+
+            quantity_tolerance = max(
+                1e-10,
+                max(
+                    abs(trading_quantity),
+                    abs(spot_balance),
+                )
+                * 1e-6,
+            )
+
+            if abs(
+                trading_quantity - spot_balance
+            ) > quantity_tolerance:
+                continue
+
+            trading_usdt_value = cls._safe_float(
+                asset.get("trading_usdt_value", 0.0)
+            )
+
+            if trading_usdt_value < 0.01:
+                continue
+
+            trading_cost = (
+                average_price * spot_balance
+            )
+
+            if trading_cost <= 0:
+                continue
+
+            asset["trading_average_price"] = average_price
+            asset["trading_cost_basis_usdt"] = trading_cost
+            asset["trading_pnl_usdt"] = pnl_usdt
+            asset["trading_pnl_percent"] = pnl_percent
+            asset["trading_cost_basis_available"] = True
+            asset["trading_pnl_source"] = "okx"
+
+            cls._merge_total_pnl_with_funding(
+                asset=asset,
+                trading_cost=trading_cost,
+                trading_pnl=pnl_usdt,
+                trading_percent=pnl_percent,
+                trading_average=average_price,
+            )
+
+    @classmethod
+    def _merge_total_pnl_with_funding(
+        cls,
+        *,
+        asset: dict[str, Any],
+        trading_cost: float,
+        trading_pnl: float,
+        trading_percent: float,
+        trading_average: float,
+    ) -> None:
+        funding_quantity = cls._safe_float(
+            asset.get("funding_total", 0.0)
+        )
+        funding_usdt_value = cls._safe_float(
+            asset.get("funding_usdt_value", 0.0)
+        )
+
+        if (
+            funding_quantity <= 0
+            or funding_usdt_value < 0.01
+        ):
+            asset["average_price"] = trading_average
+            asset["cost_basis_usdt"] = trading_cost
+            asset["pnl_usdt"] = trading_pnl
+            asset["pnl_percent"] = trading_percent
+            asset["cost_basis_available"] = True
+            asset["pnl_source"] = "okx_trading"
+            return
+
+        funding_available = bool(
+            asset.get(
+                "funding_cost_basis_available",
+                False,
+            )
+        )
+        funding_cost = cls._optional_float(
+            asset.get("funding_cost_basis_usdt")
+        )
+        funding_pnl = cls._optional_float(
+            asset.get("funding_pnl_usdt")
+        )
+
+        if (
+            not funding_available
+            or funding_cost is None
+            or funding_cost <= 0
+            or funding_pnl is None
+        ):
+            asset["average_price"] = None
+            asset["cost_basis_usdt"] = None
+            asset["pnl_usdt"] = None
+            asset["pnl_percent"] = None
+            asset["cost_basis_available"] = False
+            asset["pnl_source"] = "unknown_funding"
+            return
+
+        total_cost = trading_cost + funding_cost
+        total_pnl = trading_pnl + funding_pnl
+        total_quantity = cls._safe_float(
+            asset.get("total", 0.0)
+        )
+
+        if total_cost <= 0 or total_quantity <= 0:
+            asset["average_price"] = None
+            asset["cost_basis_usdt"] = None
+            asset["pnl_usdt"] = None
+            asset["pnl_percent"] = None
+            asset["cost_basis_available"] = False
+            asset["pnl_source"] = "invalid_total"
+            return
+
+        asset["average_price"] = total_cost / total_quantity
+        asset["cost_basis_usdt"] = total_cost
+        asset["pnl_usdt"] = total_pnl
+        asset["pnl_percent"] = (
+            total_pnl / total_cost * 100.0
+        )
+        asset["cost_basis_available"] = True
+        asset["pnl_source"] = (
+            "okx_trading+caspian_funding"
+        )
+
+    @staticmethod
+    def _optional_float(value: Any) -> float | None:
+        try:
+            number = float(value)
+
+            if number != number or number in (
+                float("inf"),
+                float("-inf"),
+            ):
+                return None
+
+            return number
+        except (TypeError, ValueError, OverflowError):
+            return None
 
     def _attach_history_data(
         self,

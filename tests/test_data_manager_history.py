@@ -10,6 +10,12 @@ class DataManagerHarness:
     _attach_cost_basis_data = (
         DataManager._attach_cost_basis_data
     )
+    _prefer_okx_trading_pnl = classmethod(
+        DataManager._prefer_okx_trading_pnl.__func__
+    )
+    _merge_total_pnl_with_funding = classmethod(
+        DataManager._merge_total_pnl_with_funding.__func__
+    )
     _attach_history_data = (
         DataManager._attach_history_data
     )
@@ -38,6 +44,9 @@ class DataManagerHarness:
 
     _safe_float = staticmethod(
         DataManager._safe_float
+    )
+    _optional_float = staticmethod(
+        DataManager._optional_float
     )
     _empty_performance = staticmethod(
         DataManager._empty_performance
@@ -958,6 +967,192 @@ class DataManagerHistoryTestCase(unittest.TestCase):
             manager.get_portfolio(),
             portfolio,
         )
+
+
+
+    def test_okx_native_trading_pnl_replaces_ledger_result(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "DOGE",
+            "total": 100.0,
+            "funding_total": 0.0,
+            "trading_total": 100.0,
+            "funding_usdt_value": 0.0,
+            "trading_usdt_value": 12.0,
+            "average_price": 0.11,
+            "cost_basis_usdt": 11.0,
+            "pnl_usdt": 1.0,
+            "pnl_percent": 9.0909,
+            "cost_basis_available": True,
+            "trading_average_price": 0.11,
+            "trading_cost_basis_usdt": 11.0,
+            "trading_pnl_usdt": 1.0,
+            "trading_pnl_percent": 9.0909,
+            "trading_cost_basis_available": True,
+            "okx_trading_spot_balance": 100.0,
+            "okx_trading_average_price": 0.10,
+            "okx_trading_pnl_usdt": 2.0,
+            "okx_trading_pnl_percent": 20.0,
+            "okx_trading_pnl_available": True,
+        }
+
+        manager._prefer_okx_trading_pnl([asset])
+
+        self.assertEqual(
+            asset["trading_average_price"],
+            0.10,
+        )
+        self.assertEqual(
+            asset["trading_cost_basis_usdt"],
+            10.0,
+        )
+        self.assertEqual(
+            asset["trading_pnl_usdt"],
+            2.0,
+        )
+        self.assertEqual(
+            asset["trading_pnl_percent"],
+            20.0,
+        )
+        self.assertEqual(asset["average_price"], 0.10)
+        self.assertEqual(asset["cost_basis_usdt"], 10.0)
+        self.assertEqual(asset["pnl_usdt"], 2.0)
+        self.assertEqual(asset["pnl_percent"], 20.0)
+        self.assertEqual(
+            asset["trading_pnl_source"],
+            "okx",
+        )
+        self.assertEqual(
+            asset["pnl_source"],
+            "okx_trading",
+        )
+
+    def test_okx_native_trading_pnl_combines_with_known_funding_cost(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "LINK",
+            "total": 15.0,
+            "funding_total": 5.0,
+            "trading_total": 10.0,
+            "funding_usdt_value": 55.0,
+            "trading_usdt_value": 120.0,
+            "funding_cost_basis_available": True,
+            "funding_cost_basis_usdt": 50.0,
+            "funding_pnl_usdt": 5.0,
+            "okx_trading_spot_balance": 10.0,
+            "okx_trading_average_price": 10.0,
+            "okx_trading_pnl_usdt": 20.0,
+            "okx_trading_pnl_percent": 20.0,
+            "okx_trading_pnl_available": True,
+        }
+
+        manager._prefer_okx_trading_pnl([asset])
+
+        self.assertEqual(
+            asset["trading_cost_basis_usdt"],
+            100.0,
+        )
+        self.assertEqual(asset["cost_basis_usdt"], 150.0)
+        self.assertEqual(asset["pnl_usdt"], 25.0)
+        self.assertAlmostEqual(
+            asset["pnl_percent"],
+            16.666666666666664,
+        )
+        self.assertEqual(asset["average_price"], 10.0)
+        self.assertTrue(asset["cost_basis_available"])
+        self.assertEqual(
+            asset["pnl_source"],
+            "okx_trading+caspian_funding",
+        )
+
+    def test_okx_native_trading_pnl_keeps_total_unknown_when_funding_cost_is_unknown(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "SOL",
+            "total": 3.0,
+            "funding_total": 1.0,
+            "trading_total": 2.0,
+            "funding_usdt_value": 75.0,
+            "trading_usdt_value": 150.0,
+            "funding_cost_basis_available": False,
+            "funding_cost_basis_usdt": None,
+            "funding_pnl_usdt": None,
+            "okx_trading_spot_balance": 2.0,
+            "okx_trading_average_price": 70.0,
+            "okx_trading_pnl_usdt": 10.0,
+            "okx_trading_pnl_percent": 7.142857,
+            "okx_trading_pnl_available": True,
+        }
+
+        manager._prefer_okx_trading_pnl([asset])
+
+        self.assertTrue(
+            asset["trading_cost_basis_available"]
+        )
+        self.assertEqual(asset["trading_pnl_usdt"], 10.0)
+        self.assertFalse(asset["cost_basis_available"])
+        self.assertIsNone(asset["average_price"])
+        self.assertIsNone(asset["cost_basis_usdt"])
+        self.assertIsNone(asset["pnl_usdt"])
+        self.assertIsNone(asset["pnl_percent"])
+        self.assertEqual(
+            asset["pnl_source"],
+            "unknown_funding",
+        )
+
+    def test_okx_native_trading_pnl_is_not_used_for_dust_position(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "MORPHO",
+            "total": 0.0002,
+            "funding_total": 0.0,
+            "trading_total": 0.0002,
+            "funding_usdt_value": 0.0,
+            "trading_usdt_value": 0.0004,
+            "trading_average_price": None,
+            "trading_cost_basis_available": False,
+            "okx_trading_spot_balance": 0.0002,
+            "okx_trading_average_price": 1.9,
+            "okx_trading_pnl_usdt": 0.00001,
+            "okx_trading_pnl_percent": 1.5,
+            "okx_trading_pnl_available": True,
+        }
+
+        manager._prefer_okx_trading_pnl([asset])
+
+        self.assertIsNone(asset["trading_average_price"])
+        self.assertFalse(
+            asset["trading_cost_basis_available"]
+        )
+        self.assertNotIn("trading_pnl_source", asset)
+
+    def test_okx_native_trading_pnl_is_not_used_when_spot_balance_differs(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "BTC",
+            "total": 1.0,
+            "funding_total": 0.0,
+            "trading_total": 1.0,
+            "funding_usdt_value": 0.0,
+            "trading_usdt_value": 65000.0,
+            "trading_average_price": 64000.0,
+            "trading_pnl_usdt": 1000.0,
+            "trading_cost_basis_available": True,
+            "okx_trading_spot_balance": 0.5,
+            "okx_trading_average_price": 63000.0,
+            "okx_trading_pnl_usdt": 900.0,
+            "okx_trading_pnl_percent": 2.0,
+            "okx_trading_pnl_available": True,
+        }
+
+        manager._prefer_okx_trading_pnl([asset])
+
+        self.assertEqual(
+            asset["trading_average_price"],
+            64000.0,
+        )
+        self.assertEqual(asset["trading_pnl_usdt"], 1000.0)
+        self.assertNotIn("trading_pnl_source", asset)
 
 
 

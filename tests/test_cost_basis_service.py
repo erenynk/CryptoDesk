@@ -567,6 +567,90 @@ class CostBasisServiceTestCase(unittest.TestCase):
         self.assertIsNone(result["trading"])
         self.assertIsNone(result["funding"])
 
+    def test_buy_after_partial_sell_uses_remaining_weighted_cost(self):
+        fills = [
+            self.make_fill(
+                coin="DOGE",
+                side="buy",
+                size=100,
+                price=0.10,
+                timestamp=1,
+                trade_id=1,
+            ),
+            self.make_fill(
+                coin="DOGE",
+                side="sell",
+                size=50,
+                price=0.12,
+                timestamp=2,
+                trade_id=2,
+            ),
+            self.make_fill(
+                coin="DOGE",
+                side="buy",
+                size=100,
+                price=0.20,
+                timestamp=3,
+                trade_id=3,
+            ),
+        ]
+        asset = self.make_asset(
+            coin="DOGE",
+            price=0.18,
+            total=150,
+        )
+
+        result = self.calculate_one(
+            fills=fills,
+            asset=asset,
+        )
+
+        expected_average = 25 / 150
+        expected_cost = 25
+        expected_pnl = 2
+        expected_percent = 8
+
+        self.assert_result(
+            result["total"],
+            average_price=expected_average,
+            cost_basis_usdt=expected_cost,
+            pnl_usdt=expected_pnl,
+            pnl_percent=expected_percent,
+        )
+        self.assert_result(
+            result["trading"],
+            average_price=expected_average,
+            cost_basis_usdt=expected_cost,
+            pnl_usdt=expected_pnl,
+            pnl_percent=expected_percent,
+        )
+
+    def test_incomplete_history_does_not_apply_latest_buy_to_old_balance(self):
+        fills = [
+            self.make_fill(
+                coin="DOGE",
+                side="buy",
+                size=100,
+                price=0.20,
+                timestamp=3,
+                trade_id=3,
+            )
+        ]
+        asset = self.make_asset(
+            coin="DOGE",
+            price=0.18,
+            total=1100,
+        )
+
+        result = self.calculate_one(
+            fills=fills,
+            asset=asset,
+        )
+
+        self.assertIsNone(result["total"])
+        self.assertIsNone(result["trading"])
+        self.assertIsNone(result["funding"])
+
     def test_attach_to_assets_writes_total_and_account_fields(self):
         assets = [
             self.make_asset(
