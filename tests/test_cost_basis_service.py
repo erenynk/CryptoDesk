@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from services.cost_basis_service import CostBasisService
 
@@ -720,6 +721,524 @@ class CostBasisServiceTestCase(unittest.TestCase):
         self.assertTrue(
             asset["funding_cost_basis_available"]
         )
+
+
+    def test_safe_float_and_symbol_helpers_handle_invalid_values(self):
+        self.assertEqual(
+            CostBasisService._safe_float(float("nan")),
+            0.0,
+        )
+        self.assertEqual(
+            CostBasisService._safe_float(object()),
+            0.0,
+        )
+        self.assertIsNone(
+            CostBasisService._extract_coin("BTC-USDC")
+        )
+        self.assertIsNone(
+            CostBasisService._extract_coin("-USDT")
+        )
+        self.assertEqual(
+            CostBasisService._extract_coin(" eth-usdt "),
+            "ETH",
+        )
+
+    def test_fill_and_transfer_helpers_reject_invalid_values(self):
+        self.assertEqual(
+            CostBasisService._buy_values(
+                "BTC",
+                {
+                    "fillSz": "0",
+                    "fillPx": "100",
+                },
+            ),
+            (0.0, 0.0),
+        )
+        self.assertEqual(
+            CostBasisService._buy_values(
+                "BTC",
+                {
+                    "fillSz": "1",
+                    "fillPx": "0",
+                },
+            ),
+            (0.0, 0.0),
+        )
+        self.assertEqual(
+            CostBasisService._sell_quantity(
+                "BTC",
+                {
+                    "fillSz": "0",
+                },
+            ),
+            0.0,
+        )
+        self.assertEqual(
+            CostBasisService._sell_quantity(
+                "BTC",
+                {
+                    "fillSz": "1",
+                    "fee": "-0.01",
+                    "feeCcy": "BTC",
+                },
+            ),
+            1.01,
+        )
+        self.assertEqual(
+            CostBasisService._transfer_quantity({}),
+            0.0,
+        )
+        self.assertEqual(
+            CostBasisService._transfer_quantity(
+                {
+                    "sz": "0",
+                    "amt": "-2",
+                }
+            ),
+            2.0,
+        )
+
+    def test_ledger_helpers_cover_known_and_unknown_cost_paths(self):
+        known = CostBasisService._new_ledger(
+            quantity=1,
+            cost=10,
+            cost_known=True,
+        )
+        CostBasisService._add_known_cost(
+            known,
+            0,
+            5,
+        )
+        self.assertEqual(
+            known,
+            {
+                "quantity": 1,
+                "cost": 10,
+                "cost_known": True,
+            },
+        )
+
+        CostBasisService._add_transferred(
+            known,
+            1,
+            20,
+            True,
+        )
+        self.assertEqual(known["quantity"], 2)
+        self.assertEqual(known["cost"], 30)
+        self.assertTrue(known["cost_known"])
+
+        unknown = CostBasisService._new_ledger(
+            quantity=1,
+            cost=0,
+            cost_known=False,
+        )
+        CostBasisService._add_transferred(
+            unknown,
+            1,
+            20,
+            True,
+        )
+        self.assertEqual(unknown["quantity"], 2)
+        self.assertEqual(unknown["cost"], 0)
+        self.assertFalse(unknown["cost_known"])
+
+        empty = CostBasisService._new_ledger()
+        CostBasisService._add_transferred(
+            empty,
+            1,
+            0,
+            False,
+        )
+        self.assertEqual(empty["quantity"], 1)
+        self.assertEqual(empty["cost"], 0)
+        self.assertFalse(empty["cost_known"])
+
+        unchanged = dict(empty)
+        CostBasisService._add_transferred(
+            empty,
+            0,
+            10,
+            True,
+        )
+        self.assertEqual(empty, unchanged)
+
+        self.assertEqual(
+            CostBasisService._remove(
+                CostBasisService._new_ledger(),
+                1,
+            ),
+            (0.0, 0.0, True),
+        )
+
+    def test_reconstruct_open_average_filters_invalid_fills(self):
+        fills = [
+            self.make_fill(
+                coin="ETH",
+                side="buy",
+                size=1,
+                price=50,
+                timestamp=5,
+                trade_id=5,
+            ),
+            {
+                "instId": "BTC-USDT",
+                "side": "invalid",
+                "fillSz": "1",
+                "fillPx": "100",
+                "ts": "4",
+                "tradeId": "4",
+            },
+            {
+                "instId": "BTC-USDT",
+                "side": "buy",
+                "fillSz": "0",
+                "fillPx": "100",
+                "ts": "3",
+                "tradeId": "3",
+            },
+            {
+                "instId": "BTC-USDT",
+                "side": "buy",
+                "fillSz": "1",
+                "fillPx": "0",
+                "ts": "2",
+                "tradeId": "2",
+            },
+            self.make_fill(
+                side="buy",
+                size=1,
+                price=100,
+                timestamp=1,
+                trade_id=1,
+            ),
+        ]
+
+        self.assertEqual(
+            CostBasisService._reconstruct_open_average(
+                fills,
+                "BTC",
+                1,
+            ),
+            100,
+        )
+        self.assertIsNone(
+            CostBasisService._reconstruct_open_average(
+                fills,
+                "BTC",
+                0,
+            )
+        )
+
+    def test_reconstruct_open_average_handles_sell_inventory(self):
+        fills = [
+            self.make_fill(
+                side="buy",
+                size=2,
+                price=100,
+                timestamp=1,
+                trade_id=1,
+            ),
+            self.make_fill(
+                side="sell",
+                size=1,
+                price=120,
+                timestamp=2,
+                trade_id=2,
+            ),
+        ]
+
+        self.assertEqual(
+            CostBasisService._reconstruct_open_average(
+                fills,
+                "BTC",
+                1,
+            ),
+            100,
+        )
+
+    def test_reconstruct_open_average_defensive_zero_use_path(self):
+        fills = [
+            self.make_fill(
+                side="buy",
+                size=1,
+                price=100,
+                timestamp=1,
+                trade_id=1,
+            )
+        ]
+
+        with patch(
+            "builtins.min",
+            return_value=0,
+        ):
+            result = (
+                CostBasisService
+                ._reconstruct_open_average(
+                    fills,
+                    "BTC",
+                    1,
+                )
+            )
+
+        self.assertIsNone(result)
+
+    def test_latest_buy_average_uses_latest_order_partial_fills(self):
+        fills = [
+            self.make_fill(
+                coin="ETH",
+                side="buy",
+                size=10,
+                price=1,
+                timestamp=20,
+                trade_id=20,
+            ),
+            self.make_fill(
+                side="sell",
+                size=1,
+                price=90,
+                timestamp=30,
+                trade_id=30,
+            ),
+            {
+                "instId": "BTC-USDT",
+                "side": "buy",
+                "fillSz": "0",
+                "fillPx": "100",
+                "ts": "40",
+                "tradeId": "40",
+                "ordId": "40",
+            },
+            self.make_fill(
+                side="buy",
+                size=1,
+                price=80,
+                timestamp=1,
+                trade_id=1,
+                order_id=1,
+            ),
+            self.make_fill(
+                side="buy",
+                size=0.4,
+                price=100,
+                timestamp=2,
+                trade_id=2,
+                order_id=10,
+            ),
+            self.make_fill(
+                side="buy",
+                size=0.6,
+                price=110,
+                timestamp=3,
+                trade_id=3,
+                order_id=10,
+            ),
+        ]
+
+        self.assertEqual(
+            CostBasisService._latest_buy_average(
+                fills,
+                "BTC",
+            ),
+            106,
+        )
+
+    def test_latest_buy_average_uses_trade_id_and_handles_no_buys(self):
+        fill = self.make_fill(
+            side="buy",
+            size=2,
+            price=125,
+            timestamp=1,
+            trade_id=7,
+        )
+        fill["ordId"] = ""
+
+        self.assertEqual(
+            CostBasisService._latest_buy_average(
+                [fill],
+                "BTC",
+            ),
+            125,
+        )
+        self.assertIsNone(
+            CostBasisService._latest_buy_average(
+                [
+                    self.make_fill(
+                        side="sell",
+                        size=1,
+                        price=100,
+                        timestamp=1,
+                        trade_id=1,
+                    )
+                ],
+                "BTC",
+            )
+        )
+
+    def test_latest_buy_average_rejects_degenerate_total(self):
+        fills = [
+            self.make_fill(
+                side="buy",
+                size=1,
+                price=100,
+                timestamp=1,
+                trade_id=1,
+            )
+        ]
+
+        original_tolerance = (
+            CostBasisService.QUANTITY_TOLERANCE
+        )
+        try:
+            CostBasisService.QUANTITY_TOLERANCE = 2
+            self.assertIsNone(
+                CostBasisService._latest_buy_average(
+                    fills,
+                    "BTC",
+                )
+            )
+        finally:
+            CostBasisService.QUANTITY_TOLERANCE = (
+                original_tolerance
+            )
+
+    def test_calculate_ignores_unrelated_assets_fills_and_transfers(self):
+        assets = [
+            self.make_asset(
+                coin="USDT",
+                price=1,
+                total=100,
+            ),
+            {
+                "coin": "",
+                "price": 1,
+                "total": 1,
+                "trading_total": 1,
+                "funding_total": 0,
+            },
+            self.make_asset(
+                coin="BTC",
+                price=110,
+                total=1,
+            ),
+        ]
+        fills = [
+            self.make_fill(
+                coin="ETH",
+                side="buy",
+                size=1,
+                price=100,
+                timestamp=1,
+                trade_id=1,
+            ),
+            {
+                "instId": "BTC-USDT",
+                "side": "invalid",
+                "fillSz": "1",
+                "fillPx": "100",
+                "ts": "2",
+                "tradeId": "2",
+            },
+            self.make_fill(
+                side="buy",
+                size=1,
+                price=100,
+                timestamp=3,
+                trade_id=3,
+            ),
+        ]
+        transfers = [
+            self.make_transfer(
+                coin="ETH",
+                quantity=1,
+                from_account=CostBasisService.TRADING_ACCOUNT,
+                to_account=CostBasisService.FUNDING_ACCOUNT,
+                timestamp=4,
+                bill_id=1,
+            ),
+            self.make_transfer(
+                quantity=1,
+                from_account="1",
+                to_account="2",
+                timestamp=5,
+                bill_id=2,
+            ),
+            {
+                "ccy": "BTC",
+                "sz": "0",
+                "from": CostBasisService.TRADING_ACCOUNT,
+                "to": CostBasisService.FUNDING_ACCOUNT,
+                "ts": "6",
+                "billId": "3",
+            },
+        ]
+
+        result = CostBasisService.calculate(
+            fills=fills,
+            current_assets=assets,
+            transfers=transfers,
+        )
+
+        self.assertEqual(set(result), {"BTC"})
+        self.assert_result(
+            result["BTC"]["total"],
+            average_price=100,
+            cost_basis_usdt=100,
+            pnl_usdt=10,
+            pnl_percent=10,
+        )
+
+    def test_attach_to_assets_clears_missing_and_invalid_results(self):
+        assets = [
+            self.make_asset(
+                coin="BTC",
+                price=100,
+                total=1,
+            ),
+            self.make_asset(
+                coin="ETH",
+                price=100,
+                total=1,
+            ),
+        ]
+
+        CostBasisService.attach_to_assets(
+            assets,
+            {
+                "BTC": "invalid",
+            },
+        )
+
+        for asset in assets:
+            for key in (
+                "average_price",
+                "cost_basis_usdt",
+                "pnl_usdt",
+                "pnl_percent",
+                "funding_average_price",
+                "funding_cost_basis_usdt",
+                "funding_pnl_usdt",
+                "funding_pnl_percent",
+                "trading_average_price",
+                "trading_cost_basis_usdt",
+                "trading_pnl_usdt",
+                "trading_pnl_percent",
+            ):
+                self.assertIsNone(asset[key])
+
+            self.assertFalse(
+                asset["cost_basis_available"]
+            )
+            self.assertFalse(
+                asset[
+                    "funding_cost_basis_available"
+                ]
+            )
+            self.assertFalse(
+                asset[
+                    "trading_cost_basis_available"
+                ]
+            )
 
 
 if __name__ == "__main__":
