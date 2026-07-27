@@ -1,5 +1,5 @@
 from datetime import datetime
-from ui.widgets.card import Card
+from ui.dashboard import ElevatedInnerPanel
 from ui.widgets.button import AppButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
@@ -56,7 +56,6 @@ class WatchlistPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
-        self._apply_watchlist_palette()
         self._connect_signals()
 
         self.load_symbols()
@@ -98,12 +97,9 @@ class WatchlistPage(QWidget):
         )
 
     def _create_add_card(self):
-        card = Card(
+        card = ElevatedInnerPanel(
             "addSymbolCard",
-            hover=False,
-            radius=Theme.RADIUS_LARGE,
-            shadow=True,
-            palette="blue_dark",
+            radius=18,
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -111,8 +107,8 @@ class WatchlistPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
+        layout.setContentsMargins(28, 26, 28, 26)
+        layout.setSpacing(18)
 
         title = QLabel("Varlık Ekle")
         title.setObjectName("addCardTitle")
@@ -126,12 +122,13 @@ class WatchlistPage(QWidget):
 
         input_layout = QHBoxLayout()
         input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(10)
+        input_layout.setSpacing(14)
 
         self.symbol_input = AppLineEdit(
             placeholder="Örnek: BTC",
             object_name="symbolInput",
         )
+        self.symbol_input.setMinimumHeight(44)
         self.symbol_input.setClearButtonEnabled(True)
 
         self.add_button = AppButton(
@@ -141,6 +138,7 @@ class WatchlistPage(QWidget):
         )
 
         input_layout.addWidget(self.symbol_input, 1)
+        self.add_button.setMinimumHeight(44)
         input_layout.addWidget(self.add_button)
 
         self.status_label = QLabel("")
@@ -156,12 +154,9 @@ class WatchlistPage(QWidget):
         return card
 
     def _create_table_card(self):
-        card = Card(
+        card = ElevatedInnerPanel(
             "watchlistTableCard",
-            hover=False,
-            radius=Theme.RADIUS_LARGE,
-            shadow=True,
-            palette="blue_dark",
+            radius=18,
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -169,7 +164,7 @@ class WatchlistPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 8, 10, 12)
         layout.setSpacing(0)
 
         table_header = SectionHeader(
@@ -179,6 +174,17 @@ class WatchlistPage(QWidget):
             ),
             object_name="watchlistSectionHeader",
         )
+
+        for label in table_header.findChildren(QLabel):
+            if label.text() == "Takip Edilen Varlıklar":
+                label.setStyleSheet(
+                    f"""
+                    color: {Theme.TEXT_PRIMARY};
+                    font-size: 18px;
+                    font-weight: 800;
+                    """
+                )
+                break
 
         self.table = QTableWidget()
         self.table.setObjectName("watchlistTable")
@@ -231,48 +237,6 @@ class WatchlistPage(QWidget):
 
         return card
 
-    def _apply_watchlist_palette(self):
-        add_card = self.findChild(QFrame, "addSymbolCard")
-        table_card = self.findChild(QFrame, "watchlistTableCard")
-
-        if add_card is not None:
-            add_card.setStyleSheet(
-                f"""
-                QFrame#addSymbolCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #182B38,
-                    stop: 0.50 #121F29,
-                    stop: 1 #0D1720
-                );
-                border: 1px solid #293B46;
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-                """
-            )
-
-        if table_card is not None:
-            table_card.setStyleSheet(
-                f"""
-                QFrame#watchlistTableCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #182B38,
-                    stop: 0.50 #121F29,
-                    stop: 1 #0D1720
-                );
-                border: 1px solid #293B46;
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-                """
-            )
-
     def _connect_signals(self):
         self.symbol_input.returnPressed.connect(
             self.add_symbol
@@ -294,6 +258,12 @@ class WatchlistPage(QWidget):
             
 
                         
+            QFrame#addSymbolCard,
+            QFrame#watchlistTableCard {{
+                background: transparent;
+                border: none;
+            }}
+
             QWidget#watchlistPage {{
                 background: qlineargradient(
                     x1: 0,
@@ -308,7 +278,7 @@ class WatchlistPage(QWidget):
 
             QLabel#addCardTitle {{
                 color: {Theme.TEXT_PRIMARY};
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: 800;
             }}
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 from ui.widgets.button import AppButton
-from ui.widgets.card import Card
+from ui.dashboard import ElevatedInnerPanel
 from ui.widgets.input import AppLineEdit
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
@@ -63,7 +63,6 @@ class AlarmsPage(QWidget):
 
         self._build_ui()
         self._apply_styles()
-        self._apply_alarms_palette()
         self._connect_signals()
 
         self.load_alarms()
@@ -105,12 +104,9 @@ class AlarmsPage(QWidget):
         )
 
     def _create_form_card(self):
-        card = Card(
+        card = ElevatedInnerPanel(
             "alarmFormCard",
-            hover=False,
-            radius=Theme.RADIUS_LARGE,
-            shadow=True,
-            palette="blue_dark",
+            radius=18,
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -118,8 +114,8 @@ class AlarmsPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
+        layout.setContentsMargins(28, 26, 28, 26)
+        layout.setSpacing(18)
 
         title = QLabel("Yeni Alarm")
         title.setObjectName("formTitle")
@@ -133,13 +129,14 @@ class AlarmsPage(QWidget):
 
         form_layout = QHBoxLayout()
         form_layout.setContentsMargins(0, 0, 0, 0)
-        form_layout.setSpacing(10)
+        form_layout.setSpacing(14)
 
         self.symbol_input = AppLineEdit(
             placeholder="Coin: BTC",
             object_name="symbolInput",
         )
         self.symbol_input.setMinimumWidth(120)
+        self.symbol_input.setMinimumHeight(44)
         self.symbol_input.setMaximumWidth(180)
         self.symbol_input.setClearButtonEnabled(True)
 
@@ -148,6 +145,7 @@ class AlarmsPage(QWidget):
             object_name="priceInput",
         )
         self.price_input.setMinimumWidth(140)
+        self.price_input.setMinimumHeight(44)
         self.price_input.setMaximumWidth(210)
         self.price_input.setClearButtonEnabled(True)
 
@@ -170,7 +168,7 @@ class AlarmsPage(QWidget):
         self.condition_button.setObjectName(
             "conditionButton"
         )
-        self.condition_button.setMinimumHeight(42)
+        self.condition_button.setMinimumHeight(44)
         self.condition_button.setMinimumWidth(190)
         self.condition_button.setCursor(
             Qt.PointingHandCursor
@@ -181,6 +179,7 @@ class AlarmsPage(QWidget):
             object_name="noteInput",
         )
         self.note_input.setMinimumWidth(180)
+        self.note_input.setMinimumHeight(44)
         self.note_input.setMaxLength(
             alarm_service.MAX_NOTE_LENGTH
         )
@@ -192,6 +191,7 @@ class AlarmsPage(QWidget):
             object_name="addButton",
         )
         self.add_button.setMinimumWidth(130)
+        self.add_button.setMinimumHeight(44)
 
         form_layout.addWidget(self.symbol_input)
         form_layout.addWidget(self.price_input)
@@ -214,12 +214,9 @@ class AlarmsPage(QWidget):
         return card
 
     def _create_table_card(self):
-        card = Card(
+        card = ElevatedInnerPanel(
             "alarmsTableCard",
-            hover=False,
-            radius=Theme.RADIUS_LARGE,
-            shadow=True,
-            palette="blue_dark",
+            radius=18,
         )
         card.setSizePolicy(
             QSizePolicy.Expanding,
@@ -227,7 +224,7 @@ class AlarmsPage(QWidget):
         )
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 8, 10, 12)
         layout.setSpacing(0)
 
         table_header = SectionHeader(
@@ -237,6 +234,17 @@ class AlarmsPage(QWidget):
             ),
             object_name="alarmsSectionHeader",
         )
+
+        for label in table_header.findChildren(QLabel):
+            if label.text() == "Fiyat Alarmları":
+                label.setStyleSheet(
+                    f"""
+                    color: {Theme.TEXT_PRIMARY};
+                    font-size: 18px;
+                    font-weight: 800;
+                    """
+                )
+                break
 
         self.table = QTableWidget()
         self.table.setObjectName("alarmsTable")
@@ -320,48 +328,6 @@ class AlarmsPage(QWidget):
 
         return card
 
-    def _apply_alarms_palette(self):
-        form_card = self.findChild(QFrame, "alarmFormCard")
-        table_card = self.findChild(QFrame, "alarmsTableCard")
-
-        if form_card is not None:
-            form_card.setStyleSheet(
-                f"""
-                QFrame#alarmFormCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #182B38,
-                    stop: 0.50 #121F29,
-                    stop: 1 #0D1720
-                );
-                border: 1px solid #293B46;
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-                """
-            )
-
-        if table_card is not None:
-            table_card.setStyleSheet(
-                f"""
-                QFrame#alarmsTableCard {{
-                background: qlineargradient(
-                    x1: 0,
-                    y1: 0,
-                    x2: 1,
-                    y2: 1,
-                    stop: 0 #182B38,
-                    stop: 0.50 #121F29,
-                    stop: 1 #0D1720
-                );
-                border: 1px solid #293B46;
-                border-radius: {Theme.RADIUS_LARGE}px;
-            }}
-                """
-            )
-
     def _connect_signals(self):
         self.symbol_input.returnPressed.connect(
             self.create_alarm
@@ -391,6 +357,12 @@ class AlarmsPage(QWidget):
             + f"""
             
                       
+            QFrame#alarmFormCard,
+            QFrame#alarmsTableCard {{
+                background: transparent;
+                border: none;
+            }}
+
             QWidget#alarmsPage {{
                 background: qlineargradient(
                     x1: 0,
@@ -405,7 +377,7 @@ class AlarmsPage(QWidget):
 
             QLabel#formTitle {{
                 color: {Theme.TEXT_PRIMARY};
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: 800;
             }}
 

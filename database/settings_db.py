@@ -1,7 +1,9 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, Iterator
 
 from security.dpapi import decrypt, encrypt
 
@@ -12,11 +14,30 @@ APP_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG = APP_DIR / "config.json"
 DB_PATH = APP_DIR / "cryptodesk.db"
 
+DEFAULT_APP_SETTINGS = {
+    "windows_startup_enabled": False,
+    "balance_widget_enabled": True,
+    "minimize_to_tray_enabled": True,
+    "notifications_enabled": True,
+    "alarm_sound_enabled": False,
+    "refresh_on_start_enabled": True,
+    "portfolio_history_enabled": True,
+}
 
-def _get_connection():
+
+@contextmanager
+def _get_connection() -> Iterator[sqlite3.Connection]:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
-    return connection
+
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def _init_watchlist_table():
@@ -87,8 +108,39 @@ def _init_price_alarms_table():
         """)
 
 
+def _init_app_settings_table():
+    with _get_connection() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
+        now = datetime.now(UTC).isoformat()
+
+        for key, value in DEFAULT_APP_SETTINGS.items():
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO app_settings (
+                    setting_key,
+                    setting_value,
+                    updated_at
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    key,
+                    json.dumps(value),
+                    now,
+                ),
+            )
+
+
 _init_watchlist_table()
 _init_price_alarms_table()
+_init_app_settings_table()
 
 
 def _normalize_symbol(symbol: str) -> str:
@@ -123,6 +175,195 @@ def load_settings():
 
     except (OSError, json.JSONDecodeError, KeyError, TypeError):
         return "", "", ""
+
+
+def get_app_setting(
+    key: str,
+    default: Any = None,
+) -> Any:
+    normalized_key = str(key or "").strip()
+
+    if not normalized_key:
+        return default
+
+    try:
+        with _get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT setting_value
+                FROM app_settings
+                WHERE setting_key = ?
+                """,
+                (normalized_key,),
+            ).fetchone()
+
+        if row is None:
+            return default
+
+        return json.loads(row["setting_value"])
+
+    except (
+        sqlite3.Error,
+        json.JSONDecodeError,
+        TypeError,
+    ):
+        return default
+
+
+def set_app_setting(
+    key: str,
+    value: Any,
+) -> bool:
+    normalized_key = str(key or "").strip()
+
+    if not normalized_key:
+        return False
+
+    try:
+        serialized_value = json.dumps(value)
+        updated_at = datetime.now(UTC).isoformat()
+
+        with _get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (
+                    setting_key,
+                    setting_value,
+                    updated_at
+                )
+                VALUES (?, ?, ?)
+                ON CONFLICT(setting_key)
+                DO UPDATE SET
+                    setting_value = excluded.setting_value,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    normalized_key,
+                    serialized_value,
+                    updated_at,
+                ),
+            )
+
+        return True
+
+    except (
+        sqlite3.Error,
+        TypeError,
+        ValueError,
+    ):
+        return False
+
+
+def get_all_app_settings() -> dict[str, Any]:
+    settings = DEFAULT_APP_SETTINGS.copy()
+
+    try:
+        with _get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    setting_key,
+                    setting_value
+                FROM app_settings
+                """
+            ).fetchall()
+
+        for row in rows:
+            key = row["setting_key"]
+
+            try:
+                settings[key] = json.loads(
+                    row["setting_value"]
+                )
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+    except sqlite3.Error:
+        pass
+
+    return settings
+
+
+def save_app_settings(
+    settings: dict[str, Any],
+) -> bool:
+    if not isinstance(settings, dict):
+        return False
+
+    try:
+        updated_at = datetime.now(UTC).isoformat()
+
+        with _get_connection() as conn:
+            for key, value in settings.items():
+                normalized_key = str(key or "").strip()
+
+                if not normalized_key:
+                    continue
+
+                conn.execute(
+                    """
+                    INSERT INTO app_settings (
+                        setting_key,
+                        setting_value,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(setting_key)
+                    DO UPDATE SET
+                        setting_value = excluded.setting_value,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        normalized_key,
+                        json.dumps(value),
+                        updated_at,
+                    ),
+                )
+
+        return True
+
+    except (
+        sqlite3.Error,
+        TypeError,
+        ValueError,
+    ):
+        return False
+
+
+def reset_app_settings() -> bool:
+    try:
+        updated_at = datetime.now(UTC).isoformat()
+
+        with _get_connection() as conn:
+            for key, value in DEFAULT_APP_SETTINGS.items():
+                conn.execute(
+                    """
+                    INSERT INTO app_settings (
+                        setting_key,
+                        setting_value,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(setting_key)
+                    DO UPDATE SET
+                        setting_value = excluded.setting_value,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        key,
+                        json.dumps(value),
+                        updated_at,
+                    ),
+                )
+
+        return True
+
+    except (
+        sqlite3.Error,
+        TypeError,
+        ValueError,
+    ):
+        return False
 
 
 def add_watchlist_symbol(

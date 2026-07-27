@@ -18,6 +18,7 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
@@ -31,9 +32,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from database.settings_db import get_app_setting
 from services.alarm_monitor import AlarmMonitor
 from services.data_manager import DataManager
 from ui.alarms import AlarmsPage
+from ui.analytics import AnalyticsPage
 from ui.dashboard import DashboardPage
 from ui.notification_popup import NotificationManager
 from ui.portfolio import PortfolioPage
@@ -59,6 +62,24 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self._allow_close = False
+        self._minimize_to_tray_enabled = bool(
+            get_app_setting(
+                "minimize_to_tray_enabled",
+                True,
+            )
+        )
+        self._notifications_enabled = bool(
+            get_app_setting(
+                "notifications_enabled",
+                True,
+            )
+        )
+        self._alarm_sound_enabled = bool(
+            get_app_setting(
+                "alarm_sound_enabled",
+                False,
+            )
+        )
         self.notification_manager = NotificationManager()
         self._page_animation = None
 
@@ -132,6 +153,7 @@ class MainWindow(QMainWindow):
             ("Portfolio", "portfolio", "#18C98B"),
             ("Watchlist", "watchlist", "#F1B84B"),
             ("Alarmlar", "alarms", "#F06475"),
+            ("Analytics", "analytics", "#45B7D1"),
             ("Ayarlar", "settings", "#9B7CF6"),
         )
 
@@ -340,6 +362,28 @@ class MainWindow(QMainWindow):
             painter.drawLine(QPointF(18.5, 16), QPointF(17, 13))
             painter.drawArc(QRectF(8.5, 16, 5, 4), 200 * 16, 140 * 16)
 
+        elif name == "analytics":
+            painter.drawLine(
+                QPointF(4, 17),
+                QPointF(4, 11),
+            )
+            painter.drawLine(
+                QPointF(9, 17),
+                QPointF(9, 7),
+            )
+            painter.drawLine(
+                QPointF(14, 17),
+                QPointF(14, 4),
+            )
+            painter.drawLine(
+                QPointF(19, 17),
+                QPointF(19, 9),
+            )
+            painter.drawLine(
+                QPointF(3, 18),
+                QPointF(20, 18),
+            )
+
         elif name == "settings":
             painter.drawEllipse(QRectF(8, 8, 6, 6))
             painter.drawEllipse(QRectF(4, 4, 14, 14))
@@ -368,12 +412,14 @@ class MainWindow(QMainWindow):
 
         self.watchlist_page = WatchlistPage(self.data_manager)
         self.alarms_page = AlarmsPage(self.data_manager)
+        self.analytics_page = AnalyticsPage(self.data_manager)
         self.settings_page = SettingsPage()
 
         self.pages.addWidget(self.dashboard_page)
         self.pages.addWidget(self.portfolio_page)
         self.pages.addWidget(self.watchlist_page)
         self.pages.addWidget(self.alarms_page)
+        self.pages.addWidget(self.analytics_page)
         self.pages.addWidget(self.settings_page)
 
         self.menu.setCurrentRow(0)
@@ -381,6 +427,29 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         self.menu.currentRowChanged.connect(
             self._change_page
+        )
+        self.settings_page.app_settings_changed.connect(
+            self._apply_runtime_settings
+        )
+
+    def _apply_runtime_settings(self, settings):
+        self._minimize_to_tray_enabled = bool(
+            settings.get(
+                "minimize_to_tray_enabled",
+                True,
+            )
+        )
+        self._notifications_enabled = bool(
+            settings.get(
+                "notifications_enabled",
+                True,
+            )
+        )
+        self._alarm_sound_enabled = bool(
+            settings.get(
+                "alarm_sound_enabled",
+                False,
+            )
         )
 
     def _change_page(self, index):
@@ -595,12 +664,22 @@ class MainWindow(QMainWindow):
             event.accept()
             return
 
-        if self.system_tray_available():
+        if (
+            self._minimize_to_tray_enabled
+            and self.system_tray_available()
+        ):
             event.ignore()
             self.hide()
             return
 
+        self._allow_close = True
+        self.alarm_monitor.stop()
         event.accept()
+
+        app = QApplication.instance()
+
+        if app is not None:
+            app.quit()
 
     @staticmethod
     def system_tray_available():
@@ -609,6 +688,12 @@ class MainWindow(QMainWindow):
         return QSystemTrayIcon.isSystemTrayAvailable()
 
     def on_alarm_triggered(self, alarm):
+        if self._alarm_sound_enabled:
+            QApplication.beep()
+
+        if not self._notifications_enabled:
+            return
+
         symbol = alarm["symbol"]
         current_price = alarm["current_price"]
         target_price = alarm["target_price"]

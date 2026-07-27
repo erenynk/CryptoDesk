@@ -1,6 +1,6 @@
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
     QApplication,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from database.settings_db import get_all_app_settings
 from services.data_manager import DataManager
 from ui.main_window import MainWindow
 
@@ -294,14 +295,22 @@ def main():
         QApplication.setQuitOnLastWindowClosed(False)
 
     data_manager = DataManager()
+    app_settings = get_all_app_settings()
+    data_manager.apply_app_settings(app_settings)
 
     window = MainWindow()
 
     screen = app.primaryScreen()
     available = screen.availableGeometry()
 
-    window_width = min(1320, available.width())
-    window_height = min(780, available.height())
+    window_width = min(
+        int(1320 * 1.10),
+        available.width(),
+    )
+    window_height = min(
+        int(780 * 1.10),
+        available.height(),
+    )
 
     window.resize(window_width, window_height)
 
@@ -322,7 +331,30 @@ def main():
         available.right() - balance_widget.width() - margin,
         available.bottom() - balance_widget.height() - margin,
     )
-    balance_widget.show()
+
+    if app_settings.get("balance_widget_enabled", True):
+        balance_widget.show()
+    else:
+        balance_widget.hide()
+
+    def apply_runtime_settings(settings):
+        data_manager.apply_app_settings(settings)
+
+        if settings.get("balance_widget_enabled", True):
+            balance_widget.show()
+            balance_widget.raise_()
+        else:
+            balance_widget.hide()
+
+    window.settings_page.app_settings_changed.connect(
+        apply_runtime_settings
+    )
+
+    if app_settings.get("refresh_on_start_enabled", True):
+        QTimer.singleShot(
+            0,
+            data_manager.refresh_portfolio,
+        )
 
     tray_manager = None
 
@@ -334,8 +366,6 @@ def main():
 
     exit_code = app.exec()
 
-    # Qt nesnelerinin uygulama çalıştığı sürece
-    # referanslarının korunmasını sağlar.
     _ = (
         data_manager,
         balance_widget,
@@ -346,4 +376,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pragma: no cover - uygulama giriş noktası
