@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QFrame,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -994,6 +995,225 @@ class SettingsPageTestCase(unittest.TestCase):
             ),
             "Trade: İzin Yok",
         )
+
+
+
+    def test_full_constructor_builds_complete_page(
+        self,
+    ):
+        saved_app_settings = {
+            "windows_startup_enabled": True,
+            "balance_widget_enabled": False,
+            "minimize_to_tray_enabled": True,
+            "notifications_enabled": True,
+            "alarm_sound_enabled": False,
+            "refresh_on_start_enabled": True,
+            "portfolio_history_enabled": False,
+        }
+
+        with (
+            patch.object(
+                settings_module,
+                "OKXService",
+                return_value=sentinel.okx_service,
+            ),
+            patch.object(
+                settings_module,
+                "load_settings",
+                return_value=(
+                    "api-key",
+                    "secret-key",
+                    "passphrase",
+                ),
+            ),
+            patch.object(
+                settings_module,
+                "get_all_app_settings",
+                return_value=saved_app_settings,
+            ),
+        ):
+            page = settings_module.SettingsPage()
+            self.pages.append(page)
+
+        self.assertIs(
+            page.okx_service,
+            sentinel.okx_service,
+        )
+        self.assertEqual(
+            page.scroll_area.objectName(),
+            "settingsScrollArea",
+        )
+        self.assertTrue(
+            page.scroll_area.widgetResizable()
+        )
+        self.assertIsNotNone(
+            page.scroll_area.widget()
+        )
+        self.assertEqual(
+            page.scroll_area.widget().objectName(),
+            "settingsContent",
+        )
+        self.assertEqual(
+            page.layout().count(),
+            1,
+        )
+
+        self.assertEqual(
+            page.connection_badge.objectName(),
+            "connectionBadge",
+        )
+        self.assertEqual(
+            page.connection_badge.text(),
+            "Kontrol edilmedi",
+        )
+
+        self.assertEqual(
+            page.api.text(),
+            "api-key",
+        )
+        self.assertEqual(
+            page.secret.text(),
+            "secret-key",
+        )
+        self.assertEqual(
+            page.passphrase.text(),
+            "passphrase",
+        )
+        self.assertEqual(
+            page.api.echoMode(),
+            QLineEdit.Normal,
+        )
+        self.assertEqual(
+            page.secret.echoMode(),
+            QLineEdit.Password,
+        )
+        self.assertEqual(
+            page.passphrase.echoMode(),
+            QLineEdit.Password,
+        )
+        self.assertEqual(
+            page.password_fields,
+            [
+                page.secret,
+                page.passphrase,
+            ],
+        )
+
+        visibility_buttons = page.findChildren(
+            QPushButton,
+            "visibilityButton",
+        )
+        self.assertEqual(
+            len(visibility_buttons),
+            2,
+        )
+        self.assertTrue(
+            all(
+                button.text() == "Göster"
+                for button in visibility_buttons
+            )
+        )
+
+        self.assertEqual(
+            page.test_button.objectName(),
+            "testButton",
+        )
+        self.assertEqual(
+            page.save_button.objectName(),
+            "saveButton",
+        )
+        self.assertEqual(
+            page.save_preferences_button.objectName(),
+            "savePreferencesButton",
+        )
+
+        self.assertEqual(
+            page.connection_result.text(),
+            (
+                "Kayıtlı API bilgileri bulundu. "
+                "Bağlantıyı doğrulamak için test edebilirsiniz."
+            ),
+        )
+        self.assertTrue(
+            page.permission_summary.isHidden()
+        )
+
+        self.assertEqual(
+            len(page.app_setting_controls),
+            7,
+        )
+
+        for key, expected in saved_app_settings.items():
+            with self.subTest(key=key):
+                self.assertEqual(
+                    page.app_setting_controls[
+                        key
+                    ].isChecked(),
+                    expected,
+                )
+
+        dividers = page.findChildren(
+            QFrame,
+            "settingsRowDivider",
+        )
+        self.assertEqual(
+            len(dividers),
+            6,
+        )
+
+        for object_name in (
+            "credentialsCard",
+            "connectionCard",
+            "applicationSettingsCard",
+        ):
+            with self.subTest(
+                object_name=object_name
+            ):
+                card = page.findChild(
+                    QFrame,
+                    object_name,
+                )
+                self.assertIsNotNone(card)
+                self.assertIn(
+                    f"QFrame#{object_name}",
+                    card.styleSheet(),
+                )
+                self.assertIn(
+                    "#182B38",
+                    card.styleSheet(),
+                )
+                self.assertIn(
+                    "#293B46",
+                    card.styleSheet(),
+                )
+
+        stylesheet = page.styleSheet()
+
+        self.assertIn(
+            "QWidget#settingsPage",
+            stylesheet,
+        )
+        self.assertIn(
+            "QScrollArea#settingsScrollArea",
+            stylesheet,
+        )
+        self.assertIn(
+            "QPushButton#visibilityButton",
+            stylesheet,
+        )
+        self.assertIn(
+            "QCheckBox#settingToggle",
+            stylesheet,
+        )
+        self.assertIn(
+            settings_module.Theme.TEXT_PRIMARY,
+            stylesheet,
+        )
+        self.assertIn(
+            settings_module.Theme.ACCENT,
+            stylesheet,
+        )
+
 
 
 if __name__ == "__main__":

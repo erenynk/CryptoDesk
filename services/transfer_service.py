@@ -155,10 +155,8 @@ class TransferService:
 
             if from_account == "18" and to_account == "6":
                 funding_change = transfer_value_usdt
-            elif from_account == "6" and to_account == "18":
-                funding_change = -transfer_value_usdt
             else:
-                continue
+                funding_change = -transfer_value_usdt
 
             for period, reference_time in (
                 normalized_references.items()
@@ -262,10 +260,8 @@ class TransferService:
             # Funding'e giriş pozitif, Funding'den çıkış negatif.
             if from_account == "18" and to_account == "6":
                 funding_change = transfer_value_usdt
-            elif from_account == "6" and to_account == "18":
-                funding_change = -transfer_value_usdt
             else:
-                continue
+                funding_change = -transfer_value_usdt
 
             age = normalized_time - bill_time
 

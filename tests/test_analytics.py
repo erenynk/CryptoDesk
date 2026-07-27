@@ -552,5 +552,136 @@ class AnalyticsPageTestCase(unittest.TestCase):
         card.deleteLater()
 
 
+
+    def test_full_constructor_builds_complete_page(
+        self,
+    ):
+        updated = SignalStub()
+        error = SignalStub()
+        manager = SimpleNamespace(
+            portfolio_updated=updated,
+            portfolio_error=error,
+            get_portfolio=Mock(return_value=None),
+        )
+
+        page = analytics_module.AnalyticsPage(manager)
+        self.pages.append(page)
+
+        self.assertEqual(
+            page.scroll_area.objectName(),
+            "analyticsScrollArea",
+        )
+        self.assertIsNotNone(
+            page.scroll_area.widget()
+        )
+        self.assertEqual(
+            page.scroll_area.widget().objectName(),
+            "analyticsContent",
+        )
+        self.assertEqual(
+            page.summary_grid.count(),
+            3,
+        )
+        self.assertEqual(
+            len(page.metric_labels),
+            27,
+        )
+        self.assertEqual(
+            updated.callbacks,
+            [page.on_portfolio_updated],
+        )
+        self.assertEqual(
+            error.callbacks,
+            [page.on_portfolio_error],
+        )
+        manager.get_portfolio.assert_called_once_with()
+        self.assertIn(
+            "QWidget#analyticsPage",
+            page.styleSheet(),
+        )
+        self.assertIn(
+            "analyticsPerformanceValue",
+            page.styleSheet(),
+        )
+
+    def test_portfolio_update_handles_invalid_summary_and_groups(
+        self,
+    ):
+        page = self.make_page()
+        self.build_metric_labels(page)
+        page.status_badge = Mock()
+
+        page.on_portfolio_updated(
+            {
+                "analytics": {
+                    "summary": "invalid",
+                },
+                "performance_breakdown": {
+                    "total": "invalid",
+                    "funding": [],
+                    "trading": None,
+                },
+            }
+        )
+
+        for label in page.metric_labels.values():
+            self.assertEqual(
+                label.text(),
+                "—",
+            )
+
+        page.status_badge.set_status.assert_called_once_with(
+            "Veri Hazır",
+            analytics_module.StatusBadge.SUCCESS,
+        )
+
+
+
+
+    def test_portfolio_update_replaces_invalid_summary_group(
+        self,
+    ):
+        page = self.make_page()
+        self.build_metric_labels(page)
+        page.status_badge = Mock()
+
+        page.on_portfolio_updated(
+            {
+                "analytics": {
+                    "summary": {
+                        "total": "invalid",
+                        "funding": [],
+                        "trading": None,
+                        "snapshot_count": 3,
+                    }
+                },
+                "performance_breakdown": {},
+            }
+        )
+
+        for group in ("total", "funding", "trading"):
+            for metric in (
+                "highest_usdt",
+                "lowest_usdt",
+                "average_usdt",
+            ):
+                self.assertEqual(
+                    page.metric_labels[
+                        f"{group}.{metric}"
+                    ].text(),
+                    "—",
+                )
+
+        self.assertEqual(
+            page.metric_labels["snapshot_count"].text(),
+            "3",
+        )
+        page.status_badge.set_status.assert_called_once_with(
+            "Veri Hazır",
+            analytics_module.StatusBadge.SUCCESS,
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1156,5 +1156,121 @@ class DataManagerHistoryTestCase(unittest.TestCase):
 
 
 
+    def test_okx_native_trading_pnl_skips_unsupported_assets(self):
+        manager = DataManagerHarness()
+        invalid_native = {
+            "coin": "ETH",
+            "trading_total": 1.0,
+            "trading_usdt_value": 100.0,
+            "okx_trading_spot_balance": 1.0,
+            "okx_trading_average_price": None,
+            "okx_trading_pnl_usdt": 5.0,
+            "okx_trading_pnl_percent": 5.0,
+            "okx_trading_pnl_available": True,
+            "trading_average_price": 90.0,
+        }
+        unavailable = {
+            "coin": "SOL",
+            "okx_trading_pnl_available": False,
+            "trading_average_price": 80.0,
+        }
+        usdt = {
+            "coin": "USDT",
+            "okx_trading_pnl_available": True,
+        }
+
+        manager._prefer_okx_trading_pnl(
+            [
+                "invalid",
+                usdt,
+                unavailable,
+                invalid_native,
+            ]
+        )
+
+        self.assertEqual(
+            invalid_native["trading_average_price"],
+            90.0,
+        )
+        self.assertNotIn(
+            "trading_pnl_source",
+            invalid_native,
+        )
+        self.assertEqual(
+            unavailable["trading_average_price"],
+            80.0,
+        )
+        self.assertNotIn("pnl_source", usdt)
+
+    def test_okx_native_trading_pnl_skips_zero_underflow_cost(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "BTC",
+            "trading_total": 1e-300,
+            "trading_usdt_value": 1.0,
+            "okx_trading_spot_balance": 1e-300,
+            "okx_trading_average_price": 1e-300,
+            "okx_trading_pnl_usdt": 0.0,
+            "okx_trading_pnl_percent": 0.0,
+            "okx_trading_pnl_available": True,
+            "trading_average_price": 64000.0,
+        }
+
+        manager._prefer_okx_trading_pnl([asset])
+
+        self.assertEqual(
+            asset["trading_average_price"],
+            64000.0,
+        )
+        self.assertNotIn("trading_pnl_source", asset)
+
+    def test_merge_total_marks_nonpositive_total_quantity_invalid(self):
+        manager = DataManagerHarness()
+        asset = {
+            "coin": "BTC",
+            "total": 0.0,
+            "funding_total": 1.0,
+            "funding_usdt_value": 100.0,
+            "funding_cost_basis_available": True,
+            "funding_cost_basis_usdt": 90.0,
+            "funding_pnl_usdt": 10.0,
+        }
+
+        manager._merge_total_pnl_with_funding(
+            asset=asset,
+            trading_cost=50.0,
+            trading_pnl=5.0,
+            trading_percent=10.0,
+            trading_average=50.0,
+        )
+
+        self.assertIsNone(asset["average_price"])
+        self.assertIsNone(asset["cost_basis_usdt"])
+        self.assertIsNone(asset["pnl_usdt"])
+        self.assertIsNone(asset["pnl_percent"])
+        self.assertFalse(asset["cost_basis_available"])
+        self.assertEqual(
+            asset["pnl_source"],
+            "invalid_total",
+        )
+
+    def test_optional_float_rejects_nonfinite_and_invalid_values(self):
+        cases = (
+            ("12.5", 12.5),
+            (float("nan"), None),
+            (float("inf"), None),
+            (float("-inf"), None),
+            (None, None),
+            ("invalid", None),
+        )
+
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(
+                    DataManager._optional_float(value),
+                    expected,
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

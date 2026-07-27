@@ -329,6 +329,14 @@ class PerformanceEngineTestCase(unittest.TestCase):
             PerformanceEngine.EPSILON * 2,
         )
 
+    def test_safe_float_handles_conversion_errors(self):
+        for value in (None, "invalid", object()):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    PerformanceEngine._safe_float(value),
+                    0.0,
+                )
+
     def test_invalid_start_and_end_values_are_normalized(
         self,
     ):

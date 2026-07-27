@@ -6,7 +6,8 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QPoint, QRect
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
 
 import app as app_module
@@ -745,6 +746,109 @@ class AppTestCase(unittest.TestCase):
             ].hide.call_count,
             2,
         )
+
+
+
+    def test_balance_widget_left_press_starts_dragging(
+        self,
+    ):
+        widget = app_module.BalanceWidget(
+            self.make_widget_manager()
+        )
+        widget.move(50, 60)
+
+        event = QMouseEvent(
+            QEvent.MouseButtonPress,
+            QPointF(10.0, 15.0),
+            QPointF(150.0, 175.0),
+            Qt.LeftButton,
+            Qt.LeftButton,
+            Qt.NoModifier,
+        )
+
+        widget.mousePressEvent(event)
+
+        self.assertTrue(widget.dragging)
+        self.assertEqual(
+            widget.offset,
+            QPoint(100, 115),
+        )
+
+        widget.close()
+
+    def test_balance_widget_mouse_move_clamps_and_moves(
+        self,
+    ):
+        widget = app_module.BalanceWidget(
+            self.make_widget_manager()
+        )
+        widget.dragging = True
+        widget.offset = QPoint(20, 30)
+        widget.clamp_to_screen = Mock(
+            return_value=(300, 400)
+        )
+        widget.move = Mock()
+
+        event = QMouseEvent(
+            QEvent.MouseMove,
+            QPointF(5.0, 5.0),
+            QPointF(500.0, 600.0),
+            Qt.NoButton,
+            Qt.LeftButton,
+            Qt.NoModifier,
+        )
+
+        widget.mouseMoveEvent(event)
+
+        widget.clamp_to_screen.assert_called_once_with(
+            QPoint(480, 570)
+        )
+        widget.move.assert_called_once_with(
+            300,
+            400,
+        )
+
+        widget.close()
+
+    def test_balance_widget_mouse_release_resets_and_clamps(
+        self,
+    ):
+        widget = app_module.BalanceWidget(
+            self.make_widget_manager()
+        )
+        widget.dragging = True
+        widget.offset = QPoint(20, 30)
+        widget.pos = Mock(
+            return_value=QPoint(700, 800)
+        )
+        widget.clamp_to_screen = Mock(
+            return_value=(600, 650)
+        )
+        widget.move = Mock()
+
+        event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            QPointF(5.0, 5.0),
+            QPointF(705.0, 805.0),
+            Qt.LeftButton,
+            Qt.NoButton,
+            Qt.NoModifier,
+        )
+
+        widget.mouseReleaseEvent(event)
+
+        self.assertFalse(widget.dragging)
+        self.assertIsNone(widget.offset)
+        widget.clamp_to_screen.assert_called_once_with(
+            QPoint(700, 800)
+        )
+        widget.move.assert_called_once_with(
+            600,
+            650,
+        )
+
+        widget.close()
+
 
 
 if __name__ == "__main__":

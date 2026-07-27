@@ -7,7 +7,7 @@ from unittest.mock import sentinel
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -628,6 +628,149 @@ class WatchlistPageTestCase(unittest.TestCase):
             "0 varlık",
             watchlist_module.StatusBadge.NEUTRAL,
         )
+
+
+
+    def test_full_constructor_builds_complete_page(
+        self,
+    ):
+        data_manager = SimpleNamespace(
+            get_price=Mock(),
+            okx=SimpleNamespace(
+                is_spot_symbol_available=Mock()
+            ),
+        )
+
+        with patch.object(
+            watchlist_module.watchlist_service,
+            "get_items",
+            return_value=[],
+        ):
+            page = watchlist_module.WatchlistPage(
+                data_manager
+            )
+            self.pages.append(page)
+
+        self.assertIs(
+            page.data_manager,
+            data_manager,
+        )
+        self.assertEqual(
+            page.layout().count(),
+            3,
+        )
+        self.assertEqual(
+            page.asset_count_badge.objectName(),
+            "assetCountBadge",
+        )
+        self.assertEqual(
+            page.asset_count_badge.text(),
+            "0 varlık",
+        )
+        self.assertEqual(
+            page.symbol_input.objectName(),
+            "symbolInput",
+        )
+        self.assertEqual(
+            page.symbol_input.placeholderText(),
+            "Örnek: BTC",
+        )
+        self.assertTrue(
+            page.symbol_input.isClearButtonEnabled()
+        )
+        self.assertEqual(
+            page.add_button.objectName(),
+            "addButton",
+        )
+        self.assertEqual(
+            page.add_button.text(),
+            "Watchlist'e Ekle",
+        )
+        self.assertEqual(
+            page.status_label.objectName(),
+            "statusLabel",
+        )
+        self.assertTrue(
+            page.status_label.isHidden()
+        )
+        self.assertEqual(
+            page.table.objectName(),
+            "watchlistTable",
+        )
+        self.assertEqual(
+            page.table.columnCount(),
+            7,
+        )
+        self.assertEqual(
+            page.table.horizontalHeader().objectName(),
+            "watchlistTableHeader",
+        )
+        self.assertFalse(
+            page.table.showGrid()
+        )
+        self.assertFalse(
+            page.table.wordWrap()
+        )
+        self.assertFalse(
+            page.table.verticalHeader().isVisible()
+        )
+        self.assertEqual(
+            page.table.columnWidth(0),
+            54,
+        )
+
+        labels = [
+            label.text()
+            for label in page.findChildren(QLabel)
+        ]
+
+        self.assertIn(
+            "Watchlist",
+            labels,
+        )
+        self.assertIn(
+            "Varlık Ekle",
+            labels,
+        )
+        self.assertIn(
+            "Takip Edilen Varlıklar",
+            labels,
+        )
+
+        stylesheet = page.styleSheet()
+
+        self.assertIn(
+            "QWidget#watchlistPage",
+            stylesheet,
+        )
+        self.assertIn(
+            "QTableWidget#watchlistTable",
+            stylesheet,
+        )
+        self.assertIn(
+            "QHeaderView#watchlistTableHeader",
+            stylesheet,
+        )
+        self.assertIn(
+            watchlist_module.Theme.TEXT_PRIMARY,
+            stylesheet,
+        )
+        self.assertIn(
+            watchlist_module.Theme.BORDER_SOFT,
+            stylesheet,
+        )
+
+    def test_show_event_reloads_symbols(
+        self,
+    ):
+        page = self.make_page()
+        page.load_symbols = Mock()
+        event = QShowEvent()
+
+        page.showEvent(event)
+
+        page.load_symbols.assert_called_once_with()
+
 
 
 if __name__ == "__main__":

@@ -7,7 +7,15 @@ from unittest.mock import sentinel
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QLabel,
+    QListWidget,
+    QMainWindow,
+    QStackedWidget,
+    QWidget,
+)
 
 import ui.main_window as main_window_module
 
@@ -823,6 +831,268 @@ class MainWindowTestCase(unittest.TestCase):
                     ),
                     expected,
                 )
+
+
+
+    def test_build_ui_sidebar_icons_footer_and_styles(
+        self,
+    ):
+        window = self.make_window()
+
+        window._build_ui()
+        window._apply_styles()
+
+        central_widget = window.centralWidget()
+
+        self.assertIsNotNone(central_widget)
+        self.assertEqual(
+            central_widget.objectName(),
+            "centralWidget",
+        )
+        self.assertEqual(
+            central_widget.layout().count(),
+            2,
+        )
+
+        self.assertIsInstance(
+            window.sidebar,
+            QFrame,
+        )
+        self.assertEqual(
+            window.sidebar.objectName(),
+            "sidebar",
+        )
+        self.assertEqual(
+            window.sidebar.minimumWidth(),
+            252,
+        )
+        self.assertEqual(
+            window.sidebar.maximumWidth(),
+            252,
+        )
+
+        self.assertIsInstance(
+            window.pages,
+            QStackedWidget,
+        )
+        self.assertEqual(
+            window.pages.objectName(),
+            "pageStack",
+        )
+
+        self.assertIsInstance(
+            window.menu,
+            QListWidget,
+        )
+        self.assertEqual(
+            window.menu.objectName(),
+            "navigationMenu",
+        )
+        self.assertEqual(
+            window.menu.count(),
+            6,
+        )
+        self.assertEqual(
+            window.menu.iconSize(),
+            QSize(20, 20),
+        )
+        self.assertEqual(
+            window.menu.minimumHeight(),
+            336,
+        )
+        self.assertEqual(
+            window.menu.maximumHeight(),
+            336,
+        )
+
+        expected_items = (
+            "Dashboard",
+            "Portfolio",
+            "Watchlist",
+            "Alarmlar",
+            "Analytics",
+            "Ayarlar",
+        )
+
+        for index, expected_text in enumerate(
+            expected_items
+        ):
+            with self.subTest(
+                index=index,
+                text=expected_text,
+            ):
+                item = window.menu.item(index)
+
+                self.assertEqual(
+                    item.text(),
+                    expected_text,
+                )
+                self.assertEqual(
+                    item.sizeHint(),
+                    QSize(196, 48),
+                )
+                self.assertFalse(
+                    item.icon().isNull()
+                )
+
+        brand = window.findChild(
+            QWidget,
+            "brandWidget",
+        )
+        self.assertIsNotNone(brand)
+
+        brand_logo = window.findChild(
+            QLabel,
+            "brandLogo",
+        )
+        self.assertIsNotNone(brand_logo)
+        self.assertEqual(
+            brand_logo.width(),
+            46,
+        )
+        self.assertEqual(
+            brand_logo.height(),
+            46,
+        )
+        self.assertFalse(
+            brand_logo.pixmap().isNull()
+        )
+        self.assertEqual(
+            brand_logo.pixmap().size(),
+            QSize(46, 46),
+        )
+
+        brand_title = window.findChild(
+            QLabel,
+            "brandTitle",
+        )
+        brand_subtitle = window.findChild(
+            QLabel,
+            "brandSubtitle",
+        )
+        navigation_label = window.findChild(
+            QLabel,
+            "navigationLabel",
+        )
+
+        self.assertEqual(
+            brand_title.text(),
+            "Caspian",
+        )
+        self.assertEqual(
+            brand_subtitle.text(),
+            "Portfolio Terminal",
+        )
+        self.assertEqual(
+            navigation_label.text(),
+            "MENÜ",
+        )
+
+        footer = window.findChild(
+            QFrame,
+            "sidebarFooter",
+        )
+        footer_dot = window.findChild(
+            QLabel,
+            "footerStatusDot",
+        )
+        footer_title = window.findChild(
+            QLabel,
+            "footerTitle",
+        )
+        footer_description = window.findChild(
+            QLabel,
+            "footerDescription",
+        )
+
+        self.assertIsNotNone(footer)
+        self.assertEqual(
+            footer_dot.size(),
+            QSize(8, 8),
+        )
+        self.assertEqual(
+            footer_title.text(),
+            "OKX Spot",
+        )
+        self.assertEqual(
+            footer_description.text(),
+            "Güvenli bağlantı",
+        )
+
+        logo = (
+            main_window_module.MainWindow
+            ._create_brand_logo()
+        )
+        self.assertFalse(logo.isNull())
+        self.assertEqual(
+            logo.size(),
+            QSize(46, 46),
+        )
+
+        icon_cases = (
+            ("dashboard", "#4F9CF9"),
+            ("portfolio", "#18C98B"),
+            ("watchlist", "#F1B84B"),
+            ("alarms", "#F06475"),
+            ("analytics", "#45B7D1"),
+            ("settings", "#9B7CF6"),
+            ("unknown", "#FFFFFF"),
+        )
+
+        for name, color in icon_cases:
+            with self.subTest(
+                icon=name
+            ):
+                icon = (
+                    main_window_module
+                    .MainWindow
+                    ._create_nav_icon(
+                        name,
+                        main_window_module.QColor(
+                            color
+                        ),
+                    )
+                )
+                self.assertFalse(
+                    icon.isNull()
+                )
+
+        stylesheet = window.styleSheet()
+
+        for selector in (
+            "QMainWindow",
+            "QWidget#centralWidget",
+            "QFrame#sidebar",
+            "QWidget#brandWidget",
+            "QListWidget#navigationMenu",
+            "QFrame#sidebarFooter",
+            "QStackedWidget#pageStack",
+        ):
+            with self.subTest(
+                selector=selector
+            ):
+                self.assertIn(
+                    selector,
+                    stylesheet,
+                )
+
+        self.assertIn(
+            window.WINDOW_BACKGROUND,
+            stylesheet,
+        )
+        self.assertIn(
+            window.SIDEBAR_BORDER,
+            stylesheet,
+        )
+        self.assertIn(
+            window.CONTENT_BACKGROUND,
+            stylesheet,
+        )
+        self.assertIn(
+            main_window_module.Theme.ACCENT,
+            stylesheet,
+        )
+
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from unittest.mock import sentinel
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QDoubleValidator
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -722,6 +722,271 @@ class AlarmsPageTestCase(unittest.TestCase):
 
         super_show.assert_called_once_with(event)
         page.load_alarms.assert_called_once_with()
+
+
+
+    def test_full_constructor_builds_complete_page(
+        self,
+    ):
+        data_manager = SimpleNamespace(
+            okx=SimpleNamespace(
+                is_spot_symbol_available=Mock()
+            ),
+            get_price=Mock(),
+        )
+
+        with patch.object(
+            alarms_module.alarm_service,
+            "get_all_alarms",
+            return_value=[],
+        ):
+            page = alarms_module.AlarmsPage(
+                data_manager
+            )
+            self.pages.append(page)
+
+        self.assertIs(
+            page.data_manager,
+            data_manager,
+        )
+        self.assertEqual(
+            page.layout().count(),
+            3,
+        )
+        self.assertEqual(
+            page.alarm_count_badge.objectName(),
+            "alarmCountBadge",
+        )
+        self.assertEqual(
+            page.alarm_count_badge.text(),
+            "0 aktif alarm",
+        )
+
+        self.assertEqual(
+            page.symbol_input.objectName(),
+            "symbolInput",
+        )
+        self.assertEqual(
+            page.symbol_input.placeholderText(),
+            "Coin: BTC",
+        )
+        self.assertTrue(
+            page.symbol_input.isClearButtonEnabled()
+        )
+        self.assertEqual(
+            page.symbol_input.minimumWidth(),
+            120,
+        )
+        self.assertEqual(
+            page.symbol_input.maximumWidth(),
+            180,
+        )
+
+        self.assertEqual(
+            page.price_input.objectName(),
+            "priceInput",
+        )
+        self.assertEqual(
+            page.price_input.placeholderText(),
+            "Hedef fiyat",
+        )
+        self.assertTrue(
+            page.price_input.isClearButtonEnabled()
+        )
+        self.assertEqual(
+            page.price_input.minimumWidth(),
+            140,
+        )
+        self.assertEqual(
+            page.price_input.maximumWidth(),
+            210,
+        )
+
+        validator = page.price_input.validator()
+
+        self.assertIsInstance(
+            validator,
+            QDoubleValidator,
+        )
+        self.assertEqual(
+            validator.bottom(),
+            0.00000001,
+        )
+        self.assertEqual(
+            validator.top(),
+            999999999999.0,
+        )
+        self.assertEqual(
+            validator.decimals(),
+            8,
+        )
+        self.assertEqual(
+            validator.notation(),
+            QDoubleValidator.StandardNotation,
+        )
+
+        self.assertEqual(
+            page.condition_button.objectName(),
+            "conditionButton",
+        )
+        self.assertEqual(
+            page.condition_button.text(),
+            "Fiyat Üstüne Çıkınca",
+        )
+        self.assertEqual(
+            page.condition_button.cursor().shape(),
+            Qt.PointingHandCursor,
+        )
+
+        self.assertEqual(
+            page.note_input.objectName(),
+            "noteInput",
+        )
+        self.assertEqual(
+            page.note_input.placeholderText(),
+            "Alarm notu (isteğe bağlı)",
+        )
+        self.assertEqual(
+            page.note_input.maxLength(),
+            alarms_module.alarm_service.MAX_NOTE_LENGTH,
+        )
+        self.assertTrue(
+            page.note_input.isClearButtonEnabled()
+        )
+
+        self.assertEqual(
+            page.add_button.objectName(),
+            "addButton",
+        )
+        self.assertEqual(
+            page.add_button.text(),
+            "Alarm Oluştur",
+        )
+        self.assertEqual(
+            page.status_label.objectName(),
+            "statusLabel",
+        )
+        self.assertTrue(
+            page.status_label.isHidden()
+        )
+
+        self.assertEqual(
+            page.table.objectName(),
+            "alarmsTable",
+        )
+        self.assertEqual(
+            page.table.columnCount(),
+            10,
+        )
+        self.assertEqual(
+            page.table.horizontalHeader().objectName(),
+            "alarmsTableHeader",
+        )
+        self.assertFalse(
+            page.table.showGrid()
+        )
+        self.assertFalse(
+            page.table.wordWrap()
+        )
+        self.assertFalse(
+            page.table.verticalHeader().isVisible()
+        )
+        self.assertEqual(
+            page.table.columnWidth(0),
+            54,
+        )
+        self.assertEqual(
+            page.table.columnWidth(5),
+            240,
+        )
+        self.assertEqual(
+            page.table.columnWidth(
+                page.TOGGLE_COLUMN
+            ),
+            110,
+        )
+        self.assertEqual(
+            page.table.columnWidth(
+                page.DELETE_COLUMN
+            ),
+            64,
+        )
+
+        labels = [
+            label.text()
+            for label in page.findChildren(QLabel)
+        ]
+
+        self.assertIn(
+            "Alarmlar",
+            labels,
+        )
+        self.assertIn(
+            "Yeni Alarm",
+            labels,
+        )
+        self.assertIn(
+            "Fiyat Alarmları",
+            labels,
+        )
+
+        stylesheet = page.styleSheet()
+
+        self.assertIn(
+            "QWidget#alarmsPage",
+            stylesheet,
+        )
+        self.assertIn(
+            "QPushButton#conditionButton",
+            stylesheet,
+        )
+        self.assertIn(
+            "QTableWidget#alarmsTable",
+            stylesheet,
+        )
+        self.assertIn(
+            "QHeaderView#alarmsTableHeader",
+            stylesheet,
+        )
+        self.assertIn(
+            alarms_module.Theme.TEXT_PRIMARY,
+            stylesheet,
+        )
+        self.assertIn(
+            alarms_module.Theme.BORDER_SOFT,
+            stylesheet,
+        )
+
+    def test_toggle_condition_switches_both_directions(
+        self,
+    ):
+        page = self.make_page()
+        page.condition_button = QPushButton(
+            "Fiyat Üstüne Çıkınca"
+        )
+
+        page.toggle_condition()
+
+        self.assertEqual(
+            page.selected_condition,
+            alarms_module.alarm_service.CONDITION_BELOW,
+        )
+        self.assertEqual(
+            page.condition_button.text(),
+            "Fiyat Altına Düşünce",
+        )
+
+        page.toggle_condition()
+
+        self.assertEqual(
+            page.selected_condition,
+            alarms_module.alarm_service.CONDITION_ABOVE,
+        )
+        self.assertEqual(
+            page.condition_button.text(),
+            "Fiyat Üstüne Çıkınca",
+        )
+
 
 
 if __name__ == "__main__":

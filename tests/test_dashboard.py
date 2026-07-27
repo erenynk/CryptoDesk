@@ -6,9 +6,25 @@ from unittest.mock import sentinel
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import (
+    QEvent,
+    QPointF,
+    QRectF,
+    QSize,
+    Qt,
+)
+from PySide6.QtGui import (
+    QColor,
+    QEnterEvent,
+    QPainter,
+    QPaintEvent,
+    QPixmap,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QApplication,
+    QFrame,
+    QGraphicsDropShadowEffect,
     QLabel,
     QGridLayout,
     QWidget,
@@ -743,6 +759,823 @@ class DashboardPageTestCase(unittest.TestCase):
                 "1d": 1.0,
             }
         )
+
+
+
+    def test_full_constructor_builds_complete_dashboard(
+        self,
+    ):
+        updated = SignalStub()
+        error = SignalStub()
+        data_manager = SimpleNamespace(
+            portfolio_updated=updated,
+            portfolio_error=error,
+            get_portfolio=Mock(return_value=None),
+            get_price=Mock(return_value=None),
+        )
+
+        with (
+            patch.object(
+                dashboard_module.alarm_service,
+                "get_all_alarms",
+                return_value=[],
+            ),
+            patch.object(
+                dashboard_module.watchlist_service,
+                "get_items",
+                return_value=[],
+            ),
+        ):
+            page = dashboard_module.DashboardPage(
+                data_manager
+            )
+            self.pages.append(page)
+
+        self.assertIs(
+            page.data_manager,
+            data_manager,
+        )
+        self.assertEqual(
+            page.layout_mode,
+            "wide",
+        )
+        self.assertEqual(
+            len(page.account_cards),
+            2,
+        )
+        self.assertEqual(
+            len(page.summary_sections),
+            3,
+        )
+        self.assertEqual(
+            len(page.period_cells),
+            5,
+        )
+        self.assertEqual(
+            len(page.period_value_labels),
+            5,
+        )
+
+        self.assertEqual(
+            page.layout().count(),
+            1,
+        )
+        self.assertEqual(
+            page.scroll_area.objectName(),
+            "dashboardScrollArea",
+        )
+        self.assertTrue(
+            page.scroll_area.widgetResizable()
+        )
+        self.assertIs(
+            page.scroll_area.widget(),
+            page.content_widget,
+        )
+        self.assertEqual(
+            page.content_widget.objectName(),
+            "dashboardContent",
+        )
+        self.assertEqual(
+            page.main_layout.count(),
+            5,
+        )
+
+        self.assertEqual(
+            page.status_badge.objectName(),
+            "dashboardStatusBadge",
+        )
+        self.assertEqual(
+            page.status_badge.text(),
+            "Bekleniyor",
+        )
+        self.assertEqual(
+            page.header.objectName(),
+            "dashboardHeader",
+        )
+
+        self.assertEqual(
+            page.hero_surface.objectName(),
+            "dashboardHeroSurface",
+        )
+        self.assertEqual(
+            page.period_surface.objectName(),
+            "dashboardPeriodSurface",
+        )
+        self.assertEqual(
+            page.overview_surface.objectName(),
+            "overviewContainer",
+        )
+
+        self.assertEqual(
+            page.value.text(),
+            "$0.00",
+        )
+        self.assertEqual(
+            page.funding_value.text(),
+            "$0.00",
+        )
+        self.assertEqual(
+            page.trading_value.text(),
+            "$0.00",
+        )
+        self.assertEqual(
+            page.hero_status.text(),
+            "Portföy verileri bekleniyor",
+        )
+
+        self.assertEqual(
+            page.hero_grid.count(),
+            3,
+        )
+        self.assertEqual(
+            page.period_layout.count(),
+            9,
+        )
+        self.assertEqual(
+            page.overview_layout.count(),
+            3,
+        )
+
+        self.assertEqual(
+            updated.callbacks,
+            [page.on_portfolio_updated],
+        )
+        self.assertEqual(
+            error.callbacks,
+            [page.on_portfolio_error],
+        )
+        data_manager.get_portfolio.assert_called_once_with()
+
+        labels = [
+            label.text()
+            for label in page.findChildren(QLabel)
+        ]
+
+        for expected in (
+            "Dashboard",
+            "TOPLAM PORTFÖY",
+            "Funding",
+            "Trading",
+            "1 Gün",
+            "7 Gün",
+            "30 Gün",
+            "90 Gün",
+            "1 Yıl",
+            "Portfolio",
+            "Alarmlar",
+            "Watchlist",
+        ):
+            with self.subTest(
+                expected=expected
+            ):
+                self.assertIn(
+                    expected,
+                    labels,
+                )
+
+        stylesheet = page.styleSheet()
+
+        for selector in (
+            "QWidget#dashboardPage",
+            "QScrollArea#dashboardScrollArea",
+            "QFrame#dashboardHeroSurface",
+            "QFrame#dashboardAccountPanel",
+            "QFrame#dashboardPeriodSurface",
+            "QFrame#dashboardSummarySurface",
+            "QLabel#heroValue",
+            "QLabel#periodValue",
+            "QLabel#summaryValue",
+        ):
+            with self.subTest(
+                selector=selector
+            ):
+                self.assertIn(
+                    selector,
+                    stylesheet,
+                )
+
+        self.assertIn(
+            dashboard_module.Theme.ACCENT,
+            stylesheet,
+        )
+        self.assertIn(
+            dashboard_module.Theme.TEXT_PRIMARY,
+            stylesheet,
+        )
+
+    def test_layout_mode_rebuilds_narrow_wide_and_ignores_same(
+        self,
+    ):
+        updated = SignalStub()
+        error = SignalStub()
+        data_manager = SimpleNamespace(
+            portfolio_updated=updated,
+            portfolio_error=error,
+            get_portfolio=Mock(return_value=None),
+            get_price=Mock(return_value=None),
+        )
+
+        with (
+            patch.object(
+                dashboard_module.alarm_service,
+                "get_all_alarms",
+                return_value=[],
+            ),
+            patch.object(
+                dashboard_module.watchlist_service,
+                "get_items",
+                return_value=[],
+            ),
+        ):
+            page = dashboard_module.DashboardPage(
+                data_manager
+            )
+            self.pages.append(page)
+
+        page._set_layout_mode("narrow")
+
+        self.assertEqual(
+            page.layout_mode,
+            "narrow",
+        )
+        self.assertEqual(
+            page.hero_grid.count(),
+            3,
+        )
+        self.assertIs(
+            page.hero_grid.itemAtPosition(
+                0,
+                0,
+            ).widget(),
+            page.metric_widget,
+        )
+        self.assertIs(
+            page.hero_grid.itemAtPosition(
+                1,
+                0,
+            ).widget(),
+            page.account_cards[0],
+        )
+        self.assertIs(
+            page.hero_grid.itemAtPosition(
+                2,
+                0,
+            ).widget(),
+            page.account_cards[1],
+        )
+        self.assertEqual(
+            page.period_layout.count(),
+            5,
+        )
+        self.assertEqual(
+            page.overview_layout.count(),
+            3,
+        )
+
+        period_cells_before = [
+            page.period_layout.itemAt(index).widget()
+            for index in range(
+                page.period_layout.count()
+            )
+        ]
+
+        page._set_layout_mode("narrow")
+
+        self.assertEqual(
+            [
+                page.period_layout.itemAt(
+                    index
+                ).widget()
+                for index in range(
+                    page.period_layout.count()
+                )
+            ],
+            period_cells_before,
+        )
+
+        page._set_layout_mode("wide")
+
+        self.assertEqual(
+            page.layout_mode,
+            "wide",
+        )
+        self.assertIs(
+            page.hero_grid.itemAtPosition(
+                0,
+                0,
+            ).widget(),
+            page.metric_widget,
+        )
+        self.assertIs(
+            page.hero_grid.itemAtPosition(
+                0,
+                1,
+            ).widget(),
+            page.account_cards[0],
+        )
+        self.assertIs(
+            page.hero_grid.itemAtPosition(
+                1,
+                1,
+            ).widget(),
+            page.account_cards[1],
+        )
+        self.assertEqual(
+            page.period_layout.count(),
+            9,
+        )
+        self.assertEqual(
+            len(
+                page.period_surface.findChildren(
+                    QFrame,
+                    "verticalDivider",
+                )
+            ),
+            4,
+        )
+        self.assertEqual(
+            page.overview_layout.count(),
+            3,
+        )
+
+    def test_surface_engine_draws_surface_and_background(
+        self,
+    ):
+        dashboard_module.SurfaceEngine._noise_tile = (
+            None
+        )
+
+        surface_pixmap = QPixmap(180, 120)
+        surface_pixmap.fill(Qt.transparent)
+        surface_painter = QPainter(
+            surface_pixmap
+        )
+
+        dashboard_module.SurfaceEngine.draw_surface(
+            painter=surface_painter,
+            rect=QRectF(
+                5.0,
+                5.0,
+                170.0,
+                110.0,
+            ),
+            radius=18,
+            base_color="#101B24",
+            start_color="#182B38",
+            end_color="#0D1720",
+            glow_color=QColor(
+                58,
+                78,
+                103,
+                18,
+            ),
+            border_color="#293B46",
+            border_top_color="#304550",
+        )
+        surface_painter.end()
+
+        self.assertFalse(
+            surface_pixmap.isNull()
+        )
+        self.assertIsNotNone(
+            dashboard_module.SurfaceEngine
+            ._noise_tile
+        )
+
+        background_pixmap = QPixmap(
+            200,
+            140,
+        )
+        background_pixmap.fill(
+            Qt.transparent
+        )
+        background_painter = QPainter(
+            background_pixmap
+        )
+
+        dashboard_module.SurfaceEngine.draw_page_background(
+            background_painter,
+            QRectF(
+                0.0,
+                0.0,
+                200.0,
+                140.0,
+            ),
+        )
+        background_painter.end()
+
+        self.assertFalse(
+            background_pixmap.isNull()
+        )
+
+    def test_corporate_surface_hover_shadow_and_paint(
+        self,
+    ):
+        parent = QWidget()
+        self.pages.append(parent)
+
+        surface = dashboard_module.CorporateSurface(
+            role="hero",
+            object_name="testCorporateSurface",
+            hover_enabled=True,
+            parent=parent,
+        )
+        surface.resize(220, 130)
+
+        self.assertIs(
+            surface.parent(),
+            parent,
+        )
+        self.assertEqual(
+            surface._role,
+            "hero",
+        )
+        self.assertTrue(
+            surface._hover_enabled
+        )
+        self.assertFalse(
+            surface._hovered
+        )
+        self.assertFalse(
+            surface.testAttribute(
+                Qt.WA_StyledBackground
+            )
+        )
+        self.assertTrue(
+            surface.testAttribute(
+                Qt.WA_TranslucentBackground
+            )
+        )
+        self.assertIsInstance(
+            surface.graphicsEffect(),
+            QGraphicsDropShadowEffect,
+        )
+        self.assertEqual(
+            surface._shadow.blurRadius(),
+            48.0,
+        )
+        self.assertEqual(
+            surface._shadow.yOffset(),
+            6.0,
+        )
+        self.assertEqual(
+            surface._shadow.color().getRgb(),
+            (0, 0, 0, 72),
+        )
+
+        paint_event = QPaintEvent(
+            surface.rect()
+        )
+
+        with (
+            patch.object(
+                dashboard_module.SurfaceEngine,
+                "draw_surface",
+            ) as draw_surface,
+            patch.object(
+                QFrame,
+                "paintEvent",
+            ),
+        ):
+            surface.paintEvent(
+                paint_event
+            )
+
+        draw_surface.assert_called_once()
+        self.assertEqual(
+            draw_surface.call_args.kwargs[
+                "border_color"
+            ],
+            "#293B46",
+        )
+
+        enter_event = QEnterEvent(
+            QPointF(2.0, 2.0),
+            QPointF(2.0, 2.0),
+            QPointF(2.0, 2.0),
+        )
+        surface.enterEvent(enter_event)
+
+        self.assertTrue(
+            surface._hovered
+        )
+        self.assertEqual(
+            surface._shadow.blurRadius(),
+            52.0,
+        )
+
+        with (
+            patch.object(
+                dashboard_module.SurfaceEngine,
+                "draw_surface",
+            ) as draw_surface,
+            patch.object(
+                QFrame,
+                "paintEvent",
+            ),
+        ):
+            surface.paintEvent(
+                paint_event
+            )
+
+        draw_surface.assert_called_once()
+        self.assertEqual(
+            draw_surface.call_args.kwargs[
+                "border_color"
+            ],
+            "#3A5664",
+        )
+
+        surface.leaveEvent(
+            QEvent(QEvent.Leave)
+        )
+
+        self.assertFalse(
+            surface._hovered
+        )
+        self.assertEqual(
+            surface._shadow.blurRadius(),
+            48.0,
+        )
+
+        non_hover_surface = (
+            dashboard_module.CorporateSurface(
+                role="account",
+                object_name="noHoverSurface",
+                hover_enabled=False,
+                parent=parent,
+            )
+        )
+        non_hover_surface.resize(
+            160,
+            90,
+        )
+        original_blur = (
+            non_hover_surface
+            ._shadow
+            .blurRadius()
+        )
+
+        non_hover_surface.enterEvent(
+            enter_event
+        )
+        non_hover_surface.leaveEvent(
+            QEvent(QEvent.Leave)
+        )
+
+        self.assertFalse(
+            non_hover_surface._hovered
+        )
+        self.assertEqual(
+            non_hover_surface
+            ._shadow
+            .blurRadius(),
+            original_blur,
+        )
+
+    def test_elevated_panels_render_hero_and_standard_palettes(
+        self,
+    ):
+        parent = QWidget()
+        self.pages.append(parent)
+
+        for object_name, radius in (
+            (
+                "dashboardHeroSurface",
+                24,
+            ),
+            (
+                "dashboardSummarySurface",
+                18,
+            ),
+        ):
+            with self.subTest(
+                object_name=object_name
+            ):
+                panel = (
+                    dashboard_module
+                    .ElevatedInnerPanel(
+                        object_name,
+                        radius=radius,
+                        parent=parent,
+                    )
+                )
+                panel.resize(
+                    260,
+                    170,
+                )
+
+                self.assertEqual(
+                    panel._radius,
+                    radius,
+                )
+                self.assertEqual(
+                    panel.objectName(),
+                    object_name,
+                )
+                self.assertFalse(
+                    panel.testAttribute(
+                        Qt.WA_StyledBackground
+                    )
+                )
+                self.assertTrue(
+                    panel.testAttribute(
+                        Qt.WA_TranslucentBackground
+                    )
+                )
+
+                target = QPixmap(
+                    260,
+                    170,
+                )
+                target.fill(
+                    Qt.transparent
+                )
+                panel.render(target)
+
+                self.assertFalse(
+                    target.isNull()
+                )
+
+    def test_dashboard_render_and_resize_event(
+        self,
+    ):
+        updated = SignalStub()
+        error = SignalStub()
+        data_manager = SimpleNamespace(
+            portfolio_updated=updated,
+            portfolio_error=error,
+            get_portfolio=Mock(return_value=None),
+            get_price=Mock(return_value=None),
+        )
+
+        with (
+            patch.object(
+                dashboard_module.alarm_service,
+                "get_all_alarms",
+                return_value=[],
+            ),
+            patch.object(
+                dashboard_module.watchlist_service,
+                "get_items",
+                return_value=[],
+            ),
+        ):
+            page = dashboard_module.DashboardPage(
+                data_manager
+            )
+            self.pages.append(page)
+
+        page.resize(
+            920,
+            720,
+        )
+        target = QPixmap(
+            920,
+            720,
+        )
+        target.fill(
+            Qt.transparent
+        )
+
+        with patch.object(
+            dashboard_module.SurfaceEngine,
+            "draw_page_background",
+            wraps=(
+                dashboard_module.SurfaceEngine
+                .draw_page_background
+            ),
+        ) as draw_background:
+            page.render(target)
+
+        self.assertTrue(
+            draw_background.called
+        )
+
+        page._sync_layout_mode = Mock()
+        resize_event = QResizeEvent(
+            QSize(900, 700),
+            QSize(800, 600),
+        )
+
+        with patch.object(
+            QWidget,
+            "resizeEvent",
+        ) as super_resize:
+            page.resizeEvent(
+                resize_event
+            )
+
+        super_resize.assert_called_once_with(
+            resize_event
+        )
+        page._sync_layout_mode.assert_called_once_with()
+
+    def test_account_daily_changes_handles_nested_invalid_data(
+        self,
+    ):
+        page = self.make_page()
+        self.build_value_labels(page)
+
+        page._update_account_daily_changes(
+            breakdown={
+                "funding": {
+                    "1d": 1.0,
+                },
+                "trading": {
+                    "1d": -1.0,
+                },
+            },
+            analytics={
+                "period_changes": "invalid",
+            },
+        )
+
+        self.assertEqual(
+            page.funding_change_amount.text(),
+            "—",
+        )
+        self.assertEqual(
+            page.trading_change_amount.text(),
+            "—",
+        )
+
+        page._update_account_daily_changes(
+            breakdown={},
+            analytics={
+                "period_changes": {
+                    "1d": "invalid",
+                },
+            },
+        )
+
+        self.assertEqual(
+            page.funding_change.text(),
+            "—",
+        )
+        self.assertEqual(
+            page.trading_change.text(),
+            "—",
+        )
+
+        page._update_account_daily_changes(
+            breakdown={},
+            analytics={
+                "period_changes": {
+                    "1d": {
+                        "funding": "invalid",
+                        "trading": [],
+                    },
+                },
+            },
+        )
+
+        self.assertEqual(
+            page.funding_change_amount.text(),
+            "—",
+        )
+        self.assertEqual(
+            page.trading_change_amount.text(),
+            "—",
+        )
+
+    def test_show_event_normalizes_invalid_performance(
+        self,
+    ):
+        page = self.make_page()
+        page.data_manager = SimpleNamespace(
+            get_portfolio=Mock(
+                return_value={
+                    "performance": "invalid",
+                    "performance_breakdown": {},
+                }
+            )
+        )
+        page._set_layout_mode = Mock()
+        page._sync_layout_mode = Mock()
+        page._update_period_cards = Mock()
+        page._update_dashboard_summaries = Mock()
+        event = Mock()
+
+        with (
+            patch.object(
+                QWidget,
+                "showEvent",
+            ),
+            patch.object(
+                dashboard_module.QTimer,
+                "singleShot",
+            ),
+        ):
+            page.showEvent(event)
+
+        page._update_period_cards.assert_called_once_with(
+            {}
+        )
+        page._update_dashboard_summaries.assert_called_once_with(
+            {}
+        )
+
 
 
 if __name__ == "__main__":

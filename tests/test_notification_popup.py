@@ -5,7 +5,8 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QPoint, QRect
+from PySide6.QtCore import QPoint, QPointF, QRect, Qt
+from PySide6.QtGui import QEnterEvent
 from PySide6.QtWidgets import QApplication, QLabel
 
 import ui.notification_popup as notification_module
@@ -778,6 +779,24 @@ class NotificationPopupTestCase(unittest.TestCase):
             ],
         )
         primary_screen.assert_called_once_with()
+
+
+
+    def test_enter_event_sets_arrow_cursor(self):
+        popup = self.make_popup()
+        event = QEnterEvent(
+            QPointF(1.0, 1.0),
+            QPointF(1.0, 1.0),
+            QPointF(1.0, 1.0),
+        )
+
+        popup.enterEvent(event)
+
+        self.assertEqual(
+            popup.cursor().shape(),
+            Qt.ArrowCursor,
+        )
+
 
 
 if __name__ == "__main__":
