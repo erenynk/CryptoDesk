@@ -1,0 +1,6 @@
+PySide6
+requests
+pywin32; sys_platform == "win32"
+keyring; sys_platform == "linux"
+secretstorage; sys_platform == "linux"
+cryptography; sys_platform == "linux"
