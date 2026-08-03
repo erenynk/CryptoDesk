@@ -5,10 +5,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
 
+from app_paths import get_app_data_dir
 from security.dpapi import decrypt, encrypt
 
 
-APP_DIR = Path.home() / "AppData" / "Local" / "CryptoDesk"
+APP_DIR = get_app_data_dir()
 APP_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG = APP_DIR / "config.json"

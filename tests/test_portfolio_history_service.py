@@ -899,47 +899,15 @@ class PortfolioHistoryServiceTestCase(
             finally:
                 connection.close()
 
-    def test_default_database_path_uses_local_app_data(
+    def test_default_database_path_uses_app_data_dir(
         self,
     ):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with patch.dict(
-                os.environ,
-                {
-                    "LOCALAPPDATA": temp_dir,
-                },
-                clear=True,
-            ):
-                result = (
-                    PortfolioHistoryService
-                    ._get_default_db_path()
-                )
+        app_dir = Path("/tmp/CryptoDesk")
 
-        self.assertEqual(
-            result,
-            (
-                Path(temp_dir)
-                / "CryptoDesk"
-                / "cryptodesk.db"
-            ),
-        )
-
-    def test_default_database_path_falls_back_to_home(
-        self,
-    ):
-        home = Path("C:/Users/TestUser")
-
-        with (
-            patch.dict(
-                os.environ,
-                {},
-                clear=True,
-            ),
-            patch.object(
-                Path,
-                "home",
-                return_value=home,
-            ),
+        with patch(
+            "services.portfolio_history_service"
+            ".get_app_data_dir",
+            return_value=app_dir,
         ):
             result = (
                 PortfolioHistoryService
@@ -948,8 +916,9 @@ class PortfolioHistoryServiceTestCase(
 
         self.assertEqual(
             result,
-            home / ".cryptodesk" / "cryptodesk.db",
+            app_dir / "cryptodesk.db",
         )
+
 
     def test_ensure_column_adds_missing_column(
         self,

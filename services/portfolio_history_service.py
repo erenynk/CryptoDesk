@@ -1,7 +1,8 @@
-import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from app_paths import get_app_data_dir
 from threading import Lock
 from typing import Any
 
@@ -52,12 +53,7 @@ class PortfolioHistoryService:
 
     @staticmethod
     def _get_default_db_path() -> Path:
-        local_app_data = os.getenv("LOCALAPPDATA")
-
-        if local_app_data:
-            return Path(local_app_data) / "CryptoDesk" / "cryptodesk.db"
-
-        return Path.home() / ".cryptodesk" / "cryptodesk.db"
+        return get_app_data_dir() / "cryptodesk.db"
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
