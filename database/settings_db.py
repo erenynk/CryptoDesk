@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from app_paths import get_app_data_dir
-from security.dpapi import decrypt, encrypt
+from security.dpapi import (
+    CredentialProtectionError,
+    decrypt,
+    encrypt,
+)
 
 
 APP_DIR = get_app_data_dir()
@@ -174,7 +178,15 @@ def load_settings():
             decrypt(data["passphrase"]),
         )
 
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+    except (
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+        UnicodeError,
+        CredentialProtectionError,
+    ):
         return "", "", ""
 
 
