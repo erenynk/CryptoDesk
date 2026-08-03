@@ -188,6 +188,22 @@ class BalanceWidget(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            platform = (
+                QApplication.platformName()
+                .strip()
+                .lower()
+            )
+
+            if platform.startswith("wayland"):
+                window = self.windowHandle()
+
+                if (
+                    window is not None
+                    and window.startSystemMove()
+                ):
+                    event.accept()
+                    return
+
             self.dragging = True
             self.offset = (
                 event.globalPosition().toPoint()
@@ -209,11 +225,16 @@ class BalanceWidget(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        used_manual_drag = self.dragging
+
         self.dragging = False
         self.offset = None
 
-        x, y = self.clamp_to_screen(self.pos())
-        self.move(x, y)
+        if used_manual_drag:
+            x, y = self.clamp_to_screen(
+                self.pos()
+            )
+            self.move(x, y)
 
         super().mouseReleaseEvent(event)
 
