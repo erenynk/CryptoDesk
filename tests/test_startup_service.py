@@ -188,19 +188,66 @@ class StartupServiceTestCase(unittest.TestCase):
             f'"{executable}" "{expected_app_path}"',
         )
 
-    def test_is_startup_enabled_returns_false_outside_windows(self):
-        with patch.object(
-            startup_service.os,
-            "name",
-            "posix",
-        ):
-            result = (
-                startup_service
-                .is_startup_enabled()
+
+    def test_is_startup_enabled_returns_false_when_linux_file_missing(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            autostart_file = (
+                Path(temp_dir)
+                / "autostart"
+                / "cryptodesk.desktop"
             )
+
+            with (
+                patch.object(
+                    startup_service.os,
+                    "name",
+                    "posix",
+                ),
+                patch.object(
+                    startup_service,
+                    "_get_autostart_file",
+                    return_value=autostart_file,
+                ),
+            ):
+                result = (
+                    startup_service
+                    .is_startup_enabled()
+                )
 
         self.assertFalse(result)
 
+    def test_is_startup_enabled_returns_true_when_linux_file_exists(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            autostart_file = (
+                Path(temp_dir)
+                / "autostart"
+                / "cryptodesk.desktop"
+            )
+            autostart_file.parent.mkdir()
+            autostart_file.touch()
+
+            with (
+                patch.object(
+                    startup_service.os,
+                    "name",
+                    "posix",
+                ),
+                patch.object(
+                    startup_service,
+                    "_get_autostart_file",
+                    return_value=autostart_file,
+                ),
+            ):
+                result = (
+                    startup_service
+                    .is_startup_enabled()
+                )
+
+        self.assertTrue(result)
     def test_is_startup_enabled_returns_true_for_nonempty_value(self):
         context, key = self.make_context_key()
         query_value = Mock(
@@ -332,19 +379,129 @@ class StartupServiceTestCase(unittest.TestCase):
 
         self.assertFalse(result)
 
-    def test_set_startup_enabled_returns_false_outside_windows(self):
-        with patch.object(
-            startup_service.os,
-            "name",
-            "posix",
-        ):
-            result = (
-                startup_service
-                .set_startup_enabled(True)
+
+    def test_set_startup_enabled_writes_linux_desktop_file(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            autostart_file = (
+                Path(temp_dir)
+                / "autostart"
+                / "cryptodesk.desktop"
             )
 
-        self.assertFalse(result)
+            with (
+                patch.object(
+                    startup_service.os,
+                    "name",
+                    "posix",
+                ),
+                patch.object(
+                    startup_service,
+                    "_get_autostart_file",
+                    return_value=autostart_file,
+                ),
+                patch.object(
+                    startup_service,
+                    "_get_startup_command",
+                    return_value=(
+                        '"/usr/bin/python3" '
+                        '"/opt/CryptoDesk/app.py"'
+                    ),
+                ),
+            ):
+                result = (
+                    startup_service
+                    .set_startup_enabled(True)
+                )
 
+            content = autostart_file.read_text(
+                encoding="utf-8"
+            )
+
+        self.assertTrue(result)
+        self.assertIn(
+            "[Desktop Entry]",
+            content,
+        )
+        self.assertIn(
+            "Name=CryptoDesk",
+            content,
+        )
+        self.assertIn(
+            (
+                'Exec="/usr/bin/python3" '
+                '"/opt/CryptoDesk/app.py"'
+            ),
+            content,
+        )
+        self.assertIn(
+            "Terminal=false",
+            content,
+        )
+
+    def test_set_startup_disabled_removes_linux_desktop_file(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            autostart_file = (
+                Path(temp_dir)
+                / "autostart"
+                / "cryptodesk.desktop"
+            )
+            autostart_file.parent.mkdir()
+            autostart_file.touch()
+
+            with (
+                patch.object(
+                    startup_service.os,
+                    "name",
+                    "posix",
+                ),
+                patch.object(
+                    startup_service,
+                    "_get_autostart_file",
+                    return_value=autostart_file,
+                ),
+            ):
+                result = (
+                    startup_service
+                    .set_startup_enabled(False)
+                )
+
+            exists = autostart_file.exists()
+
+        self.assertTrue(result)
+        self.assertFalse(exists)
+
+    def test_set_startup_disabled_accepts_missing_linux_file(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            autostart_file = (
+                Path(temp_dir)
+                / "autostart"
+                / "cryptodesk.desktop"
+            )
+
+            with (
+                patch.object(
+                    startup_service.os,
+                    "name",
+                    "posix",
+                ),
+                patch.object(
+                    startup_service,
+                    "_get_autostart_file",
+                    return_value=autostart_file,
+                ),
+            ):
+                result = (
+                    startup_service
+                    .set_startup_enabled(False)
+                )
+
+        self.assertTrue(result)
     def test_set_startup_enabled_writes_startup_command(self):
         context, key = self.make_context_key()
         set_value = Mock()
@@ -557,6 +714,61 @@ class StartupServiceTestCase(unittest.TestCase):
 
         self.assertFalse(result)
 
+
+    def test_autostart_file_uses_xdg_config_home(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                startup_service.os.environ,
+                {"XDG_CONFIG_HOME": temp_dir},
+                clear=True,
+            ):
+                result = (
+                    startup_service
+                    ._get_autostart_file()
+                )
+
+        self.assertEqual(
+            result,
+            (
+                Path(temp_dir)
+                / "autostart"
+                / "cryptodesk.desktop"
+            ),
+        )
+
+    def test_autostart_file_falls_back_to_home_config(
+        self,
+    ):
+        home = Path("/home/TestUser")
+
+        with (
+            patch.dict(
+                startup_service.os.environ,
+                {},
+                clear=True,
+            ),
+            patch.object(
+                Path,
+                "home",
+                return_value=home,
+            ),
+        ):
+            result = (
+                startup_service
+                ._get_autostart_file()
+            )
+
+        self.assertEqual(
+            result,
+            (
+                home
+                / ".config"
+                / "autostart"
+                / "cryptodesk.desktop"
+            ),
+        )
 
 if __name__ == "__main__":
     unittest.main()

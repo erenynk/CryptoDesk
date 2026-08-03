@@ -365,7 +365,7 @@ class SettingsPage(QWidget):
         settings = (
             (
                 "windows_startup_enabled",
-                "Windows ile başlat",
+                "Sistemle başlat",
                 "Bilgisayar açıldığında uygulamayı otomatik başlatır.",
             ),
             (
