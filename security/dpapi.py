@@ -1,5 +1,34 @@
 import base64
-import win32crypt
+import os
+from typing import Any
+
+
+class _UnavailableWin32Crypt:
+    """Windows dışındaki sistemler için DPAPI uyumluluk nesnesi."""
+
+    @staticmethod
+    def CryptProtectData(
+        *args: Any,
+        **kwargs: Any,
+    ) -> bytes:
+        raise RuntimeError(
+            "Windows DPAPI bu platformda kullanılamıyor."
+        )
+
+    @staticmethod
+    def CryptUnprotectData(
+        *args: Any,
+        **kwargs: Any,
+    ) -> tuple[None, bytes]:
+        raise RuntimeError(
+            "Windows DPAPI bu platformda kullanılamıyor."
+        )
+
+
+if os.name == "nt":
+    import win32crypt
+else:
+    win32crypt = _UnavailableWin32Crypt()
 
 
 def encrypt(text: str) -> str:
@@ -11,7 +40,7 @@ def encrypt(text: str) -> str:
         None,
         None,
         None,
-        0
+        0,
     )
 
     return base64.b64encode(encrypted).decode()
@@ -25,7 +54,7 @@ def decrypt(text: str) -> str:
         None,
         None,
         None,
-        0
+        0,
     )[1]
 
     return decrypted.decode()
