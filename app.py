@@ -1,4 +1,11 @@
+import os
 import sys
+
+if sys.platform.startswith("linux"):
+    os.environ.setdefault(
+        "QT_QPA_PLATFORM",
+        "xcb",
+    )
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction, QFont
