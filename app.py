@@ -361,12 +361,14 @@ class ApplicationShutdownCoordinator(QObject):
         app: QApplication,
         window: MainWindow,
         balance_widget: BalanceWidget,
+        instance_lock=None,
     ):
         super().__init__()
 
         self.app = app
         self.window = window
         self.balance_widget = balance_widget
+        self.instance_lock = instance_lock
         self.tray_manager = None
         self._exit_requested = False
         self._quit_scheduled = False
@@ -376,6 +378,27 @@ class ApplicationShutdownCoordinator(QObject):
 
     def set_tray_manager(self, tray_manager):
         self.tray_manager = tray_manager
+
+    def _release_instance_lock(self):
+        instance_lock = self.instance_lock
+        self.instance_lock = None
+
+        if instance_lock is None:
+            return
+
+        unlock = getattr(
+            instance_lock,
+            "unlock",
+            None,
+        )
+
+        if not callable(unlock):
+            return
+
+        try:
+            unlock()
+        except RuntimeError:
+            pass
 
     def eventFilter(self, watched, event):
         if (
@@ -423,6 +446,7 @@ class ApplicationShutdownCoordinator(QObject):
             return
 
         self._exit_requested = True
+        self._release_instance_lock()
         self.window.allow_application_close()
         self.balance_widget.prepare_for_shutdown()
         self.window.hide()
@@ -716,6 +740,7 @@ def main():
             app=app,
             window=window,
             balance_widget=balance_widget,
+            instance_lock=instance_lock,
         )
     )
     shutdown_started = False
@@ -777,7 +802,10 @@ def main():
             tray_manager
         )
 
-    exit_code = app.exec()
+    try:
+        exit_code = app.exec()
+    finally:
+        shutdown_coordinator._release_instance_lock()
 
     _ = (
         instance_lock,
