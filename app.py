@@ -9,7 +9,13 @@ if sys.platform.startswith("linux"):
         "xcb",
     )
 
-from PySide6.QtCore import QEvent, QLockFile, QTimer, Qt
+from PySide6.QtCore import (
+    QEvent,
+    QLockFile,
+    QObject,
+    QTimer,
+    Qt,
+)
 from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -90,23 +96,43 @@ def load_application_icon() -> QIcon:
     return QIcon(str(icon_path))
 
 
+def balance_widget_window_flags():
+    flags = (
+        Qt.WindowStaysOnTopHint
+        | Qt.FramelessWindowHint
+        | Qt.Tool
+    )
+
+    platform_name = (
+        QApplication.platformName()
+        .strip()
+        .lower()
+    )
+
+    if (
+        sys.platform.startswith("linux")
+        and platform_name == "xcb"
+    ):
+        flags |= Qt.X11BypassWindowManagerHint
+
+    return flags
+
+
 class BalanceWidget(QWidget):
     def __init__(self, data_manager):
         super().__init__()
 
         self.data_manager = data_manager
         self.balance_hidden = False
+        self._shutdown_prepared = False
         self.last_total = 0.0
         self.last_trading = 0.0
-        self._widget_enabled = False
-        self._visibility_restore_pending = False
-
         self.setWindowFlags(
-            Qt.WindowStaysOnTopHint
-            | Qt.FramelessWindowHint
-            | Qt.Tool
+            balance_widget_window_flags()
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setFocusPolicy(Qt.NoFocus)
 
         self.setFixedSize(250, 76)
         outer_layout = QHBoxLayout(self)
@@ -201,62 +227,30 @@ class BalanceWidget(QWidget):
             self.on_portfolio_updated
         )
 
-    def set_visibility_enabled(self, enabled):
-        self._widget_enabled = bool(enabled)
-
-        if not self._widget_enabled:
-            self._visibility_restore_pending = False
-
     def prepare_for_shutdown(self):
-        self._widget_enabled = False
-        self._visibility_restore_pending = False
-        self.hide()
-
-    def schedule_visibility_restore(self):
-        if (
-            not self._widget_enabled
-            or self._visibility_restore_pending
-            or QApplication.closingDown()
-        ):
+        if self._shutdown_prepared:
             return
 
-        self._visibility_restore_pending = True
-        QTimer.singleShot(
-            0,
-            self.restore_visibility,
+        self._shutdown_prepared = True
+
+        portfolio_signal = getattr(
+            self.data_manager,
+            "portfolio_updated",
+            None,
+        )
+        disconnect = getattr(
+            portfolio_signal,
+            "disconnect",
+            None,
         )
 
-    def restore_visibility(self):
-        self._visibility_restore_pending = False
+        if callable(disconnect):
+            try:
+                disconnect(self.on_portfolio_updated)
+            except (RuntimeError, TypeError, ValueError):
+                pass
 
-        if (
-            not self._widget_enabled
-            or QApplication.closingDown()
-        ):
-            return
-
-        if self.isMinimized():
-            self.showNormal()
-        else:
-            self.show()
-
-        self.raise_()
-
-    def changeEvent(self, event):
-        super().changeEvent(event)
-
-        if (
-            event.type() == QEvent.WindowStateChange
-            and self._widget_enabled
-            and self.isMinimized()
-        ):
-            self.schedule_visibility_restore()
-
-    def hideEvent(self, event):
-        super().hideEvent(event)
-
-        if self._widget_enabled:
-            self.schedule_visibility_restore()
+        self.hide()
 
     def clamp_to_screen(self, pos):
         screen = QApplication.screenAt(pos)
@@ -285,6 +279,9 @@ class BalanceWidget(QWidget):
         return x, y
 
     def on_portfolio_updated(self, portfolio):
+        if self._shutdown_prepared:
+            return
+
         self.last_total = portfolio.get("total_usdt", 0.0)
         self.last_trading = portfolio.get("trading_usdt", 0.0)
         self.update_balance()
@@ -358,6 +355,216 @@ class BalanceWidget(QWidget):
         super().mouseReleaseEvent(event)
 
 
+class ApplicationShutdownCoordinator(QObject):
+    def __init__(
+        self,
+        app: QApplication,
+        window: MainWindow,
+        balance_widget: BalanceWidget,
+    ):
+        super().__init__()
+
+        self.app = app
+        self.window = window
+        self.balance_widget = balance_widget
+        self.tray_manager = None
+        self._exit_requested = False
+        self._quit_scheduled = False
+        self._worker = None
+
+        self.window.installEventFilter(self)
+
+    def set_tray_manager(self, tray_manager):
+        self.tray_manager = tray_manager
+
+    def eventFilter(self, watched, event):
+        if (
+            watched is self.window
+            and event.type() == QEvent.Close
+            and self._should_intercept_close()
+        ):
+            event.ignore()
+            self.request_exit()
+            return True
+
+        return False
+
+    def _should_intercept_close(self):
+        if getattr(self.window, "_allow_close", False):
+            return True
+
+        minimize_to_tray = bool(
+            getattr(
+                self.window,
+                "_minimize_to_tray_enabled",
+                False,
+            )
+        )
+        tray_available = False
+        checker = getattr(
+            self.window,
+            "system_tray_available",
+            None,
+        )
+
+        if callable(checker):
+            try:
+                tray_available = bool(checker())
+            except RuntimeError:
+                tray_available = False
+
+        return not (
+            minimize_to_tray
+            and tray_available
+        )
+
+    def request_exit(self):
+        if self._exit_requested:
+            return
+
+        self._exit_requested = True
+        self.window.allow_application_close()
+        self.balance_widget.prepare_for_shutdown()
+        self.window.hide()
+
+        if self.tray_manager is not None:
+            self.tray_manager.tray_icon.hide()
+
+        alarm_monitor = getattr(
+            self.window,
+            "alarm_monitor",
+            None,
+        )
+        stop_alarm_monitor = getattr(
+            alarm_monitor,
+            "stop",
+            None,
+        )
+
+        if callable(stop_alarm_monitor):
+            stop_alarm_monitor()
+
+        portfolio_page = getattr(
+            self.window,
+            "portfolio_page",
+            None,
+        )
+
+        if portfolio_page is None:
+            self._complete_exit()
+            return
+
+        portfolio_page._shutting_down = True
+        refresh_timer = getattr(
+            portfolio_page,
+            "refresh_timer",
+            None,
+        )
+        stop_refresh_timer = getattr(
+            refresh_timer,
+            "stop",
+            None,
+        )
+
+        if callable(stop_refresh_timer):
+            stop_refresh_timer()
+
+        worker = getattr(
+            portfolio_page,
+            "worker",
+            None,
+        )
+
+        if worker is None:
+            self._complete_exit()
+            return
+
+        self._worker = worker
+        finished_signal = getattr(
+            worker,
+            "finished",
+            None,
+        )
+        connect_finished = getattr(
+            finished_signal,
+            "connect",
+            None,
+        )
+
+        if callable(connect_finished):
+            connect_finished(
+                self._on_worker_finished
+            )
+
+        is_running = getattr(
+            worker,
+            "isRunning",
+            None,
+        )
+        running = bool(
+            is_running()
+            if callable(is_running)
+            else False
+        )
+
+        if not running:
+            self._on_worker_finished()
+            return
+
+        request_interruption = getattr(
+            worker,
+            "requestInterruption",
+            None,
+        )
+
+        if callable(request_interruption):
+            request_interruption()
+
+        if callable(is_running) and not is_running():
+            self._on_worker_finished()
+
+    def _on_worker_finished(self):
+        worker = self._worker
+        self._worker = None
+
+        portfolio_page = getattr(
+            self.window,
+            "portfolio_page",
+            None,
+        )
+
+        if (
+            portfolio_page is not None
+            and getattr(
+                portfolio_page,
+                "worker",
+                None,
+            ) is worker
+        ):
+            portfolio_page.worker = None
+
+        self._complete_exit()
+
+    def _complete_exit(self):
+        if self._quit_scheduled:
+            return
+
+        self._quit_scheduled = True
+        shutdown = getattr(
+            self.window,
+            "shutdown",
+            None,
+        )
+
+        if callable(shutdown):
+            shutdown()
+
+        QTimer.singleShot(
+            0,
+            self.app.quit,
+        )
+
+
 class SystemTrayManager:
     def __init__(
         self,
@@ -366,6 +573,7 @@ class SystemTrayManager:
     ):
         self.app = app
         self.window = window
+        self.shutdown_coordinator = None
 
         self.tray_icon = QSystemTrayIcon(self.window)
         self.tray_icon.setToolTip("CryptoDesk")
@@ -407,12 +615,40 @@ class SystemTrayManager:
 
         self.tray_icon.show()
 
+    def set_shutdown_coordinator(
+        self,
+        shutdown_coordinator,
+    ):
+        self.shutdown_coordinator = (
+            shutdown_coordinator
+        )
+
     def show_main_window(self):
         self.window.show_from_tray()
 
     def exit_application(self):
         self.window.allow_application_close()
         self.tray_icon.hide()
+
+        shutdown_coordinator = getattr(
+            self,
+            "shutdown_coordinator",
+            None,
+        )
+
+        if shutdown_coordinator is not None:
+            shutdown_coordinator.request_exit()
+            return
+
+        shutdown = getattr(
+            self.window,
+            "shutdown",
+            None,
+        )
+
+        if callable(shutdown):
+            shutdown()
+
         self.app.quit()
 
     def on_tray_activated(self, reason):
@@ -448,7 +684,6 @@ def main():
 
     window = MainWindow()
     window.setWindowTitle("CryptoDesk")
-    app.aboutToQuit.connect(window.shutdown)
 
     if not app_icon.isNull():
         window.setWindowIcon(app_icon)
@@ -476,9 +711,26 @@ def main():
     window.show()
 
     balance_widget = BalanceWidget(data_manager)
-    app.aboutToQuit.connect(
-        balance_widget.prepare_for_shutdown
+    shutdown_coordinator = (
+        ApplicationShutdownCoordinator(
+            app=app,
+            window=window,
+            balance_widget=balance_widget,
+        )
     )
+    shutdown_started = False
+
+    def shutdown_runtime():
+        nonlocal shutdown_started
+
+        if shutdown_started:
+            return
+
+        shutdown_started = True
+        balance_widget.prepare_for_shutdown()
+        window.shutdown()
+
+    app.aboutToQuit.connect(shutdown_runtime)
 
     margin = 4
     balance_widget.move(
@@ -489,9 +741,6 @@ def main():
     balance_widget_enabled = app_settings.get(
         "balance_widget_enabled",
         True,
-    )
-    balance_widget.set_visibility_enabled(
-        balance_widget_enabled
     )
 
     if balance_widget_enabled:
@@ -505,13 +754,9 @@ def main():
             "balance_widget_enabled",
             True,
         )
-        balance_widget.set_visibility_enabled(
-            balance_widget_enabled
-        )
 
         if balance_widget_enabled:
             balance_widget.show()
-            balance_widget.raise_()
         else:
             balance_widget.hide()
 
@@ -519,17 +764,17 @@ def main():
         apply_runtime_settings
     )
 
-    if app_settings.get("refresh_on_start_enabled", True):
-        QTimer.singleShot(
-            0,
-            data_manager.refresh_portfolio,
-        )
-
     tray_manager = None
     if QSystemTrayIcon.isSystemTrayAvailable():
         tray_manager = SystemTrayManager(
             app=app,
             window=window,
+        )
+        tray_manager.set_shutdown_coordinator(
+            shutdown_coordinator
+        )
+        shutdown_coordinator.set_tray_manager(
+            tray_manager
         )
 
     exit_code = app.exec()
@@ -538,6 +783,7 @@ def main():
         instance_lock,
         data_manager,
         balance_widget,
+        shutdown_coordinator,
         tray_manager,
     )
 

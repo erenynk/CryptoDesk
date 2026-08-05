@@ -644,12 +644,7 @@ class AppTestCase(unittest.TestCase):
         dependencies[
             "balance_widget"
         ].show.assert_called_once_with()
-        single_shot.assert_called_once_with(
-            0,
-            dependencies[
-                "data_manager"
-            ].refresh_portfolio,
-        )
+        single_shot.assert_not_called()
         tray_manager_class.assert_not_called()
         sys_exit.assert_called_once_with(7)
 
@@ -845,7 +840,7 @@ class AppTestCase(unittest.TestCase):
         )
         dependencies[
             "balance_widget"
-        ].raise_.assert_called_once_with()
+        ].raise_.assert_not_called()
         self.assertEqual(
             dependencies[
                 "balance_widget"
