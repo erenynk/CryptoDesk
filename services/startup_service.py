@@ -5,6 +5,7 @@ from pathlib import Path
 
 RUN_KEY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 STARTUP_VALUE_NAME = "CryptoDesk"
+AUTOSTART_FILE_NAME = "cryptodesk.desktop"
 
 
 def _get_python_executable() -> Path:
@@ -30,10 +31,39 @@ def _get_startup_command() -> str:
     return f'"{executable}" "{app_path}"'
 
 
-def is_startup_enabled() -> bool:
-    if os.name != "nt":
-        return False
+def _get_autostart_file() -> Path:
+    config_home = os.getenv("XDG_CONFIG_HOME")
 
+    if config_home:
+        base_dir = Path(config_home)
+    else:
+        base_dir = Path.home() / ".config"
+
+    return (
+        base_dir
+        / "autostart"
+        / AUTOSTART_FILE_NAME
+    )
+
+
+def _get_autostart_entry() -> str:
+    return "\n".join(
+        (
+            "[Desktop Entry]",
+            "Type=Application",
+            "Version=1.0",
+            "Name=CryptoDesk",
+            "Comment=Kripto portföy takip uygulaması",
+            f"Exec={_get_startup_command()}",
+            "Terminal=false",
+            "StartupNotify=false",
+            "X-GNOME-Autostart-enabled=true",
+            "",
+        )
+    )
+
+
+def _is_windows_startup_enabled() -> bool:
     try:
         import winreg
 
@@ -54,10 +84,9 @@ def is_startup_enabled() -> bool:
         return False
 
 
-def set_startup_enabled(enabled: bool) -> bool:
-    if os.name != "nt":
-        return False
-
+def _set_windows_startup_enabled(
+    enabled: bool,
+) -> bool:
     try:
         import winreg
 
@@ -88,3 +117,53 @@ def set_startup_enabled(enabled: bool) -> bool:
 
     except OSError:
         return False
+
+
+def _set_linux_startup_enabled(
+    enabled: bool,
+) -> bool:
+    autostart_file = _get_autostart_file()
+
+    try:
+        if enabled:
+            autostart_file.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            autostart_file.write_text(
+                _get_autostart_entry(),
+                encoding="utf-8",
+            )
+        else:
+            autostart_file.unlink(
+                missing_ok=True,
+            )
+
+        return True
+
+    except OSError:
+        return False
+
+
+def is_startup_enabled() -> bool:
+    if os.name == "nt":
+        return _is_windows_startup_enabled()
+
+    if os.name == "posix":
+        return _get_autostart_file().is_file()
+
+    return False
+
+
+def set_startup_enabled(enabled: bool) -> bool:
+    if os.name == "nt":
+        return _set_windows_startup_enabled(
+            enabled
+        )
+
+    if os.name == "posix":
+        return _set_linux_startup_enabled(
+            enabled
+        )
+
+    return False

@@ -5,10 +5,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
 
-from security.dpapi import decrypt, encrypt
+from app_paths import get_app_data_dir
+from security.dpapi import (
+    CredentialProtectionError,
+    decrypt,
+    encrypt,
+)
 
 
-APP_DIR = Path.home() / "AppData" / "Local" / "CryptoDesk"
+APP_DIR = get_app_data_dir()
 APP_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG = APP_DIR / "config.json"
@@ -173,7 +178,15 @@ def load_settings():
             decrypt(data["passphrase"]),
         )
 
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+    except (
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+        UnicodeError,
+        CredentialProtectionError,
+    ):
         return "", "", ""
 
 

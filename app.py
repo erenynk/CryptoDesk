@@ -1,7 +1,16 @@
+import os
 import sys
+import tempfile
+from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QFont
+if sys.platform.startswith("linux"):
+    os.environ.setdefault(
+        "QT_QPA_PLATFORM",
+        "xcb",
+    )
+
+from PySide6.QtCore import QLockFile, QTimer, Qt
+from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -17,6 +26,70 @@ from PySide6.QtWidgets import (
 from database.settings_db import get_all_app_settings
 from services.data_manager import DataManager
 from ui.main_window import MainWindow
+
+
+APP_ID = "io.github.erenynk.CryptoDesk"
+
+
+def single_instance_lock_path() -> Path:
+    runtime_directory = Path(
+        os.environ.get("XDG_RUNTIME_DIR")
+        or tempfile.gettempdir()
+    )
+
+    if hasattr(os, "getuid"):
+        user_token = str(os.getuid())
+    else:
+        user_token = os.environ.get(
+            "USERNAME",
+            "user",
+        )
+
+    test_suffix = ""
+
+    if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+        test_suffix = f"-test-{os.getpid()}"
+
+    return runtime_directory / (
+        f"{APP_ID}-{user_token}{test_suffix}.lock"
+    )
+
+
+def acquire_single_instance_lock():
+    lock = QLockFile(
+        str(single_instance_lock_path())
+    )
+
+    if not lock.tryLock(100):
+        return None
+
+    return lock
+
+
+def application_icon_path() -> Path:
+    base_path = Path(
+        getattr(
+            sys,
+            "_MEIPASS",
+            Path(__file__).resolve().parent,
+        )
+    )
+
+    return (
+        base_path
+        / "assets"
+        / "icons"
+        / "cryptodesk.png"
+    )
+
+
+def load_application_icon() -> QIcon:
+    icon_path = application_icon_path()
+
+    if not icon_path.is_file():
+        return QIcon()
+
+    return QIcon(str(icon_path))
 
 
 class BalanceWidget(QWidget):
@@ -188,6 +261,22 @@ class BalanceWidget(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            platform = (
+                QApplication.platformName()
+                .strip()
+                .lower()
+            )
+
+            if platform.startswith("wayland"):
+                window = self.windowHandle()
+
+                if (
+                    window is not None
+                    and window.startSystemMove()
+                ):
+                    event.accept()
+                    return
+
             self.dragging = True
             self.offset = (
                 event.globalPosition().toPoint()
@@ -209,11 +298,16 @@ class BalanceWidget(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        used_manual_drag = self.dragging
+
         self.dragging = False
         self.offset = None
 
-        x, y = self.clamp_to_screen(self.pos())
-        self.move(x, y)
+        if used_manual_drag:
+            x, y = self.clamp_to_screen(
+                self.pos()
+            )
+            self.move(x, y)
 
         super().mouseReleaseEvent(event)
 
@@ -287,7 +381,18 @@ class SystemTrayManager:
 
 def main():
     app = QApplication(sys.argv)
+    app.setDesktopFileName(APP_ID)
     app.setFont(QFont("Segoe UI", 10))
+
+    instance_lock = acquire_single_instance_lock()
+
+    if instance_lock is None:
+        return
+
+    app_icon = load_application_icon()
+
+    if not app_icon.isNull():
+        app.setWindowIcon(app_icon)
 
     if not QSystemTrayIcon.isSystemTrayAvailable():
         QApplication.setQuitOnLastWindowClosed(True)
@@ -299,6 +404,11 @@ def main():
     data_manager.apply_app_settings(app_settings)
 
     window = MainWindow()
+    window.setWindowTitle("CryptoDesk")
+    app.aboutToQuit.connect(window.shutdown)
+
+    if not app_icon.isNull():
+        window.setWindowIcon(app_icon)
 
     screen = app.primaryScreen()
     available = screen.availableGeometry()
@@ -367,6 +477,7 @@ def main():
     exit_code = app.exec()
 
     _ = (
+        instance_lock,
         data_manager,
         balance_widget,
         tray_manager,

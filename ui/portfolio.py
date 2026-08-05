@@ -54,6 +54,7 @@ class PortfolioPage(QWidget):
         self.data_manager = data_manager
         self.dashboard_page = dashboard_page
         self.worker = None
+        self._shutting_down = False
         self.raw_assets_data = []
 
         self.headers = [
@@ -927,10 +928,16 @@ class PortfolioPage(QWidget):
                 )
 
     def start_page(self):
+        if getattr(self, "_shutting_down", False):
+            return
+
         self.load_balances()
         self.refresh_timer.start()
 
     def load_balances(self):
+        if getattr(self, "_shutting_down", False):
+            return
+
         if self.data_manager.loading:
             return
 
@@ -951,6 +958,9 @@ class PortfolioPage(QWidget):
         self.worker.start()
 
     def on_balances_loaded(self, success, result):
+        if getattr(self, "_shutting_down", False):
+            return
+
         if success:
             portfolio = (
                 self.data_manager.get_portfolio()
@@ -1845,6 +1855,21 @@ class PortfolioPage(QWidget):
 
         if not self.refresh_timer.isActive():
             self.refresh_timer.start()
+
+    def shutdown(self):
+        if getattr(self, "_shutting_down", False):
+            return
+
+        self._shutting_down = True
+        self.refresh_timer.stop()
+
+        worker = self.worker
+
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            worker.wait()
+
+        self.worker = None
 
     def closeEvent(self, event):
         self.refresh_timer.stop()

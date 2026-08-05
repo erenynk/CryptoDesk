@@ -477,6 +477,152 @@ class SettingsPageTestCase(unittest.TestCase):
             True
         )
 
+    def test_load_saved_app_settings_uses_actual_startup_state(
+        self,
+    ):
+        page = self.make_page()
+        startup = Mock()
+        notifications = Mock()
+
+        page.app_setting_controls = {
+            "windows_startup_enabled": startup,
+            "notifications_enabled": notifications,
+        }
+
+        with (
+            patch.object(
+                settings_module,
+                "get_all_app_settings",
+                return_value={
+                    "windows_startup_enabled": False,
+                    "notifications_enabled": True,
+                },
+            ),
+            patch.object(
+                settings_module,
+                "is_startup_enabled",
+                return_value=True,
+            ) as is_startup_enabled,
+        ):
+            page._load_saved_app_settings()
+
+        is_startup_enabled.assert_called_once_with()
+        startup.setChecked.assert_called_once_with(True)
+        notifications.setChecked.assert_called_once_with(
+            True
+        )
+
+    def test_save_app_preferences_applies_startup_state(
+        self,
+    ):
+        page = self.make_page()
+        page.save_preferences_button = Mock()
+
+        startup = Mock()
+        notifications = Mock()
+        startup.isChecked.return_value = True
+        notifications.isChecked.return_value = False
+
+        page.app_setting_controls = {
+            "windows_startup_enabled": startup,
+            "notifications_enabled": notifications,
+        }
+
+        emissions = []
+        page.app_settings_changed.connect(
+            emissions.append
+        )
+
+        expected = {
+            "windows_startup_enabled": True,
+            "notifications_enabled": False,
+        }
+
+        with (
+            patch.object(
+                settings_module,
+                "is_startup_enabled",
+                return_value=False,
+            ),
+            patch.object(
+                settings_module,
+                "set_startup_enabled",
+                return_value=True,
+            ) as set_startup_enabled,
+            patch.object(
+                settings_module,
+                "save_app_settings",
+                return_value=True,
+            ) as save_app_settings,
+            patch.object(
+                settings_module.QMessageBox,
+                "information",
+            ),
+            patch.object(
+                settings_module.QMessageBox,
+                "warning",
+            ) as warning,
+        ):
+            page.save_app_preferences()
+
+        set_startup_enabled.assert_called_once_with(
+            True
+        )
+        save_app_settings.assert_called_once_with(
+            expected
+        )
+        self.assertEqual(emissions, [expected])
+        warning.assert_not_called()
+
+    def test_save_app_preferences_rolls_back_startup_on_database_failure(
+        self,
+    ):
+        page = self.make_page()
+        page.save_preferences_button = Mock()
+
+        startup = Mock()
+        startup.isChecked.return_value = True
+
+        page.app_setting_controls = {
+            "windows_startup_enabled": startup,
+        }
+
+        with (
+            patch.object(
+                settings_module,
+                "is_startup_enabled",
+                return_value=False,
+            ),
+            patch.object(
+                settings_module,
+                "set_startup_enabled",
+                return_value=True,
+            ) as set_startup_enabled,
+            patch.object(
+                settings_module,
+                "save_app_settings",
+                return_value=False,
+            ),
+            patch.object(
+                settings_module.QMessageBox,
+                "warning",
+            ) as warning,
+        ):
+            page.save_app_preferences()
+
+        self.assertEqual(
+            set_startup_enabled.call_args_list,
+            [
+                call(True),
+                call(False),
+            ],
+        )
+        warning.assert_called_once()
+        self.assertIn(
+            "veritabanına yazılamadı",
+            warning.call_args.args[2],
+        )
+
     def test_toggle_password_visibility_both_directions(
         self,
     ):
@@ -1030,6 +1176,11 @@ class SettingsPageTestCase(unittest.TestCase):
                 settings_module,
                 "get_all_app_settings",
                 return_value=saved_app_settings,
+            ),
+            patch.object(
+                settings_module,
+                "is_startup_enabled",
+                return_value=True,
             ),
         ):
             page = settings_module.SettingsPage()

@@ -26,6 +26,10 @@ from database.settings_db import (
     save_settings,
 )
 from services.okx_service import OKXService
+from services.startup_service import (
+    is_startup_enabled,
+    set_startup_enabled,
+)
 from ui.theme import (
     Theme,
     label_style,
@@ -365,7 +369,7 @@ class SettingsPage(QWidget):
         settings = (
             (
                 "windows_startup_enabled",
-                "Windows ile başlat",
+                "Sistemle başlat",
                 "Bilgisayar açıldığında uygulamayı otomatik başlatır.",
             ),
             (
@@ -752,8 +756,17 @@ class SettingsPage(QWidget):
     def _load_saved_app_settings(self):
         settings = get_all_app_settings()
 
+        startup_key = "windows_startup_enabled"
+
+        if startup_key in self.app_setting_controls:
+            settings[startup_key] = (
+                is_startup_enabled()
+            )
+
         for key, checkbox in self.app_setting_controls.items():
-            checkbox.setChecked(bool(settings.get(key, False)))
+            checkbox.setChecked(
+                bool(settings.get(key, False))
+            )
 
     def save_app_preferences(self):
         settings = {
@@ -764,12 +777,40 @@ class SettingsPage(QWidget):
         self.save_preferences_button.setEnabled(False)
         self.save_preferences_button.setText("Kaydediliyor...")
 
+        startup_key = "windows_startup_enabled"
+        startup_changed = False
+        previous_startup_enabled = False
+        preferences_saved = False
+
         try:
+            if startup_key in settings:
+                requested_startup_enabled = bool(
+                    settings[startup_key]
+                )
+                previous_startup_enabled = (
+                    is_startup_enabled()
+                )
+
+                if (
+                    requested_startup_enabled
+                    != previous_startup_enabled
+                ):
+                    if not set_startup_enabled(
+                        requested_startup_enabled
+                    ):
+                        raise RuntimeError(
+                            "Otomatik başlatma ayarı "
+                            "uygulanamadı."
+                        )
+
+                    startup_changed = True
+
             if not save_app_settings(settings):
                 raise RuntimeError(
                     "Uygulama tercihleri veritabanına yazılamadı."
                 )
 
+            preferences_saved = True
             self.app_settings_changed.emit(settings)
 
             QMessageBox.information(
@@ -779,6 +820,11 @@ class SettingsPage(QWidget):
             )
 
         except Exception as error:
+            if startup_changed and not preferences_saved:
+                set_startup_enabled(
+                    previous_startup_enabled
+                )
+
             QMessageBox.warning(
                 self,
                 "Kayıt Hatası",
