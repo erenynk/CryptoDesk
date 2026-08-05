@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 from database.settings_db import get_all_app_settings
 from services.data_manager import DataManager
 from ui.main_window import MainWindow
+from ui.theme import Theme
 
 
 APP_ID = "io.github.erenynk.CryptoDesk"
@@ -686,7 +687,7 @@ class SystemTrayManager:
 def main():
     app = QApplication(sys.argv)
     app.setDesktopFileName(APP_ID)
-    app.setFont(QFont("Segoe UI", 10))
+    app.setFont(QFont(Theme.FONT_FAMILY, 10))
 
     instance_lock = acquire_single_instance_lock()
 
