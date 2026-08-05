@@ -19,11 +19,10 @@ class Theme:
     ACCENT_HOVER = "#1ED89A"
     ACCENT_SOFT = "#132720"
     ACCENT_BORDER = "#245343"
-
     ERROR = "#F06475"
     WARNING = "#E8B84A"
 
-    FONT_FAMILY = "Segoe UI"
+    FONT_FAMILY = "Inter"
 
     RADIUS_SMALL = 9
     RADIUS_MEDIUM = 12
@@ -62,7 +61,6 @@ def page_title_style():
             font-size: 27px;
             font-weight: 700;
         }}
-
         QLabel#pageSubtitle {{
             color: {Theme.TEXT_SECONDARY};
             font-family: "{Theme.FONT_FAMILY}";
@@ -85,7 +83,6 @@ def card_style(
             border-radius: {radius}px;
         }}
     """
-
     if hover:
         style += f"""
             QFrame#{object_name}:hover,
@@ -104,7 +101,6 @@ def primary_button_style(object_name=None):
         if object_name
         else "QPushButton"
     )
-
     return f"""
         {selector} {{
             background-color: {Theme.ACCENT};
@@ -121,7 +117,6 @@ def primary_button_style(object_name=None):
             background-color: {Theme.ACCENT_HOVER};
             border-color: {Theme.ACCENT_HOVER};
         }}
-
         {selector}:pressed {{
             background-color: #13B878;
             border-color: #13B878;
@@ -141,7 +136,6 @@ def secondary_button_style(object_name=None):
         if object_name
         else "QPushButton"
     )
-
     return f"""
         {selector} {{
             background-color: {Theme.CARD_BACKGROUND_SECONDARY};
@@ -153,7 +147,6 @@ def secondary_button_style(object_name=None):
             font-size: 12px;
             font-weight: 600;
         }}
-
         {selector}:hover {{
             background-color: {Theme.CARD_BACKGROUND_HOVER};
             border-color: {Theme.BORDER_HOVER};
@@ -186,7 +179,6 @@ def checkbox_style(object_name=None):
             font-size: 12px;
             font-weight: 500;
         }}
-
         {selector}::indicator {{
             width: 16px;
             height: 16px;
@@ -203,7 +195,6 @@ def checkbox_style(object_name=None):
             background-color: {Theme.ACCENT};
             border-color: {Theme.ACCENT};
         }}
-
         {selector}:disabled {{
             color: {Theme.TEXT_MUTED};
         }}
@@ -223,7 +214,6 @@ def scroll_bar_style():
             min-height: 36px;
             border-radius: 4px;
         }}
-
         QScrollBar::handle:vertical:hover {{
             background-color: #3A4654;
         }}
@@ -239,7 +229,6 @@ def scroll_bar_style():
         QScrollBar::sub-page:vertical {{
             background: transparent;
         }}
-
         QScrollBar:horizontal {{
             background: transparent;
             height: 10px;
@@ -255,7 +244,6 @@ def scroll_bar_style():
         QScrollBar::handle:horizontal:hover {{
             background-color: #3A4654;
         }}
-
         QScrollBar::add-line:horizontal,
         QScrollBar::sub-line:horizontal {{
             width: 0;
@@ -281,7 +269,6 @@ def table_style(object_name="portfolioTable"):
             outline: none;
             selection-background-color: transparent;
         }}
-
         QTableWidget#{object_name}::item {{
             color: {Theme.TEXT_PRIMARY};
             background-color: transparent;
@@ -293,13 +280,11 @@ def table_style(object_name="portfolioTable"):
         QTableWidget#{object_name}::item:hover {{
             background-color: {Theme.CARD_BACKGROUND_HOVER};
         }}
-
         QTableWidget#{object_name}::item:selected {{
             color: {Theme.TEXT_PRIMARY};
             background-color: #1B2530;
             border: none;
         }}
-
         QHeaderView::section:horizontal {{
             background-color: {Theme.CARD_BACKGROUND_SECONDARY};
             color: {Theme.TEXT_SECONDARY};
@@ -310,12 +295,10 @@ def table_style(object_name="portfolioTable"):
             font-size: 11px;
             font-weight: 700;
         }}
-
         QHeaderView::section:horizontal:hover {{
             color: {Theme.TEXT_PRIMARY};
             background-color: {Theme.CARD_BACKGROUND_HOVER};
         }}
-
         QHeaderView::section:vertical {{
             background-color: {Theme.CARD_BACKGROUND};
             color: {Theme.TEXT_MUTED};
@@ -327,7 +310,6 @@ def table_style(object_name="portfolioTable"):
             font-size: 11px;
             font-weight: 600;
         }}
-
         QTableCornerButton::section {{
             background-color: {Theme.CARD_BACKGROUND_SECONDARY};
             border: none;

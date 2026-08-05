@@ -1269,8 +1269,8 @@ class DashboardPage(QWidget):
 
             QLabel#heroEyebrow {{
                 color: #94A3B8;
-                font-size: 13px;
-                font-weight: 700;
+                font-size: 14px;
+                font-weight: 800;
                 letter-spacing: 0.5px;
             }}
 

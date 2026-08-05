@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self._allow_close = False
+        self._shutdown_complete = False
         self._minimize_to_tray_enabled = bool(
             get_app_setting(
                 "minimize_to_tray_enabled",
@@ -655,12 +656,34 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+    def shutdown(self):
+        if getattr(self, "_shutdown_complete", False):
+            return
+
+        self._shutdown_complete = True
+
+        alarm_monitor = getattr(
+            self,
+            "alarm_monitor",
+            None,
+        )
+        if alarm_monitor is not None:
+            alarm_monitor.stop()
+
+        portfolio_page = getattr(
+            self,
+            "portfolio_page",
+            None,
+        )
+        if portfolio_page is not None:
+            portfolio_page.shutdown()
+
     def allow_application_close(self):
         self._allow_close = True
 
     def closeEvent(self, event: QCloseEvent):
         if self._allow_close:
-            self.alarm_monitor.stop()
+            self.shutdown()
             event.accept()
             return
 
@@ -673,7 +696,7 @@ class MainWindow(QMainWindow):
             return
 
         self._allow_close = True
-        self.alarm_monitor.stop()
+        self.shutdown()
         event.accept()
 
         app = QApplication.instance()

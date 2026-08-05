@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import sys
 import unittest
@@ -268,6 +269,112 @@ class AppTestCase(unittest.TestCase):
 
         widget.close()
 
+    def test_acquire_single_instance_lock_succeeds(
+        self,
+    ):
+        lock = Mock()
+        lock.tryLock.return_value = True
+        lock_path = Path("/tmp/cryptodesk-test.lock")
+
+        with (
+            patch.object(
+                app_module,
+                "single_instance_lock_path",
+                return_value=lock_path,
+            ),
+            patch.object(
+                app_module,
+                "QLockFile",
+                return_value=lock,
+            ) as lock_class,
+        ):
+            result = (
+                app_module.acquire_single_instance_lock()
+            )
+
+        self.assertIs(result, lock)
+        lock_class.assert_called_once_with(
+            str(lock_path)
+        )
+        lock.tryLock.assert_called_once_with(100)
+
+    def test_acquire_single_instance_lock_rejects_second_instance(
+        self,
+    ):
+        lock = Mock()
+        lock.tryLock.return_value = False
+
+        with (
+            patch.object(
+                app_module,
+                "single_instance_lock_path",
+                return_value=Path(
+                    "/tmp/cryptodesk-test.lock"
+                ),
+            ),
+            patch.object(
+                app_module,
+                "QLockFile",
+                return_value=lock,
+            ),
+        ):
+            result = (
+                app_module.acquire_single_instance_lock()
+            )
+
+        self.assertIsNone(result)
+        lock.tryLock.assert_called_once_with(100)
+
+    def test_load_application_icon_uses_asset(
+        self,
+    ):
+        icon_path = Mock()
+        icon_path.is_file.return_value = True
+        icon = Mock()
+
+        with (
+            patch.object(
+                app_module,
+                "application_icon_path",
+                return_value=icon_path,
+            ),
+            patch.object(
+                app_module,
+                "QIcon",
+                return_value=icon,
+            ) as qicon,
+        ):
+            result = app_module.load_application_icon()
+
+        self.assertIs(result, icon)
+        qicon.assert_called_once_with(
+            str(icon_path)
+        )
+
+    def test_load_application_icon_returns_empty_icon_when_missing(
+        self,
+    ):
+        icon_path = Mock()
+        icon_path.is_file.return_value = False
+        icon = Mock()
+
+        with (
+            patch.object(
+                app_module,
+                "application_icon_path",
+                return_value=icon_path,
+            ),
+            patch.object(
+                app_module,
+                "QIcon",
+                return_value=icon,
+            ) as qicon,
+        ):
+            result = app_module.load_application_icon()
+
+        self.assertIs(result, icon)
+        qicon.assert_called_once_with()
+
     def test_system_tray_initializes_menu_and_fallback_icon(
         self,
     ):
@@ -505,6 +612,11 @@ class AppTestCase(unittest.TestCase):
         application_class.assert_called_once_with(
             sys.argv
         )
+        dependencies[
+            "fake_app"
+        ].setDesktopFileName.assert_called_once_with(
+            app_module.APP_ID
+        )
         dependencies["fake_app"].setFont.assert_called_once()
         application_class.setQuitOnLastWindowClosed.assert_called_once_with(
             True
@@ -532,12 +644,7 @@ class AppTestCase(unittest.TestCase):
         dependencies[
             "balance_widget"
         ].show.assert_called_once_with()
-        single_shot.assert_called_once_with(
-            0,
-            dependencies[
-                "data_manager"
-            ].refresh_portfolio,
-        )
+        single_shot.assert_not_called()
         tray_manager_class.assert_not_called()
         sys_exit.assert_called_once_with(7)
 
@@ -733,7 +840,7 @@ class AppTestCase(unittest.TestCase):
         )
         dependencies[
             "balance_widget"
-        ].raise_.assert_called_once_with()
+        ].raise_.assert_not_called()
         self.assertEqual(
             dependencies[
                 "balance_widget"

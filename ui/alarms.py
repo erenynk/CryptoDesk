@@ -2,7 +2,7 @@ from datetime import datetime
 from ui.widgets.button import AppButton
 from ui.dashboard import ElevatedInnerPanel
 from ui.widgets.input import AppLineEdit
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QDoubleValidator, QFont
 from ui.widgets.page_header import PageHeader
 from ui.widgets.status_badge import StatusBadge
@@ -52,8 +52,8 @@ class AlarmsPage(QWidget):
             "ANLIK FİYAT",
             "ALARM NOTU",
             "DURUM",
-            "OLUŞTURULMA",
-            "AKTİF/PASİF",
+            "TARİH",
+            "AKTİFLİK",
             "SİL",
         ]
 
@@ -294,7 +294,7 @@ class AlarmsPage(QWidget):
         self.table.setColumnWidth(0, 54)
         horizontal_header.setSectionResizeMode(
             5,
-            QHeaderView.Interactive,
+            QHeaderView.Fixed,
         )
         horizontal_header.setSectionResizeMode(
             self.TOGGLE_COLUMN,
@@ -305,7 +305,7 @@ class AlarmsPage(QWidget):
             QHeaderView.Fixed,
         )
 
-        self.table.setColumnWidth(5, 240)
+        self.table.setColumnWidth(5, 160)
         self.table.setColumnWidth(
             self.TOGGLE_COLUMN,
             110,
@@ -327,6 +327,44 @@ class AlarmsPage(QWidget):
         layout.addWidget(self.table, 1)
 
         return card
+
+
+    def _refresh_table_column_layout(self):
+        if not hasattr(self, "table"):
+            return
+
+        horizontal_header = self.table.horizontalHeader()
+        horizontal_header.setStretchLastSection(False)
+        horizontal_header.setSectionResizeMode(
+            QHeaderView.Stretch
+        )
+        horizontal_header.setSectionResizeMode(
+            0,
+            QHeaderView.Fixed,
+        )
+        horizontal_header.setSectionResizeMode(
+            5,
+            QHeaderView.Fixed,
+        )
+        horizontal_header.setSectionResizeMode(
+            self.TOGGLE_COLUMN,
+            QHeaderView.Fixed,
+        )
+        horizontal_header.setSectionResizeMode(
+            self.DELETE_COLUMN,
+            QHeaderView.Fixed,
+        )
+
+        self.table.setColumnWidth(0, 54)
+        self.table.setColumnWidth(5, 160)
+        self.table.setColumnWidth(
+            self.TOGGLE_COLUMN,
+            110,
+        )
+        self.table.setColumnWidth(
+            self.DELETE_COLUMN,
+            64,
+        )
 
     def _connect_signals(self):
         self.symbol_input.returnPressed.connect(
@@ -546,6 +584,10 @@ class AlarmsPage(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         self.load_alarms()
+        QTimer.singleShot(
+            0,
+            self._refresh_table_column_layout,
+        )
 
     def set_status(
         self,

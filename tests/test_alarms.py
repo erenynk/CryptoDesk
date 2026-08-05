@@ -897,7 +897,7 @@ class AlarmsPageTestCase(unittest.TestCase):
         )
         self.assertEqual(
             page.table.columnWidth(5),
-            240,
+            160,
         )
         self.assertEqual(
             page.table.columnWidth(
