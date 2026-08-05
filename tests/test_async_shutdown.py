@@ -87,6 +87,7 @@ class ApplicationShutdownCoordinatorTestCase(
         worker=None,
         minimize_to_tray=False,
         tray_available=False,
+        instance_lock=None,
     ):
         app = SimpleNamespace(
             quit=Mock()
@@ -104,6 +105,7 @@ class ApplicationShutdownCoordinatorTestCase(
                 app=app,
                 window=window,
                 balance_widget=balance_widget,
+                instance_lock=instance_lock,
             )
         )
         return (
@@ -112,6 +114,52 @@ class ApplicationShutdownCoordinatorTestCase(
             window,
             balance_widget,
         )
+
+    def test_request_exit_releases_instance_lock_immediately(self):
+        worker = WorkerStub(running=True)
+        instance_lock = SimpleNamespace(
+            unlock=Mock()
+        )
+        (
+            coordinator,
+            app,
+            _,
+            _,
+        ) = self.make_coordinator(
+            worker=worker,
+            instance_lock=instance_lock,
+        )
+
+        with patch.object(
+            app_module.QTimer,
+            "singleShot",
+        ) as single_shot:
+            coordinator.request_exit()
+
+        instance_lock.unlock.assert_called_once_with()
+        self.assertIsNone(coordinator.instance_lock)
+        app.quit.assert_not_called()
+        single_shot.assert_not_called()
+
+    def test_repeated_exit_request_does_not_unlock_twice(self):
+        worker = WorkerStub(running=True)
+        instance_lock = SimpleNamespace(
+            unlock=Mock()
+        )
+        (
+            coordinator,
+            _,
+            _,
+            _,
+        ) = self.make_coordinator(
+            worker=worker,
+            instance_lock=instance_lock,
+        )
+
+        coordinator.request_exit()
+        coordinator.request_exit()
+
+        instance_lock.unlock.assert_called_once_with()
 
     def test_request_exit_waits_for_running_worker(self):
         worker = WorkerStub(running=True)
