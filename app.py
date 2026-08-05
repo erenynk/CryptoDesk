@@ -9,7 +9,7 @@ if sys.platform.startswith("linux"):
         "xcb",
     )
 
-from PySide6.QtCore import QLockFile, QTimer, Qt
+from PySide6.QtCore import QEvent, QLockFile, QTimer, Qt
 from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
 from database.settings_db import get_all_app_settings
 from services.data_manager import DataManager
 from ui.main_window import MainWindow
@@ -44,7 +43,6 @@ def single_instance_lock_path() -> Path:
             "USERNAME",
             "user",
         )
-
     test_suffix = ""
 
     if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
@@ -100,6 +98,8 @@ class BalanceWidget(QWidget):
         self.balance_hidden = False
         self.last_total = 0.0
         self.last_trading = 0.0
+        self._widget_enabled = False
+        self._visibility_restore_pending = False
 
         self.setWindowFlags(
             Qt.WindowStaysOnTopHint
@@ -109,7 +109,6 @@ class BalanceWidget(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         self.setFixedSize(250, 76)
-
         outer_layout = QHBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -125,7 +124,6 @@ class BalanceWidget(QWidget):
         inner_layout = QHBoxLayout(self.container)
         inner_layout.setContentsMargins(12, 8, 8, 8)
         inner_layout.setSpacing(8)
-
         self.icon_label = QLabel("💰")
         self.icon_label.setAlignment(Qt.AlignCenter)
         self.icon_label.setFixedSize(30, 42)
@@ -141,7 +139,6 @@ class BalanceWidget(QWidget):
         values_layout = QVBoxLayout()
         values_layout.setContentsMargins(0, 0, 0, 0)
         values_layout.setSpacing(1)
-
         self.balance_label = QLabel("$0.00")
         self.balance_label.setAlignment(
             Qt.AlignLeft | Qt.AlignVCenter
@@ -155,7 +152,6 @@ class BalanceWidget(QWidget):
                 border: none;
             }
         """)
-
         self.trading_label = QLabel("Trading  $0.00")
         self.trading_label.setAlignment(
             Qt.AlignLeft | Qt.AlignVCenter
@@ -169,10 +165,8 @@ class BalanceWidget(QWidget):
                 border: none;
             }
         """)
-
         values_layout.addWidget(self.balance_label)
         values_layout.addWidget(self.trading_label)
-
         self.hide_button = QPushButton("⊙")
         self.hide_button.setFixedSize(36, 36)
         self.hide_button.setCursor(Qt.PointingHandCursor)
@@ -185,7 +179,6 @@ class BalanceWidget(QWidget):
                 font-size: 18px;
                 font-weight: 800;
             }
-
             QPushButton:hover {
                 background: rgba(255, 255, 255, 42);
             }
@@ -201,13 +194,69 @@ class BalanceWidget(QWidget):
         inner_layout.addWidget(self.hide_button)
 
         outer_layout.addWidget(self.container)
-
         self.dragging = False
         self.offset = None
 
         self.data_manager.portfolio_updated.connect(
             self.on_portfolio_updated
         )
+
+    def set_visibility_enabled(self, enabled):
+        self._widget_enabled = bool(enabled)
+
+        if not self._widget_enabled:
+            self._visibility_restore_pending = False
+
+    def prepare_for_shutdown(self):
+        self._widget_enabled = False
+        self._visibility_restore_pending = False
+        self.hide()
+
+    def schedule_visibility_restore(self):
+        if (
+            not self._widget_enabled
+            or self._visibility_restore_pending
+            or QApplication.closingDown()
+        ):
+            return
+
+        self._visibility_restore_pending = True
+        QTimer.singleShot(
+            0,
+            self.restore_visibility,
+        )
+
+    def restore_visibility(self):
+        self._visibility_restore_pending = False
+
+        if (
+            not self._widget_enabled
+            or QApplication.closingDown()
+        ):
+            return
+
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
+
+        self.raise_()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+
+        if (
+            event.type() == QEvent.WindowStateChange
+            and self._widget_enabled
+            and self.isMinimized()
+        ):
+            self.schedule_visibility_restore()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+
+        if self._widget_enabled:
+            self.schedule_visibility_restore()
 
     def clamp_to_screen(self, pos):
         screen = QApplication.screenAt(pos)
@@ -217,7 +266,6 @@ class BalanceWidget(QWidget):
 
         area = screen.availableGeometry()
         margin = 4
-
         x = max(
             area.left() + margin,
             min(
@@ -269,7 +317,6 @@ class BalanceWidget(QWidget):
 
             if platform.startswith("wayland"):
                 window = self.windowHandle()
-
                 if (
                     window is not None
                     and window.startSystemMove()
@@ -302,7 +349,6 @@ class BalanceWidget(QWidget):
 
         self.dragging = False
         self.offset = None
-
         if used_manual_drag:
             x, y = self.clamp_to_screen(
                 self.pos()
@@ -325,7 +371,6 @@ class SystemTrayManager:
         self.tray_icon.setToolTip("CryptoDesk")
 
         icon = self.window.windowIcon()
-
         if icon.isNull():
             icon = self.app.style().standardIcon(
                 QStyle.SP_ComputerIcon
@@ -343,7 +388,6 @@ class SystemTrayManager:
         self.open_action.triggered.connect(
             self.show_main_window
         )
-
         self.exit_action = QAction(
             "Çıkış",
             self.menu,
@@ -398,7 +442,6 @@ def main():
         QApplication.setQuitOnLastWindowClosed(True)
     else:
         QApplication.setQuitOnLastWindowClosed(False)
-
     data_manager = DataManager()
     app_settings = get_all_app_settings()
     data_manager.apply_app_settings(app_settings)
@@ -412,7 +455,6 @@ def main():
 
     screen = app.primaryScreen()
     available = screen.availableGeometry()
-
     window_width = min(
         int(1320 * 1.10),
         available.width(),
@@ -434,23 +476,40 @@ def main():
     window.show()
 
     balance_widget = BalanceWidget(data_manager)
+    app.aboutToQuit.connect(
+        balance_widget.prepare_for_shutdown
+    )
 
     margin = 4
-
     balance_widget.move(
         available.right() - balance_widget.width() - margin,
         available.bottom() - balance_widget.height() - margin,
     )
 
-    if app_settings.get("balance_widget_enabled", True):
+    balance_widget_enabled = app_settings.get(
+        "balance_widget_enabled",
+        True,
+    )
+    balance_widget.set_visibility_enabled(
+        balance_widget_enabled
+    )
+
+    if balance_widget_enabled:
         balance_widget.show()
     else:
         balance_widget.hide()
 
     def apply_runtime_settings(settings):
         data_manager.apply_app_settings(settings)
+        balance_widget_enabled = settings.get(
+            "balance_widget_enabled",
+            True,
+        )
+        balance_widget.set_visibility_enabled(
+            balance_widget_enabled
+        )
 
-        if settings.get("balance_widget_enabled", True):
+        if balance_widget_enabled:
             balance_widget.show()
             balance_widget.raise_()
         else:
@@ -467,7 +526,6 @@ def main():
         )
 
     tray_manager = None
-
     if QSystemTrayIcon.isSystemTrayAvailable():
         tray_manager = SystemTrayManager(
             app=app,
