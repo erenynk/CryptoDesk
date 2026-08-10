@@ -41,6 +41,7 @@ from ui.dashboard import DashboardPage
 from ui.notification_popup import NotificationManager
 from ui.portfolio import PortfolioPage
 from ui.settings import SettingsPage
+from ui.trade_history import TradeHistoryPage
 from ui.theme import Theme
 from ui.watchlist import WatchlistPage
 
@@ -152,6 +153,7 @@ class MainWindow(QMainWindow):
         menu_items = (
             ("Dashboard", "dashboard", "#4F9CF9"),
             ("Portfolio", "portfolio", "#18C98B"),
+            ("İşlem Geçmişi", "history", "#55D6B2"),
             ("Watchlist", "watchlist", "#F1B84B"),
             ("Alarmlar", "alarms", "#F06475"),
             ("Analytics", "analytics", "#45B7D1"),
@@ -336,6 +338,10 @@ class MainWindow(QMainWindow):
             painter.drawLine(QPointF(7, 4), QPointF(15, 4))
             painter.drawLine(QPointF(3, 10), QPointF(19, 10))
 
+        elif name == "history":
+            painter.drawEllipse(QRectF(4, 4, 14, 14))
+            painter.drawLine(QPointF(11, 7), QPointF(11, 11))
+            painter.drawLine(QPointF(11, 11), QPointF(15, 13))
         elif name == "watchlist":
             points = (
                 QPointF(11, 2.5),
@@ -411,6 +417,9 @@ class MainWindow(QMainWindow):
             self.dashboard_page,
         )
 
+        self.trade_history_page = TradeHistoryPage(
+            self.data_manager
+        )
         self.watchlist_page = WatchlistPage(self.data_manager)
         self.alarms_page = AlarmsPage(self.data_manager)
         self.analytics_page = AnalyticsPage(self.data_manager)
@@ -418,6 +427,7 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.dashboard_page)
         self.pages.addWidget(self.portfolio_page)
+        self.pages.addWidget(self.trade_history_page)
         self.pages.addWidget(self.watchlist_page)
         self.pages.addWidget(self.alarms_page)
         self.pages.addWidget(self.analytics_page)
@@ -677,6 +687,14 @@ class MainWindow(QMainWindow):
         )
         if portfolio_page is not None:
             portfolio_page.shutdown()
+
+        trade_history_page = getattr(
+            self,
+            "trade_history_page",
+            None,
+        )
+        if trade_history_page is not None:
+            trade_history_page.shutdown()
 
     def allow_application_close(self):
         self._allow_close = True

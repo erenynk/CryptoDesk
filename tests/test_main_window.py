@@ -231,6 +231,7 @@ class MainWindowTestCase(unittest.TestCase):
         page_values = {
             "dashboard": sentinel.dashboard,
             "portfolio": sentinel.portfolio,
+            "trade_history": sentinel.trade_history,
             "watchlist": sentinel.watchlist,
             "alarms": sentinel.alarms,
             "analytics": sentinel.analytics,
@@ -252,6 +253,13 @@ class MainWindowTestCase(unittest.TestCase):
                     page_values["portfolio"]
                 ),
             ) as portfolio_class,
+            patch.object(
+                main_window_module,
+                "TradeHistoryPage",
+                return_value=(
+                    page_values["trade_history"]
+                ),
+            ) as trade_history_class,
             patch.object(
                 main_window_module,
                 "WatchlistPage",
@@ -290,6 +298,9 @@ class MainWindowTestCase(unittest.TestCase):
             sentinel.data_manager,
             sentinel.dashboard,
         )
+        trade_history_class.assert_called_once_with(
+            sentinel.data_manager
+        )
         watchlist_class.assert_called_once_with(
             sentinel.data_manager
         )
@@ -306,6 +317,7 @@ class MainWindowTestCase(unittest.TestCase):
             [
                 call(sentinel.dashboard),
                 call(sentinel.portfolio),
+                call(sentinel.trade_history),
                 call(sentinel.watchlist),
                 call(sentinel.alarms),
                 call(sentinel.analytics),
@@ -890,7 +902,7 @@ class MainWindowTestCase(unittest.TestCase):
         )
         self.assertEqual(
             window.menu.count(),
-            6,
+            7,
         )
         self.assertEqual(
             window.menu.iconSize(),
@@ -898,16 +910,17 @@ class MainWindowTestCase(unittest.TestCase):
         )
         self.assertEqual(
             window.menu.minimumHeight(),
-            336,
+            392,
         )
         self.assertEqual(
             window.menu.maximumHeight(),
-            336,
+            392,
         )
 
         expected_items = (
             "Dashboard",
             "Portfolio",
+            "İşlem Geçmişi",
             "Watchlist",
             "Alarmlar",
             "Analytics",
@@ -1032,6 +1045,7 @@ class MainWindowTestCase(unittest.TestCase):
         icon_cases = (
             ("dashboard", "#4F9CF9"),
             ("portfolio", "#18C98B"),
+            ("history", "#55D6B2"),
             ("watchlist", "#F1B84B"),
             ("alarms", "#F06475"),
             ("analytics", "#45B7D1"),
