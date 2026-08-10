@@ -780,6 +780,70 @@ class PortfolioPageTestCase(unittest.TestCase):
         )
         self.assertIsNone(page.worker)
 
+    def test_balances_loaded_failure_keeps_cached_portfolio(
+        self,
+    ):
+        page = self.make_page()
+        self.attach_summary_labels(page)
+        cached = {
+            "total_usdt": 4321.5,
+            "assets": [
+                {
+                    "coin": "BTC",
+                    "total": 1.0,
+                }
+            ],
+        }
+        page.data_manager = SimpleNamespace(
+            get_portfolio=Mock(
+                return_value=cached
+            )
+        )
+        page._update_daily_pnl = Mock()
+        page._update_portfolio_total_pnl = Mock()
+        page._update_trading_total_pnl = Mock()
+        page.update_table_view = Mock()
+        page.update_trading_table_view = Mock()
+        page._set_error_state = Mock()
+        page.worker = sentinel.worker
+
+        with patch("builtins.print") as print_mock:
+            page.on_balances_loaded(
+                False,
+                (
+                    "Connection aborted.",
+                    ConnectionResetError(
+                        104,
+                        "Bağlantı karşıdan kesildi",
+                    ),
+                ),
+            )
+
+        self.assertEqual(
+            page.total_balance_label.text(),
+            "$4,321.50",
+        )
+        self.assertEqual(
+            page.raw_assets_data,
+            cached["assets"],
+        )
+        page._update_daily_pnl.assert_called_once_with(
+            cached
+        )
+        page._update_portfolio_total_pnl.assert_called_once_with()
+        page._update_trading_total_pnl.assert_called_once_with()
+        page.update_table_view.assert_called_once_with()
+        page.update_trading_table_view.assert_called_once_with()
+        page._set_error_state.assert_called_once_with()
+        print_mock.assert_called_once()
+        page.refresh_button.setEnabled.assert_called_once_with(
+            True
+        )
+        page.refresh_button.setText.assert_called_once_with(
+            "Bakiyeleri Yenile"
+        )
+        self.assertIsNone(page.worker)
+
     def test_connection_state_helpers_update_controls(
         self,
     ):

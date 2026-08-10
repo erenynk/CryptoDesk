@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Caspian
+GenericName=Kripto Portföy Yöneticisi
+Comment=Kripto portföyünü, izleme listesini ve fiyat alarmlarını yönet
+Exec=@EXEC@
+TryExec=@EXEC@
+Icon=io.github.erenynk.CryptoDesk
+Terminal=false
+Categories=Office;Finance;
+StartupNotify=true
+StartupWMClass=io.github.erenynk.CryptoDesk
+X-GNOME-UsesNotifications=true

@@ -988,9 +988,53 @@ class PortfolioPage(QWidget):
             self._set_connected_state()
 
         else:
-            self.total_balance_label.setText(
-                "Bağlantı Hatası"
+            data_manager = getattr(
+                self,
+                "data_manager",
+                None,
             )
+            get_portfolio = getattr(
+                data_manager,
+                "get_portfolio",
+                None,
+            )
+            cached_portfolio = (
+                get_portfolio()
+                if callable(get_portfolio)
+                else None
+            )
+
+            if (
+                isinstance(cached_portfolio, dict)
+                and "total_usdt" in cached_portfolio
+            ):
+                total = float(
+                    cached_portfolio.get(
+                        "total_usdt",
+                        0.0,
+                    )
+                )
+                self.total_balance_label.setText(
+                    f"${total:,.2f}"
+                )
+                self.raw_assets_data = (
+                    cached_portfolio.get(
+                        "assets",
+                        [],
+                    )
+                )
+                self._update_daily_pnl(
+                    cached_portfolio
+                )
+                self._update_portfolio_total_pnl()
+                self._update_trading_total_pnl()
+                self.update_table_view()
+                self.update_trading_table_view()
+            else:
+                self.total_balance_label.setText(
+                    "Bağlantı Hatası"
+                )
+
             self._set_error_state()
 
             print(
