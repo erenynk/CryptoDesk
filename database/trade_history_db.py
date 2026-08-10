@@ -1,7 +1,8 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 from app_paths import get_app_data_dir
 
@@ -32,8 +33,18 @@ class TradeHistoryRepository:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _init_table(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS trade_history (
@@ -75,17 +86,22 @@ class TradeHistoryRepository:
         transaction: dict[str, Any],
     ) -> dict[str, Any]:
         side = str(transaction.get("side", "")).strip().lower()
+
         if side not in {"buy", "sell"}:
             raise ValueError("Geçersiz işlem yönü.")
 
         transaction_key = str(
             transaction.get("transaction_key", "")
         ).strip()
-        order_id = str(transaction.get("order_id", "")).strip()
+        order_id = str(
+            transaction.get("order_id", "")
+        ).strip()
         instrument_id = str(
             transaction.get("instrument_id", "")
         ).strip().upper()
-        coin = str(transaction.get("coin", "")).strip().upper()
+        coin = str(
+            transaction.get("coin", "")
+        ).strip().upper()
         executed_at = str(
             transaction.get("executed_at", "")
         ).strip()
@@ -105,6 +121,7 @@ class TradeHistoryRepository:
             "source_trade_ids",
             [],
         )
+
         if not isinstance(source_trade_ids, list):
             source_trade_ids = []
 
@@ -114,23 +131,34 @@ class TradeHistoryRepository:
             "instrument_id": instrument_id,
             "coin": coin,
             "side": side,
-            "quantity": float(transaction.get("quantity", 0.0)),
-            "price": float(transaction.get("price", 0.0)),
+            "quantity": float(
+                transaction.get("quantity", 0.0)
+            ),
+            "price": float(
+                transaction.get("price", 0.0)
+            ),
             "total_usdt": float(
                 transaction.get("total_usdt", 0.0)
             ),
-            "average_cost": transaction.get("average_cost"),
+            "average_cost": transaction.get(
+                "average_cost"
+            ),
             "cost_basis_usdt": transaction.get(
                 "cost_basis_usdt"
             ),
             "pnl_usdt": transaction.get("pnl_usdt"),
-            "pnl_percent": transaction.get("pnl_percent"),
+            "pnl_percent": transaction.get(
+                "pnl_percent"
+            ),
             "executed_at_ms": int(
                 transaction.get("executed_at_ms", 0)
             ),
             "executed_at": executed_at,
             "source_trade_ids": json.dumps(
-                [str(item) for item in source_trade_ids],
+                [
+                    str(item)
+                    for item in source_trade_ids
+                ],
                 ensure_ascii=False,
             ),
         }
@@ -147,7 +175,7 @@ class TradeHistoryRepository:
         if not normalized:
             return 0
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             for item in normalized:
                 connection.execute(
                     """
@@ -221,13 +249,16 @@ class TradeHistoryRepository:
         direction = "DESC" if descending else "ASC"
         parameters: list[Any] = []
         where_sql = ""
+        normalized_coin = str(
+            coin or ""
+        ).strip().upper()
 
-        normalized_coin = str(coin or "").strip().upper()
         if normalized_coin:
             where_sql = "WHERE coin = ?"
             parameters.append(normalized_coin)
 
         limit_sql = ""
+
         if limit is not None:
             normalized_limit = max(1, int(limit))
             limit_sql = "LIMIT ?"
@@ -256,27 +287,30 @@ class TradeHistoryRepository:
             {limit_sql}
         """
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 query,
                 tuple(parameters),
             ).fetchall()
 
         result = []
+
         for row in rows:
             item = dict(row)
+
             try:
                 item["source_trade_ids"] = json.loads(
                     item.get("source_trade_ids") or "[]"
                 )
             except (json.JSONDecodeError, TypeError):
                 item["source_trade_ids"] = []
+
             result.append(item)
 
         return result
 
     def count(self) -> int:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT COUNT(*) AS total FROM trade_history"
             ).fetchone()
