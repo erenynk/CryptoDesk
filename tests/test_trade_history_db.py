@@ -1,8 +1,20 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from database.trade_history_db import TradeHistoryRepository
+
+
+class TrackingConnection(sqlite3.Connection):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.closed_by_repository = False
+
+    def close(self):
+        self.closed_by_repository = True
+        super().close()
 
 
 class TradeHistoryRepositoryTestCase(unittest.TestCase):
@@ -92,8 +104,13 @@ class TradeHistoryRepositoryTestCase(unittest.TestCase):
         self.repository.upsert_many([updated])
 
         self.assertEqual(self.repository.count(), 1)
+
         saved = self.repository.list_transactions()[0]
-        self.assertAlmostEqual(saved["pnl_usdt"], 30.0)
+
+        self.assertAlmostEqual(
+            saved["pnl_usdt"],
+            30.0,
+        )
 
     def test_coin_filter_and_numeric_sort(self):
         items = [
@@ -125,6 +142,7 @@ class TradeHistoryRepositoryTestCase(unittest.TestCase):
                 pnl_percent=-10.0,
             ),
         ]
+
         self.repository.upsert_many(items)
 
         filtered = self.repository.list_transactions(
@@ -134,7 +152,10 @@ class TradeHistoryRepositoryTestCase(unittest.TestCase):
         )
 
         self.assertEqual(
-            [item["transaction_key"] for item in filtered],
+            [
+                item["transaction_key"]
+                for item in filtered
+            ],
             ["btc-1", "btc-2"],
         )
 
@@ -149,9 +170,63 @@ class TradeHistoryRepositoryTestCase(unittest.TestCase):
         item["source_trade_ids"] = ["1", "2"]
 
         self.repository.upsert_many([item])
+
         saved = self.repository.list_transactions()[0]
 
-        self.assertEqual(saved["source_trade_ids"], ["1", "2"])
+        self.assertEqual(
+            saved["source_trade_ids"],
+            ["1", "2"],
+        )
+
+    def test_repository_closes_every_sqlite_connection(self):
+        tracked_connections = []
+        original_connect = sqlite3.connect
+
+        def tracking_connect(*args, **kwargs):
+            kwargs["factory"] = TrackingConnection
+            connection = original_connect(
+                *args,
+                **kwargs,
+            )
+            tracked_connections.append(connection)
+            return connection
+
+        tracked_db_path = (
+            Path(self.temp_dir.name)
+            / "tracked-trade-history.db"
+        )
+
+        with patch(
+            "database.trade_history_db.sqlite3.connect",
+            side_effect=tracking_connect,
+        ):
+            repository = TradeHistoryRepository(
+                db_path=tracked_db_path
+            )
+            repository.upsert_many(
+                [
+                    self._transaction(
+                        "btc-close-check",
+                        "BTC",
+                        "buy",
+                        100.0,
+                        1000,
+                    )
+                ]
+            )
+            repository.list_transactions()
+            repository.count()
+
+        self.assertGreaterEqual(
+            len(tracked_connections),
+            4,
+        )
+        self.assertTrue(
+            all(
+                connection.closed_by_repository
+                for connection in tracked_connections
+            )
+        )
 
 
 if __name__ == "__main__":
